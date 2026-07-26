@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "188806948323",
+    "project_id": "foodiary-91a6b",
+    "storage_bucket": "foodiary-91a6b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:188806948323:android:fb25288f70f34a99002cd6",
+        "android_client_info": {
+          "package_name": "com.example.food_diary"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCBzDwKlQKmpfwM78qio4-tWfD3JBa9Ax8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
