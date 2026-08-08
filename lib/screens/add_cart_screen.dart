@@ -1,15 +1,16 @@
+// ignore_for_file: use_build_context_synchronously
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:geocoding/geocoding.dart';
 
 import '../models/coffee_cart.dart';
-
 import '../repositories/coffee_cart_repository.dart';
-import '../repositories/firebase_coffee_cart_repository.dart';
 
+import 'cart_details_screen.dart';
 
 
 class AddCartScreen extends StatefulWidget {
@@ -17,7 +18,6 @@ class AddCartScreen extends StatefulWidget {
   const AddCartScreen({
     super.key,
   });
-
 
 
   @override
@@ -28,16 +28,12 @@ class AddCartScreen extends StatefulWidget {
 
 
 
-
-
 class _AddCartScreenState
     extends State<AddCartScreen> {
 
 
-
   final nameController =
       TextEditingController();
-
 
 
   final locationController =
@@ -47,11 +43,6 @@ class _AddCartScreenState
 
   final picker =
       ImagePicker();
-
-
-
-  final firebaseRepository =
-      FirebaseCoffeeCartRepository();
 
 
 
@@ -77,8 +68,6 @@ class _AddCartScreenState
 
 
 
-
-
   Future<void> pickImage() async {
 
 
@@ -94,8 +83,7 @@ class _AddCartScreenState
     );
 
 
-
-    if(image == null) {
+    if(image == null){
 
       return;
 
@@ -124,8 +112,6 @@ class _AddCartScreenState
 
 
 
-
-
   Future<void> getLocation() async {
 
 
@@ -137,13 +123,12 @@ class _AddCartScreenState
 
 
 
-
     final enabled =
         await Geolocator.isLocationServiceEnabled();
 
 
 
-    if(!enabled) {
+    if(!enabled){
 
       setState(() {
 
@@ -154,7 +139,6 @@ class _AddCartScreenState
       return;
 
     }
-
 
 
 
@@ -164,10 +148,7 @@ class _AddCartScreenState
 
 
 
-
-    if(permission ==
-        LocationPermission.denied) {
-
+    if(permission == LocationPermission.denied){
 
       permission =
           await Geolocator.requestPermission();
@@ -177,13 +158,8 @@ class _AddCartScreenState
 
 
 
-
-    if(permission ==
-            LocationPermission.denied ||
-
-        permission ==
-            LocationPermission.deniedForever) {
-
+    if(permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever){
 
       setState(() {
 
@@ -191,13 +167,9 @@ class _AddCartScreenState
 
       });
 
-
       return;
 
     }
-
-
-
 
 
 
@@ -207,80 +179,17 @@ class _AddCartScreenState
 
 
 
-
-    String address = '';
-
-
-
-
-    try {
-
-
-      final places =
-          await placemarkFromCoordinates(
-
-        position.latitude,
-
-        position.longitude,
-
-      );
-
-
-
-      if(places.isNotEmpty) {
-
-
-        final place =
-            places.first;
-
-
-        address =
-            "${place.street ?? ''} "
-            "${place.subLocality ?? ''} "
-            "${place.locality ?? ''}";
-
-
-      }
-
-
-    }
-
-    catch(e) {
-
-
-      address = '';
-
-    }
-
-
-
-
-
-
     setState(() {
-
 
       latitude =
           position.latitude;
-
 
 
       longitude =
           position.longitude;
 
 
-
-      if(address.trim().isNotEmpty) {
-
-        locationController.text =
-            address.trim();
-
-      }
-
-
-
-      loadingLocation =
-          false;
+      loadingLocation = false;
 
 
     });
@@ -294,12 +203,134 @@ class _AddCartScreenState
 
 
 
+  Future<void> getCoordinatesFromAddress() async {
 
 
-  Future<void> save() async {
+    final address =
+        locationController.text.trim();
 
 
-    if(nameController.text.trim().isEmpty) {
+
+    if(address.isEmpty){
+
+      return;
+
+    }
+
+
+
+    try {
+
+
+      final encoded =
+          Uri.encodeComponent(
+            "$address, Israel",
+          );
+
+
+
+      final url =
+          Uri.parse(
+
+            "https://nominatim.openstreetmap.org/search?"
+                "q=$encoded&format=json&limit=1",
+
+          );
+
+
+
+      final response =
+          await http.get(
+
+        url,
+
+        headers: {
+
+          "User-Agent":
+              "CoffeeDiaryApp",
+
+        },
+
+      );
+
+
+
+      if(response.statusCode != 200){
+
+        return;
+
+      }
+
+
+
+
+      final data =
+          jsonDecode(response.body);
+
+
+
+      if(data is List &&
+          data.isNotEmpty){
+
+
+        setState(() {
+
+          latitude =
+              double.parse(
+                data[0]["lat"],
+              );
+
+
+          longitude =
+              double.parse(
+                data[0]["lon"],
+              );
+
+
+        });
+
+
+      }
+
+
+    } catch(e){
+
+      debugPrint(
+        "Geocode error: $e",
+      );
+
+    }
+
+
+  }
+    Future<void> save() async {
+
+
+    if(saving){
+
+      return;
+
+    }
+
+
+
+    if(nameController.text.trim().isEmpty){
+
+
+      ScaffoldMessenger.of(context)
+          .showSnackBar(
+
+        const SnackBar(
+
+          content:
+              Text(
+                "צריך שם לעגלה",
+              ),
+
+        ),
+
+      );
+
 
       return;
 
@@ -316,6 +347,19 @@ class _AddCartScreenState
 
 
 
+
+    if(latitude == 0 ||
+        longitude == 0){
+
+      await getCoordinatesFromAddress();
+
+    }
+
+
+
+
+
+
     final cart =
         CoffeeCart(
 
@@ -324,34 +368,44 @@ class _AddCartScreenState
           nameController.text.trim(),
 
 
-
       location:
           locationController.text.trim(),
-
 
 
       visits:
           [],
 
 
-
       imageBase64:
           imageBase64,
-
 
 
       favorite:
           favorite,
 
 
-
       latitude:
           latitude,
 
 
+        longitude:
+            longitude,
 
-      longitude:
-          longitude,
+        ownerName:
+              FirebaseAuth.instance.currentUser?.uid ==
+                      'gGKgCYdaWHgV45wePSbouhv5hLq2'
+                  ? 'Shay Dini'
+                  : FirebaseAuth.instance.currentUser?.uid ==
+                          'tAK3wd1LFbMMNZv8uG5daE4EW2j2'
+                      ? 'Daria'
+                      : '',
+
+          ownerId:
+              FirebaseAuth.instance.currentUser?.uid ?? '',
+
+
+        createdAt:
+            DateTime.now(),
 
 
     );
@@ -359,80 +413,170 @@ class _AddCartScreenState
 
 
 
-    try {
 
-
-      // שמירה מקומית
-
-      await CoffeeCartRepository.add(
-        cart,
-      );
-
-
-
-      // שמירה בענן
-
-      await firebaseRepository.addCoffeeCart(
-        cart,
-      );
+    final result =
+        await CoffeeCartRepository.add(cart);
 
 
 
 
-      if(mounted) {
 
-        Navigator.pop(context);
+    if(!mounted){
 
-      }
-
-
+      return;
 
     }
 
-    catch(e) {
 
 
-      if(mounted) {
 
-        ScaffoldMessenger.of(context)
-            .showSnackBar(
 
-          SnackBar(
+    if(result != null &&
+        result.firebaseId != cart.firebaseId){
+
+
+
+      setState(() {
+
+        saving = false;
+
+      });
+
+
+
+
+      final open =
+          await showDialog<bool>(
+
+        context:
+            context,
+
+
+        builder:
+            (context){
+
+
+          return AlertDialog(
+
+            title:
+                const Text(
+                  "העגלה כבר קיימת ☕",
+                ),
+
 
             content:
                 Text(
-                  "שגיאה בשמירה: $e",
+
+                  "${result.name}\n\n"
+                  "העגלה כבר נמצאת במערכת. "
+                  "רוצה להיכנס אליה?",
+
                 ),
+
+
+
+            actions: [
+
+
+              TextButton(
+
+                onPressed:
+
+                    (){
+
+                  Navigator.pop(
+                    context,
+                    false,
+                  );
+
+                },
+
+
+                child:
+                    const Text(
+                      "ביטול",
+                    ),
+
+              ),
+
+
+
+              FilledButton(
+
+                onPressed:
+
+                    (){
+
+                  Navigator.pop(
+                    context,
+                    true,
+                  );
+
+                },
+
+
+                child:
+                    const Text(
+                      "כניסה לעגלה",
+                    ),
+
+              ),
+
+
+            ],
+
+          );
+
+
+        },
+
+      );
+
+
+
+
+
+      if(open == true){
+
+
+        Navigator.pushReplacement(
+
+          context,
+
+          MaterialPageRoute(
+
+            builder: (_) => CartDetailsScreen(
+
+              cart: result,
+
+            ),
 
           ),
 
         );
 
-      }
-
-
-    }
-
-    finally {
-
-
-      if(mounted) {
-
-        setState(() {
-
-          saving = false;
-
-        });
 
       }
 
 
+
+      return;
+
+
     }
+
+
+
+
+
+
+    Navigator.pop(
+      context,
+      result,
+    );
 
 
   }
-
-
 
 
 
@@ -441,17 +585,19 @@ class _AddCartScreenState
 
 
   @override
-  void dispose() {
+  void dispose(){
+
 
     nameController.dispose();
 
+
     locationController.dispose();
+
 
     super.dispose();
 
+
   }
-
-
 
 
 
@@ -467,9 +613,11 @@ class _AddCartScreenState
 
 
       appBar:
+
           AppBar(
 
         title:
+
             const Text(
               "הוספת עגלת קפה",
             ),
@@ -481,7 +629,7 @@ class _AddCartScreenState
 
       body:
 
-      ListView(
+          ListView(
 
         padding:
             const EdgeInsets.all(16),
@@ -498,10 +646,9 @@ class _AddCartScreenState
                 pickImage,
 
 
-
             child:
 
-            Container(
+                Container(
 
               height:
                   220,
@@ -509,7 +656,7 @@ class _AddCartScreenState
 
               decoration:
 
-              BoxDecoration(
+                  BoxDecoration(
 
                 color:
                     Colors.grey.shade200,
@@ -518,43 +665,41 @@ class _AddCartScreenState
                 borderRadius:
                     BorderRadius.circular(20),
 
-
               ),
 
 
 
               child:
 
-              imageBase64.isEmpty
+                  imageBase64.isEmpty
+
+                      ? const Icon(
+                          Icons.add_a_photo,
+                          size: 60,
+                        )
+
+                      :
+
+                  ClipRRect(
+
+                    borderRadius:
+                        BorderRadius.circular(20),
 
 
-                  ?
+                    child:
 
-              const Icon(
+                        Image.memory(
 
-                Icons.add_a_photo,
+                      base64Decode(
+                        imageBase64,
+                      ),
 
-                size:
-                    60,
+                      fit:
+                          BoxFit.cover,
 
-              )
+                    ),
 
-
-
-                  :
-
-
-
-              Image.memory(
-
-                base64Decode(
-                  imageBase64,
-                ),
-
-                fit:
-                    BoxFit.cover,
-
-              ),
+                  ),
 
 
             ),
@@ -565,12 +710,7 @@ class _AddCartScreenState
 
 
 
-
-
-          const SizedBox(
-            height:20,
-          ),
-
+          const SizedBox(height: 20),
 
 
 
@@ -582,6 +722,7 @@ class _AddCartScreenState
 
 
             decoration:
+
                 const InputDecoration(
 
               labelText:
@@ -592,18 +733,12 @@ class _AddCartScreenState
 
             ),
 
-
           ),
 
 
 
 
-
-
-          const SizedBox(
-            height:16,
-          ),
-
+          const SizedBox(height: 16),
 
 
 
@@ -615,27 +750,26 @@ class _AddCartScreenState
 
 
             decoration:
+
                 const InputDecoration(
 
               labelText:
                   "מיקום",
+
+              hintText:
+                  "לדוגמה: באר טוביה",
 
               border:
                   OutlineInputBorder(),
 
             ),
 
-
           ),
 
 
 
 
-
-          const SizedBox(
-            height:16,
-          ),
-
+          const SizedBox(height: 16),
 
 
 
@@ -643,47 +777,24 @@ class _AddCartScreenState
           FilledButton.icon(
 
             onPressed:
+
                 loadingLocation
-
                     ? null
-
                     : getLocation,
 
 
             icon:
 
-            loadingLocation
-
-                ?
-
-            const SizedBox(
-
-              width:
-                  18,
-
-              height:
-                  18,
-
-              child:
-              CircularProgressIndicator(),
-
-            )
-
-
-                :
-
-            const Icon(
-              Icons.location_on,
-            ),
-
+                const Icon(
+                  Icons.my_location,
+                ),
 
 
             label:
-            const Text(
-              "קבל מיקום וכתובת",
-            ),
 
-
+                const Text(
+                  "קבל מיקום נוכחי",
+                ),
 
           ),
 
@@ -691,16 +802,17 @@ class _AddCartScreenState
 
 
 
-
-          if(latitude != 0)
+          if(latitude != 0 &&
+              longitude != 0)
 
             Padding(
 
               padding:
-              const EdgeInsets.all(12),
+                  const EdgeInsets.all(12),
 
               child:
-              Text(
+
+                  Text(
 
                 "GPS:\n$latitude\n$longitude",
 
@@ -711,20 +823,21 @@ class _AddCartScreenState
 
 
 
-
           SwitchListTile(
 
             title:
-            const Text(
-              "מועדפת ⭐",
-            ),
+
+                const Text(
+                  "מועדפת ⭐",
+                ),
 
 
             value:
-            favorite,
+                favorite,
 
 
-            onChanged:(value){
+            onChanged:
+                (value){
 
               setState(() {
 
@@ -735,17 +848,13 @@ class _AddCartScreenState
 
             },
 
-
           ),
 
 
 
 
 
-          const SizedBox(
-            height:20,
-          ),
-
+          const SizedBox(height: 20),
 
 
 
@@ -753,28 +862,25 @@ class _AddCartScreenState
           FilledButton(
 
             onPressed:
-            saving
-                ? null
-                : save,
+
+                saving
+                    ? null
+                    : save,
 
 
             child:
 
-            saving
+                saving
 
-                ?
+                    ? const CircularProgressIndicator()
 
-            const CircularProgressIndicator()
+                    :
 
-                :
-
-            const Text(
-              "שמירה",
-            ),
-
+                const Text(
+                  "שמירה",
+                ),
 
           ),
-
 
 
         ],

@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:geolocator/geolocator.dart';
 
-import '../repositories/coffee_cart_repository.dart';
+import '../repositories/firebase_coffee_cart_repository.dart';
+
+import '../services/location_service.dart';
+
 import '../widgets/coffee_cart_card.dart';
 
 import 'add_cart_screen.dart';
@@ -26,58 +31,164 @@ class HomeScreen extends StatefulWidget {
 
 
 
+class _HomeScreenState extends State<HomeScreen> {
 
 
-class _HomeScreenState
-    extends State<HomeScreen> {
+  final FirebaseCoffeeCartRepository firebaseRepository =
+      FirebaseCoffeeCartRepository();
+
+
+
+  final TextEditingController searchController =
+      TextEditingController();
+
 
 
   String search = '';
 
   bool favoritesOnly = false;
 
+  bool myContentOnly = false;
+
   String sort = 'none';
 
+  Position? currentPosition;
 
 
 
 
-  List filterCarts(List carts) {
+  @override
+  void initState(){
+
+    super.initState();
+
+    loadLocation();
+
+  }
+
+
+
+
+
+  Future<void> loadLocation() async {
+
+    final position =
+        await LocationService.getCurrentLocation();
+
+
+
+    if(position != null && mounted){
+
+      setState((){
+
+        currentPosition = position;
+
+      });
+
+    }
+
+  }
+
+
+
+
+
+  @override
+  void dispose(){
+
+    searchController.dispose();
+
+    super.dispose();
+
+  }
+
+
+
+
+
+  List filterCarts(List carts){
 
 
     final result =
-        carts.where((cart) {
+    carts.where((cart){
 
 
       final text =
-          search.toLowerCase();
+      search.trim().toLowerCase();
 
 
 
-      final matchSearch =
-          text.isEmpty ||
+      bool matchSearch =
+          text.isEmpty;
 
-          cart.name
-              .toLowerCase()
-              .contains(text)
 
-          ||
 
-          cart.location
-              .toLowerCase()
-              .contains(text);
+
+      if(!matchSearch){
+
+
+        final searchable = <String>[
+
+          cart.name,
+
+          cart.location,
+
+        ];
+
+
+
+        for(final visit in cart.visits){
+
+
+          searchable.add(
+            visit.dish,
+          );
+
+
+          searchable.add(
+            visit.notes,
+          );
+
+
+          searchable.addAll(
+            visit.tags,
+          );
+
+        }
+
+
+
+
+        matchSearch =
+            searchable.any(
+
+                  (item) =>
+                  item
+                      .toLowerCase()
+                      .contains(text),
+
+            );
+
+
+      }
 
 
 
 
       final matchFavorite =
           !favoritesOnly ||
-
-          cart.favorite;
-
+              cart.favorite;
 
 
-      return matchSearch && matchFavorite;
+
+
+
+        final matchOwner =
+            !myContentOnly ||
+            cart.ownerId ==
+                FirebaseAuth.instance.currentUser?.uid;
+        return matchSearch && matchFavorite && matchOwner;
+
 
 
     }).toList();
@@ -86,16 +197,34 @@ class _HomeScreenState
 
 
 
-    if(sort == 'score') {
+    if(sort == 'score'){
 
 
       result.sort(
 
-        (a,b) =>
-            b.score.compareTo(a.score),
+            (a,b) =>
+            b.score.compareTo(
+              a.score,
+            ),
 
       );
 
+    }
+
+
+
+
+    if(sort == 'visits'){
+
+
+      result.sort(
+
+            (a,b) =>
+            b.visitsCount.compareTo(
+              a.visitsCount,
+            ),
+
+      );
 
     }
 
@@ -103,19 +232,55 @@ class _HomeScreenState
 
 
 
-    if(sort == 'visits') {
+    if(sort == 'distance' &&
+        currentPosition != null){
 
 
       result.sort(
 
-        (a,b) =>
-            b.visitsCount.compareTo(a.visitsCount),
+            (a,b){
+
+
+          final distanceA =
+          Geolocator.distanceBetween(
+
+            currentPosition!.latitude,
+
+            currentPosition!.longitude,
+
+            a.latitude,
+
+            a.longitude,
+
+          );
+
+
+
+          final distanceB =
+          Geolocator.distanceBetween(
+
+            currentPosition!.latitude,
+
+            currentPosition!.longitude,
+
+            b.latitude,
+
+            b.longitude,
+
+          );
+
+
+
+          return distanceA.compareTo(
+            distanceB,
+          );
+
+
+        },
 
       );
 
-
     }
-
 
 
 
@@ -127,22 +292,15 @@ class _HomeScreenState
 
 
 
-
-
-
   Future<void> refresh() async {
 
+    if(mounted){
 
-    if(mounted) {
-
-      setState(() {});
+      setState((){});
 
     }
 
-
   }
-
-
 
 
 
@@ -152,7 +310,7 @@ class _HomeScreenState
 
 
     if(cart.latitude == 0 ||
-        cart.longitude == 0) {
+        cart.longitude == 0){
 
 
       ScaffoldMessenger.of(context)
@@ -161,9 +319,9 @@ class _HomeScreenState
         const SnackBar(
 
           content:
-              Text(
-                "אין מיקום GPS לעגלה",
-              ),
+          Text(
+            "אין מיקום GPS לעגלה",
+          ),
 
         ),
 
@@ -176,6 +334,8 @@ class _HomeScreenState
 
 
 
+
+
     final url = Uri.parse(
 
       "https://www.google.com/maps/search/?api=1&query=${cart.latitude},${cart.longitude}",
@@ -184,26 +344,23 @@ class _HomeScreenState
 
 
 
+
     await launchUrl(
 
       url,
 
       mode:
-          LaunchMode.externalApplication,
+      LaunchMode.externalApplication,
 
     );
 
 
   }
-
-
-
-
-
-
-
-
-  Future<void> addVisit(cart) async {
+    Future<void> addVisit(cart) async {
+      
+      if (FirebaseAuth.instance.currentUser?.isAnonymous == true) {
+        return;
+      }
 
 
     await Navigator.push(
@@ -213,13 +370,9 @@ class _HomeScreenState
       MaterialPageRoute(
 
         builder: (_) =>
-
             AddVisitScreen(
-
-          cart:
-              cart,
-
-        ),
+              cart: cart,
+            ),
 
       ),
 
@@ -228,11 +381,7 @@ class _HomeScreenState
 
     await refresh();
 
-
   }
-
-
-
 
 
 
@@ -243,20 +392,21 @@ class _HomeScreenState
 
     setState(() {
 
-
       cart.favorite =
           !cart.favorite;
-
 
     });
 
 
 
-    await cart.save();
+    await firebaseRepository.updateCoffeeCart(
+
+      cart,
+
+    );
 
 
   }
-
 
 
 
@@ -269,29 +419,35 @@ class _HomeScreenState
     return Scaffold(
 
 
+      appBar:
 
-      appBar: AppBar(
+      AppBar(
 
         title:
-            const Text(
-              "Coffee Diary",
-            ),
+
+        const Text(
+
+          "Coffee Diary",
+
+        ),
 
 
 
         actions: [
 
 
-
           IconButton(
 
             icon:
-                const Icon(
-                  Icons.map,
-                ),
+
+            const Icon(
+
+              Icons.map,
+
+            ),
 
 
-            onPressed: () {
+            onPressed:(){
 
 
               Navigator.push(
@@ -319,53 +475,76 @@ class _HomeScreenState
           IconButton(
 
             icon:
-                Icon(
+
+            Icon(
 
               favoritesOnly
-
                   ? Icons.star
-
                   : Icons.star_border,
 
             ),
 
 
-
-            onPressed: () {
-
+            onPressed:(){
 
               setState(() {
-
 
                 favoritesOnly =
                     !favoritesOnly;
 
-
               });
-
 
             },
 
-
           ),
-                    PopupMenuButton<String>(
 
+
+
+
+
+
+            IconButton(
+              icon:
+                Icon(
+                  myContentOnly
+                      ? Icons.person
+                      : Icons.groups,
+
+                  color:
+                      myContentOnly
+                          ? Theme.of(context).colorScheme.primary
+                          : null,
+                ),
+
+                tooltip:
+                    myContentOnly
+                        ? 'הצג את כולם'
+                        : 'הצג רק שלי',
+
+              onPressed:(){
+
+                setState(() {
+
+                  myContentOnly =
+                      !myContentOnly;
+
+                });
+
+              },
+
+            ),
+          PopupMenuButton<String>(
 
             onSelected:(value){
 
-
               setState(() {
-
 
                 sort =
                     value;
 
-
               });
 
-
             },
-
 
 
             itemBuilder:(context)=>[
@@ -374,12 +553,12 @@ class _HomeScreenState
               const PopupMenuItem(
 
                 value:
-                    'none',
+                'none',
 
                 child:
-                    Text(
-                      "ללא מיון",
-                    ),
+                Text(
+                  "ללא מיון",
+                ),
 
               ),
 
@@ -388,12 +567,12 @@ class _HomeScreenState
               const PopupMenuItem(
 
                 value:
-                    'score',
+                'score',
 
                 child:
-                    Text(
-                      "לפי ציון",
-                    ),
+                Text(
+                  "לפי ציון",
+                ),
 
               ),
 
@@ -402,12 +581,26 @@ class _HomeScreenState
               const PopupMenuItem(
 
                 value:
-                    'visits',
+                'visits',
 
                 child:
-                    Text(
-                      "לפי ביקורים",
-                    ),
+                Text(
+                  "לפי ביקורים",
+                ),
+
+              ),
+
+
+
+              const PopupMenuItem(
+
+                value:
+                'distance',
+
+                child:
+                Text(
+                  "לפי מרחק",
+                ),
 
               ),
 
@@ -420,11 +613,7 @@ class _HomeScreenState
 
         ],
 
-
       ),
-
-
-
 
 
 
@@ -433,20 +622,30 @@ class _HomeScreenState
 
       floatingActionButton:
 
-          FloatingActionButton.extended(
+
+      FirebaseAuth.instance.currentUser?.isAnonymous == true
+        ? null
+        : FloatingActionButton.extended(
 
 
         icon:
-            const Icon(
-              Icons.add,
-            ),
+
+        const Icon(
+
+          Icons.add,
+
+        ),
 
 
 
         label:
-            const Text(
-              "עגלה",
-            ),
+
+        const Text(
+
+          "עגלה",
+
+        ),
+
 
 
 
@@ -454,23 +653,28 @@ class _HomeScreenState
         onPressed:() async {
 
 
-
           await Navigator.push(
+
 
             context,
 
+
             MaterialPageRoute(
+
 
               builder: (_) =>
                   const AddCartScreen(),
 
+
             ),
+
 
           );
 
 
 
           await refresh();
+
 
 
         },
@@ -484,114 +688,186 @@ class _HomeScreenState
 
 
 
-
-
       body:
 
 
-          ValueListenableBuilder(
+      StreamBuilder<List<dynamic>>(
 
 
-            valueListenable:
+        stream:
 
-                CoffeeCartRepository.listen(),
-
-
-
-            builder:(context, box, child) {
-
-
-
-              final allCarts =
-                  box.values.toList();
-
-
-
-              final carts =
-                  filterCarts(
-                    allCarts,
-                  );
-
-
-
-              debugPrint(
-                "HOME BOX LENGTH: ${box.length}",
-              );
-
-
-              debugPrint(
-                "HOME CARTS: ${box.values.map((e) => e.name).toList()}",
-              );
+        firebaseRepository.getCoffeeCarts(),
 
 
 
 
 
-              return Column(
+        builder:(context, snapshot){
 
 
 
-                children: [
+          if(snapshot.connectionState ==
+              ConnectionState.waiting){
+
+
+            return const Center(
+
+              child:
+
+              CircularProgressIndicator(),
+
+            );
+
+
+          }
 
 
 
 
 
-                  Padding(
 
-                    padding:
-                        const EdgeInsets.all(12),
+          final allCarts =
 
-
-
-                    child:
-
-                    TextField(
-
-
-                      textDirection:
-                          TextDirection.rtl,
+              snapshot.data ?? [];
 
 
 
-                      decoration:
-                          const InputDecoration(
-
-                        labelText:
-                            "חיפוש עגלה",
 
 
-                        prefixIcon:
-                            Icon(
-                              Icons.search,
-                            ),
 
 
-                        border:
-                            OutlineInputBorder(),
+          final carts =
 
+          filterCarts(
+
+            allCarts,
+
+          );
+
+
+
+
+
+
+
+
+          return Column(
+
+
+
+            children: [
+
+
+
+
+              Padding(
+
+
+                padding:
+
+                const EdgeInsets.all(12),
+
+
+
+
+
+                child:
+
+
+                TextField(
+
+
+
+                  controller:
+
+                  searchController,
+
+
+
+
+                  textDirection:
+
+                  TextDirection.rtl,
+
+
+
+
+                  decoration:
+
+
+                  InputDecoration(
+
+
+
+                    labelText:
+
+                    "חיפוש עגלה",
+
+
+
+
+
+                    prefixIcon:
+
+                    const Icon(
+
+                      Icons.search,
+
+                    ),
+
+
+
+
+
+                    suffixIcon:
+
+                    search.isNotEmpty
+
+                        ?
+
+                    IconButton(
+
+                      icon:
+
+                      const Icon(
+
+                        Icons.clear,
 
                       ),
 
 
+                      onPressed:(){
 
-                      onChanged:(value){
+
+                        searchController.clear();
+
 
 
                         setState(() {
 
 
-                          search =
-                              value;
-
+                          search = '';
 
                         });
 
 
+
                       },
 
+                    )
 
-                    ),
+                        :
+
+                    null,
+
+
+
+
+
+                    border:
+
+                    const OutlineInputBorder(),
+
 
 
                   ),
@@ -599,186 +875,256 @@ class _HomeScreenState
 
 
 
+
+                  onChanged:(value){
+
+
+                    setState(() {
+
+
+                      search =
+                          value;
+
+
+                    });
+
+
+                  },
+
+
+                ),
+
+
+              ),
+
+
+
+
+
+
+              Text(
+
+                "נמצאו ${carts.length} עגלות",
+
+              ),
+
+
+
+
+
+
+
+              Expanded(
+
+
+
+                child:
+
+
+                carts.isEmpty
+
+
+                    ?
+
+
+                const Center(
+
+
+                  child:
 
 
                   Text(
 
-                    "נמצאו ${carts.length} עגלות",
+
+                    "אין עגלות עדיין",
+
 
                   ),
 
 
+                )
+
+
+
+                    :
+
+
+
+                ListView.builder(
+
+
+
+                  itemCount:
+
+                  carts.length,
+
+
+
+
+
+                  itemBuilder:(context,index){
+
+
+
+                    final cart =
+
+                    carts[index];
 
 
 
 
 
 
-                  Expanded(
+
+                    return CoffeeCartCard(
 
 
 
-                    child:
+                      cart:
 
-
-                    carts.isEmpty
-
-
-
-                        ?
+                      cart,
 
 
 
-                    const Center(
 
-                      child:
-                          Text(
-                            "אין עגלות עדיין",
+
+
+                      onTap:() async {
+
+
+
+                        await Navigator.push(
+
+
+
+                          context,
+
+
+
+                          MaterialPageRoute(
+
+
+
+                            builder: (_) =>
+
+
+
+                            CartDetailsScreen(
+
+
+
+                              cart:
+
+                              cart,
+
+                                myContentOnly:
+                                    myContentOnly,
+
+
+
+                            ),
+
+
+
                           ),
-
-                    )
-
-
-
-                        :
-
-
-
-                    ListView.builder(
-
-
-
-                      itemCount:
-                          carts.length,
-
-
-
-                      itemBuilder:(context,index){
-
-
-
-                        final cart =
-                            carts[index];
-
-
-
-                        return CoffeeCartCard(
-
-
-
-                          cart:
-                              cart,
-
-
-
-                          onTap:() async {
-
-
-
-                            await Navigator.push(
-
-
-                              context,
-
-
-                              MaterialPageRoute(
-
-
-                                builder: (_) =>
-
-
-                                    CartDetailsScreen(
-
-                                  cart:
-                                      cart,
-
-                                ),
-
-
-                              ),
-
-
-                            );
-
-
-
-                            await refresh();
-
-
-                          },
-
-
-
-
-
-                          onAddVisit:() async {
-
-
-                            await addVisit(
-                              cart,
-                            );
-
-
-                          },
-
-
-
-
-
-                          onNavigate:() async {
-
-
-                            await openNavigation(
-                              cart,
-                            );
-
-
-                          },
-
-
-
-
-
-                          onFavorite:() async {
-
-
-                            await toggleFavorite(
-                              cart,
-                            );
-
-
-                          },
 
 
 
                         );
 
 
+
+                        await refresh();
+
+
+
                       },
 
 
-                    ),
 
 
 
-                  ),
+
+                      onAddVisit:
+                            FirebaseAuth.instance.currentUser?.isAnonymous == true
+                                ? null
+                                : () async {
+
+                                    await addVisit(
+                                      cart,
+                                    );
+
+                                  },
+
+                        onNavigate:() async {
 
 
-                ],
+
+                        await openNavigation(
 
 
-              );
+
+                          cart,
 
 
-            },
+
+                        );
 
 
-          ),
 
+                      },
+
+
+
+
+
+
+                      onFavorite:() async {
+
+
+
+                        await toggleFavorite(
+
+
+
+                          cart,
+
+
+
+                        );
+
+
+
+                      },
+
+
+                    );
+
+
+
+                  },
+
+
+                ),
+
+
+              ),
+
+
+            ],
+
+
+          );
+
+
+
+        },
+
+
+      ),
 
 
     );
-
 
   }
 

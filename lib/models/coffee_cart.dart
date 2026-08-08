@@ -1,52 +1,57 @@
+import 'package:flutter/material.dart';
+
 import 'package:hive/hive.dart';
 
 import 'coffee_visit.dart';
 
-
 part 'coffee_cart.g.dart';
-
 
 
 @HiveType(typeId: 0)
 class CoffeeCart extends HiveObject {
 
 
-
   @HiveField(0)
   String name;
-
 
 
   @HiveField(1)
   String location;
 
 
-
   @HiveField(2)
   List<CoffeeVisit> visits;
-
 
 
   @HiveField(3)
   String imageBase64;
 
 
-
   @HiveField(4)
   bool favorite;
-
 
 
   @HiveField(5)
   double latitude;
 
 
-
   @HiveField(6)
   double longitude;
 
 
+  @HiveField(7)
+  String firebaseId;
 
+
+  @HiveField(8)
+  String ownerName;
+
+  @HiveField(9)
+  DateTime? createdAt;
+
+
+    @HiveField(10)
+    String ownerId;
 
 
 
@@ -66,15 +71,18 @@ class CoffeeCart extends HiveObject {
 
     this.longitude = 0,
 
+    this.firebaseId = '',
+this.ownerName = '',
+this.createdAt,
+  this.ownerId = '',
+
   });
 
 
 
 
 
-
   double get score {
-
 
 
     if(visits.isEmpty) {
@@ -84,9 +92,7 @@ class CoffeeCart extends HiveObject {
     }
 
 
-
     double total = 0;
-
 
 
     for(final visit in visits) {
@@ -96,13 +102,9 @@ class CoffeeCart extends HiveObject {
     }
 
 
-
     return total / visits.length;
 
-
   }
-
-
 
 
 
@@ -110,14 +112,16 @@ class CoffeeCart extends HiveObject {
 
   int get visitsCount {
 
-
     return visits.length;
-
 
   }
 
 
+
+
+
   Map<String, dynamic> toMap() {
+
 
     return {
 
@@ -133,39 +137,104 @@ class CoffeeCart extends HiveObject {
 
       'longitude': longitude,
 
-      'visits': visits.map((visit) => visit.toMap()).toList(),
+      'firebaseId': firebaseId,
+'ownerName': ownerName,
+'createdAt': createdAt?.toIso8601String(),
+  'ownerId': ownerId,
+
+      'visits':
+          visits
+              .map(
+                (visit) => visit.toMap(),
+              )
+              .toList(),
 
     };
 
+
   }
+
+
 
 
 
   factory CoffeeCart.fromMap(
-    Map<String, dynamic> map,
-  ) {
+      Map<String, dynamic> map,
+      {
+        String firebaseId = '',
+      }
+      ) {
+
+
+    debugPrint(
+      "FROM MAP: name=${map['name']} owner=${map['ownerName']} created=${map['createdAt']}",
+    );
+
 
     return CoffeeCart(
 
-      name: map['name'] ?? '',
+      name:
+          map['name'] ?? '',
 
-      location: map['location'] ?? '',
 
-      imageBase64: map['imageBase64'] ?? '',
+      location:
+          map['location'] ?? '',
 
-      favorite: map['favorite'] ?? false,
 
-      latitude: (map['latitude'] ?? 0).toDouble(),
+      imageBase64:
+          map['imageBase64'] ?? '',
 
-      longitude: (map['longitude'] ?? 0).toDouble(),
 
-      visits: (map['visits'] as List<dynamic>? ?? [])
-          .map(
-            (item) => CoffeeVisit.fromMap(item),
-          )
-          .toList(),
+      favorite:
+          map['favorite'] ?? false,
+
+
+      latitude:
+          (map['latitude'] ?? 0).toDouble(),
+
+
+      longitude:
+          (map['longitude'] ?? 0).toDouble(),
+
+
+      firebaseId:
+          firebaseId,
+
+
+        ownerName:
+            map['ownerName'] ?? '',
+
+        ownerId:
+            map['ownerId'] ?? '',
+
+        createdAt:
+            map['createdAt'] != null &&
+                    map['createdAt'].runtimeType.toString().contains('Timestamp')
+                ? map['createdAt'].toDate()
+                : map['createdAt'] != null
+                    ? DateTime.tryParse(
+                        map['createdAt'].toString(),
+                      )
+                    : null,
+
+      visits:
+
+          (map['visits'] as List<dynamic>? ?? [])
+
+              .map(
+
+                (item) =>
+                    CoffeeVisit.fromMap(item),
+
+              )
+
+              .toList(),
+
 
     );
 
+
   }
+
+
 }

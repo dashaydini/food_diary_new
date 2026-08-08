@@ -17,15 +17,13 @@ import '../services/location_service.dart';
 import 'add_visit_screen.dart';
 import 'cart_stats_screen.dart';
 import 'edit_cart_screen.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+
 
 
 class CartDetailsScreen extends StatefulWidget {
 
 
   final CoffeeCart cart;
-
-  final bool myContentOnly;
 
 
 
@@ -34,7 +32,6 @@ class CartDetailsScreen extends StatefulWidget {
     super.key,
 
     required this.cart,
-      this.myContentOnly = false,
 
   });
 
@@ -390,8 +387,6 @@ class _CartDetailsScreenState
 
 
                 children: [
-
-
 
 
 
@@ -1191,10 +1186,6 @@ class _CartDetailsScreenState
 
         );
 
-        debugPrint(
-          "VISITS AFTER DELETE: ${widget.cart.visits.length}",
-        );
-
 
       });
 
@@ -1202,9 +1193,7 @@ class _CartDetailsScreenState
 
 
 
-      if (widget.cart.isInBox) {
-        await widget.cart.save();
-      }
+      await widget.cart.save();
 
 
 
@@ -1239,14 +1228,9 @@ class _CartDetailsScreenState
 
 
 
-      final visits =
-          widget.myContentOnly
-              ? cart.visits.where(
-                  (v) =>
-                      v.userId ==
-                          FirebaseAuth.instance.currentUser?.uid,
-                ).toList()
-              : cart.visits;
+    final visits =
+
+    cart.visits;
 
 
 
@@ -1484,6 +1468,24 @@ class _CartDetailsScreenState
 
 
 
+            IconButton(
+
+              icon:
+
+              const Icon(
+
+                Icons.delete,
+
+              ),
+
+
+              onPressed:
+
+              deleteCart,
+
+
+            ),
+
 
 
           ],
@@ -1497,9 +1499,7 @@ class _CartDetailsScreenState
 
         floatingActionButton:
 
-        FirebaseAuth.instance.currentUser?.isAnonymous == true
-              ? null
-              : FloatingActionButton.extended(
+        FloatingActionButton.extended(
 
 
 
@@ -1708,24 +1708,6 @@ class _CartDetailsScreenState
 
 
                   children: [
-
-              if(cart.ownerName.isNotEmpty)
-                Text(
-                  "נוצר על ידי: ${cart.ownerName}",
-                  style: const TextStyle(
-                    fontSize: 16,
-                  ),
-                ),
-
-              if(cart.createdAt != null)
-                Text(
-                  "בתאריך: ${cart.createdAt!.day}/${cart.createdAt!.month}/${cart.createdAt!.year}",
-                  style: const TextStyle(
-                    fontSize: 14,
-                  ),
-                ),
-
-
 
 
                     const Text(
@@ -1938,33 +1920,6 @@ class _CartDetailsScreenState
 
                     ListTile(
 
-                  onTap: () async {
-
-                    debugPrint("VISIT CLICKED: ${visit.dish}");
-
-                    await Navigator.push(
-
-                      context,
-
-                      MaterialPageRoute(
-
-                        builder: (_) => AddVisitScreen(
-
-                          cart: cart,
-
-                          existingVisit: visit,
-                            viewOnly: true,
-
-                        ),
-
-                      ),
-
-                    );
-
-                    setState(() {});
-
-                  },
-
                       title:
 
                       Text(
@@ -1985,65 +1940,34 @@ class _CartDetailsScreenState
 
 
 
-                        trailing:
+                      trailing:
 
-                          visit.userId == FirebaseAuth.instance.currentUser?.uid
+                      IconButton(
 
-                              ? Row(
+                        icon:
 
-                                  mainAxisSize: MainAxisSize.min,
+                        const Icon(
 
-                                  children: [
+                          Icons.delete_outline,
 
-                                    IconButton(
+                        ),
 
-                                      icon: const Icon(Icons.edit),
 
-                                      onPressed: () async {
+                        onPressed:(){
 
-                                        await Navigator.push(
+                          deleteVisit(
 
-                                          context,
+                            visit,
 
-                                          MaterialPageRoute(
+                          );
 
-                                            builder: (_) => AddVisitScreen(
 
-                                              cart: cart,
+                        },
 
-                                              existingVisit: visit,
 
-                                              viewOnly: false,
+                      ),
 
-                                            ),
 
-                                          ),
-
-                                        );
-
-                                        setState(() {});
-
-                                      },
-
-                                    ),
-
-                                    IconButton(
-
-                                      icon: const Icon(Icons.delete_outline),
-
-                                      onPressed: () {
-
-                                        deleteVisit(visit);
-
-                                      },
-
-                                    ),
-
-                                  ],
-
-                                )
-
-                              : null,
                     ),
 
                   ),

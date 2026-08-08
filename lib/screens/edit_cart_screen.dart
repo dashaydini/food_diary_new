@@ -4,24 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../models/coffee_cart.dart';
+import '../repositories/firebase_coffee_cart_repository.dart';
 
 
 
 class EditCartScreen extends StatefulWidget {
 
-
   final CoffeeCart cart;
 
-
-
   const EditCartScreen({
-
     super.key,
-
     required this.cart,
-
   });
-
 
 
   @override
@@ -33,11 +27,8 @@ class EditCartScreen extends StatefulWidget {
 
 
 
-
-
 class _EditCartScreenState
     extends State<EditCartScreen> {
-
 
 
   late TextEditingController nameController;
@@ -45,15 +36,17 @@ class _EditCartScreenState
   late TextEditingController locationController;
 
 
-
-  final picker =
-      ImagePicker();
-
+  final picker = ImagePicker();
 
 
   late String imageBase64;
 
   late bool favorite;
+
+
+
+  final FirebaseCoffeeCartRepository firebaseRepository =
+      FirebaseCoffeeCartRepository();
 
 
 
@@ -63,39 +56,27 @@ class _EditCartScreenState
   @override
   void initState() {
 
-
     super.initState();
-
 
 
     nameController =
         TextEditingController(
-
-      text:
-          widget.cart.name,
-
-    );
-
+          text: widget.cart.name,
+        );
 
 
     locationController =
         TextEditingController(
-
-      text:
-          widget.cart.location,
-
-    );
-
+          text: widget.cart.location,
+        );
 
 
     imageBase64 =
         widget.cart.imageBase64;
 
 
-
     favorite =
         widget.cart.favorite;
-
 
   }
 
@@ -121,7 +102,6 @@ class _EditCartScreenState
     );
 
 
-
     if(image == null) {
 
       return;
@@ -129,18 +109,14 @@ class _EditCartScreenState
     }
 
 
-
     final bytes =
         await image.readAsBytes();
 
 
-
     setState(() {
-
 
       imageBase64 =
           base64Encode(bytes);
-
 
     });
 
@@ -153,23 +129,21 @@ class _EditCartScreenState
 
 
 
-  Future<void> save() async {
 
+
+  Future<void> save() async {
 
 
     widget.cart.name =
         nameController.text.trim();
 
 
-
     widget.cart.location =
         locationController.text.trim();
 
 
-
     widget.cart.imageBase64 =
         imageBase64;
-
 
 
     widget.cart.favorite =
@@ -177,21 +151,23 @@ class _EditCartScreenState
 
 
 
+    // שמירה מקומית
     await widget.cart.save();
 
 
 
+    // עדכון Firebase
+    await firebaseRepository.updateCoffeeCart(
+      widget.cart,
+    );
 
 
 
     if(mounted) {
 
-
       Navigator.pop(context);
 
-
     }
-
 
 
   }
@@ -207,14 +183,12 @@ class _EditCartScreenState
   @override
   void dispose() {
 
-
     nameController.dispose();
 
     locationController.dispose();
 
 
     super.dispose();
-
 
   }
 
@@ -232,8 +206,6 @@ class _EditCartScreenState
 
     return Scaffold(
 
-
-
       appBar:
           AppBar(
 
@@ -243,9 +215,6 @@ class _EditCartScreenState
             ),
 
       ),
-
-
-
 
 
 
@@ -262,23 +231,17 @@ class _EditCartScreenState
 
 
 
-
-
           GestureDetector(
-
 
             onTap:
                 pickImage,
 
 
-
             child:
                 Container(
 
-
               height:
                   220,
-
 
 
               decoration:
@@ -298,71 +261,51 @@ class _EditCartScreenState
               child:
 
 
-                  imageBase64.isEmpty
+              imageBase64.isEmpty
 
 
+                  ?
 
-                      ?
-
-
-
-                      const Icon(
-
-                        Icons.add_a_photo,
-
-                        size:
-                            60,
-
-                      )
+              const Icon(
+                Icons.add_a_photo,
+                size:60,
+              )
 
 
-
-                      :
-
+                  :
 
 
-                      ClipRRect(
+              ClipRRect(
 
-                        borderRadius:
-                            BorderRadius.circular(20),
-
-
-
-                        child:
-                            Image.memory(
-
-                          base64Decode(
-
-                            imageBase64,
-
-                          ),
+                borderRadius:
+                    BorderRadius.circular(20),
 
 
+                child:
+                Image.memory(
 
-                          fit:
-                              BoxFit.cover,
+                  base64Decode(
+                    imageBase64,
+                  ),
 
-                        ),
 
-                      ),
+                  fit:
+                      BoxFit.cover,
 
+                ),
+
+              ),
 
 
             ),
 
-
-
           ),
 
 
 
 
 
-
-          const SizedBox(
-            height:20,
-          ),
-
+          const SizedBox(height:20),
 
 
 
@@ -380,7 +323,6 @@ class _EditCartScreenState
               labelText:
                   "שם העגלה",
 
-
               border:
                   OutlineInputBorder(),
 
@@ -393,9 +335,7 @@ class _EditCartScreenState
 
 
 
-          const SizedBox(
-            height:16,
-          ),
+          const SizedBox(height:16),
 
 
 
@@ -413,7 +353,6 @@ class _EditCartScreenState
               labelText:
                   "מיקום",
 
-
               border:
                   OutlineInputBorder(),
 
@@ -425,11 +364,7 @@ class _EditCartScreenState
 
 
 
-
-          const SizedBox(
-            height:16,
-          ),
-
+          const SizedBox(height:16),
 
 
 
@@ -443,28 +378,21 @@ class _EditCartScreenState
                 ),
 
 
-
             value:
                 favorite,
 
 
-
             onChanged:(value){
 
-
               setState(() {
-
 
                 favorite =
                     value;
 
-
               });
-
 
             },
 
-
           ),
 
 
@@ -472,10 +400,7 @@ class _EditCartScreenState
 
 
 
-          const SizedBox(
-            height:30,
-          ),
-
+          const SizedBox(height:30),
 
 
 
@@ -492,7 +417,6 @@ class _EditCartScreenState
                   "שמירה",
                 ),
 
-
           ),
 
 
@@ -501,7 +425,6 @@ class _EditCartScreenState
 
 
       ),
-
 
 
     );

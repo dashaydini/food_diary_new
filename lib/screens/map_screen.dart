@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-import '../repositories/coffee_cart_repository.dart';
+import '../repositories/firebase_coffee_cart_repository.dart';
+import '../services/location_service.dart';
+
 import 'cart_details_screen.dart';
 
 
@@ -26,6 +28,8 @@ class MapScreen extends StatefulWidget {
 
 
 
+
+
 class _MapScreenState extends State<MapScreen> {
 
 
@@ -34,7 +38,16 @@ class _MapScreenState extends State<MapScreen> {
 
 
 
+  final FirebaseCoffeeCartRepository firebaseRepository =
+      FirebaseCoffeeCartRepository();
+
+
+
   LatLng? currentLocation;
+
+
+
+  bool loadingLocation = false;
 
 
 
@@ -45,14 +58,29 @@ class _MapScreenState extends State<MapScreen> {
   Future<void> getCurrentLocation() async {
 
 
-    final permission =
-        await Geolocator.requestPermission();
+    setState(() {
+
+      loadingLocation = true;
+
+    });
 
 
-    if(permission ==
-        LocationPermission.denied ||
-        permission ==
-            LocationPermission.deniedForever) {
+
+
+    final position =
+        await LocationService.getCurrentLocation();
+
+
+
+
+    if(position == null){
+
+      setState(() {
+
+        loadingLocation = false;
+
+      });
+
 
       return;
 
@@ -60,29 +88,32 @@ class _MapScreenState extends State<MapScreen> {
 
 
 
-    final position =
-        await Geolocator.getCurrentPosition();
-
 
 
 
     final point =
-        LatLng(
 
-          position.latitude,
+    LatLng(
 
-          position.longitude,
+      position.latitude,
 
-        );
+      position.longitude,
+
+    );
+
+
 
 
 
     setState(() {
 
-      currentLocation =
-          point;
+      currentLocation = point;
+
+      loadingLocation = false;
 
     });
+
+
 
 
 
@@ -91,6 +122,75 @@ class _MapScreenState extends State<MapScreen> {
       point,
 
       15,
+
+    );
+
+
+  }
+
+
+
+
+
+  Future<void> openNavigation(cart) async {
+
+
+    if(cart.latitude == 0 ||
+        cart.longitude == 0){
+
+      return;
+
+    }
+
+
+
+    final url = Uri.parse(
+
+      "https://www.google.com/maps/search/?api=1&query=${cart.latitude},${cart.longitude}",
+
+    );
+
+
+
+    await launchUrl(
+
+      url,
+
+      mode:
+      LaunchMode.externalApplication,
+
+    );
+
+
+  }
+
+
+
+
+
+
+
+
+  void openCartDetails(cart) {
+
+
+    Navigator.push(
+
+      context,
+
+      MaterialPageRoute(
+
+        builder: (_) =>
+
+            CartDetailsScreen(
+
+              cart:
+
+              cart,
+
+            ),
+
+      ),
 
     );
 
@@ -114,13 +214,17 @@ class _MapScreenState extends State<MapScreen> {
 
       appBar:
 
-          AppBar(
+      AppBar(
 
         title:
 
-            const Text(
-              "מפת עגלות",
-            ),
+        const Text(
+
+          "מפת עגלות",
+
+        ),
+
+
 
         actions: [
 
@@ -130,18 +234,53 @@ class _MapScreenState extends State<MapScreen> {
 
             icon:
 
-                const Icon(
-                  Icons.my_location,
-                ),
+            loadingLocation
+
+                ?
+
+            const SizedBox(
+
+              width:20,
+
+              height:20,
+
+              child:
+
+              CircularProgressIndicator(
+
+                strokeWidth:2,
+
+              ),
+
+            )
+
+                :
+
+            const Icon(
+
+              Icons.my_location,
+
+            ),
+
 
 
             tooltip:
-                "המיקום שלי",
+
+            "המיקום שלי",
+
 
 
             onPressed:
-                getCurrentLocation,
 
+            loadingLocation
+
+                ?
+
+            null
+
+                :
+
+            getCurrentLocation,
 
           ),
 
@@ -159,38 +298,58 @@ class _MapScreenState extends State<MapScreen> {
 
       body:
 
-          ValueListenableBuilder(
+
+      StreamBuilder<List<dynamic>>(
 
 
+        stream:
 
-        valueListenable:
+        firebaseRepository.getCoffeeCarts(),
 
-            CoffeeCartRepository.listen(),
 
 
 
 
         builder:
 
-            (context, box, child) {
+            (context, snapshot) {
+
+
+
+          if(snapshot.connectionState ==
+              ConnectionState.waiting){
+
+
+            return const Center(
+
+              child:
+
+              CircularProgressIndicator(),
+
+            );
+
+
+          }
+
+
 
 
 
           final carts =
 
-              box.values
+          (snapshot.data ?? [])
 
-                  .where(
+              .where(
 
-                    (cart) =>
+                (cart) =>
 
-                        cart.latitude != 0 &&
+            cart.latitude != 0 &&
 
-                        cart.longitude != 0,
+                cart.longitude != 0,
 
-                  )
+          )
 
-                  .toList();
+              .toList();
 
 
 
@@ -205,11 +364,11 @@ class _MapScreenState extends State<MapScreen> {
 
               child:
 
-                  Text(
+              Text(
 
-                    "אין עגלות עם מיקום",
+                "אין עגלות עם מיקום",
 
-                  ),
+              ),
 
             );
 
@@ -228,16 +387,18 @@ class _MapScreenState extends State<MapScreen> {
 
             mapController:
 
-                mapController,
+            mapController,
 
 
 
 
             options:
 
-                MapOptions(
+            MapOptions(
 
               initialCenter:
+
+              currentLocation ??
 
                   LatLng(
 
@@ -251,7 +412,7 @@ class _MapScreenState extends State<MapScreen> {
 
               initialZoom:
 
-                  12,
+              12,
 
 
             ),
@@ -272,13 +433,13 @@ class _MapScreenState extends State<MapScreen> {
 
                 urlTemplate:
 
-                    "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
 
 
 
                 userAgentPackageName:
 
-                    "com.example.food_diary",
+                "com.example.food_diary",
 
 
 
@@ -298,7 +459,7 @@ class _MapScreenState extends State<MapScreen> {
 
 
 
-                    [
+                [
 
 
 
@@ -312,34 +473,34 @@ class _MapScreenState extends State<MapScreen> {
 
                       point:
 
-                          LatLng(
+                      LatLng(
 
-                            cart.latitude,
+                        cart.latitude,
 
-                            cart.longitude,
+                        cart.longitude,
 
-                          ),
+                      ),
 
 
 
 
                       width:
 
-                          70,
+                      70,
 
 
 
 
                       height:
 
-                          70,
+                      70,
 
 
 
 
                       child:
 
-                          GestureDetector(
+                      GestureDetector(
 
 
 
@@ -353,7 +514,7 @@ class _MapScreenState extends State<MapScreen> {
 
                             context:
 
-                                context,
+                            context,
 
 
 
@@ -365,31 +526,31 @@ class _MapScreenState extends State<MapScreen> {
 
                               textDirection:
 
-                                  TextDirection.rtl,
+                              TextDirection.rtl,
 
 
 
                               child:
 
-                                  Padding(
+                              Padding(
 
 
 
                                 padding:
 
-                                    const EdgeInsets.all(20),
+                                const EdgeInsets.all(20),
 
 
 
                                 child:
 
-                                    Column(
+                                Column(
 
 
 
                                   mainAxisSize:
 
-                                      MainAxisSize.min,
+                                  MainAxisSize.min,
 
 
 
@@ -407,15 +568,15 @@ class _MapScreenState extends State<MapScreen> {
 
                                       style:
 
-                                          const TextStyle(
+                                      const TextStyle(
 
                                         fontSize:
 
-                                            22,
+                                        22,
 
                                         fontWeight:
 
-                                            FontWeight.bold,
+                                        FontWeight.bold,
 
                                       ),
 
@@ -428,7 +589,11 @@ class _MapScreenState extends State<MapScreen> {
 
 
                                     const SizedBox(
-                                      height:10,
+
+                                      height:
+
+                                      10,
+
                                     ),
 
 
@@ -456,7 +621,11 @@ class _MapScreenState extends State<MapScreen> {
 
 
                                     const SizedBox(
-                                      height:20,
+
+                                      height:
+
+                                      20,
+
                                     ),
 
 
@@ -464,53 +633,40 @@ class _MapScreenState extends State<MapScreen> {
 
 
 
-                                    FilledButton(
+                                    Row(
 
-                                      onPressed:(){
+                                      mainAxisAlignment:
 
-
-
-                                        Navigator.pop(context);
+                                      MainAxisAlignment.spaceEvenly,
 
 
-
-                                        Navigator.push(
+                                      children: [
 
 
 
-                                          context,
+                                        FilledButton(
+
+                                          onPressed:(){
 
 
 
-                                          MaterialPageRoute(
+                                            Navigator.pop(context);
 
 
 
-                                            builder:(_)=>
+                                            openCartDetails(
 
-                                                CartDetailsScreen(
+                                              cart,
 
-                                              cart:
-
-                                                  cart,
-
-                                            ),
+                                            );
 
 
 
-                                          ),
+                                          },
 
 
 
-                                        );
-
-
-
-                                      },
-
-
-
-                                      child:
+                                          child:
 
                                           const Text(
 
@@ -519,6 +675,57 @@ class _MapScreenState extends State<MapScreen> {
                                           ),
 
 
+
+                                        ),
+
+
+
+
+
+
+                                        FilledButton.icon(
+
+                                          onPressed:(){
+
+
+
+                                            openNavigation(
+
+                                              cart,
+
+                                            );
+
+
+
+                                          },
+
+
+
+                                          icon:
+
+                                          const Icon(
+
+                                            Icons.navigation,
+
+                                          ),
+
+
+
+                                          label:
+
+                                          const Text(
+
+                                            "נווט",
+
+                                          ),
+
+
+
+                                        ),
+
+
+
+                                      ],
 
                                     ),
 
@@ -551,7 +758,7 @@ class _MapScreenState extends State<MapScreen> {
 
                         child:
 
-                            const Icon(
+                        const Icon(
 
 
 
@@ -561,7 +768,7 @@ class _MapScreenState extends State<MapScreen> {
 
                           size:
 
-                              45,
+                          45,
 
 
 
@@ -592,25 +799,25 @@ class _MapScreenState extends State<MapScreen> {
 
                       point:
 
-                          currentLocation!,
+                      currentLocation!,
 
 
 
                       width:
 
-                          50,
+                      50,
 
 
 
                       height:
 
-                          50,
+                      50,
 
 
 
                       child:
 
-                          const Icon(
+                      const Icon(
 
 
 
@@ -620,7 +827,7 @@ class _MapScreenState extends State<MapScreen> {
 
                         size:
 
-                            45,
+                        45,
 
 
 

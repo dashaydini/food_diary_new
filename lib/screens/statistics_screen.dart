@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../repositories/coffee_cart_repository.dart';
+import '../repositories/firebase_coffee_cart_repository.dart';
 import '../models/coffee_cart.dart';
+
 
 
 class StatisticsScreen extends StatelessWidget {
@@ -16,144 +17,255 @@ class StatisticsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
 
 
-    final carts =
-        CoffeeCartRepository.getAll();
-
-
-
-    final totalVisits =
-        carts.fold<int>(
-          0,
-          (sum, cart) =>
-              sum + cart.visitsCount,
-        );
-
-
-
-    CoffeeCart? bestCart;
-
-
-    if(carts.isNotEmpty) {
-
-      bestCart =
-          carts.reduce(
-            (a,b) =>
-                a.score > b.score
-                    ? a
-                    : b,
-          );
-
-    }
-
-
+    final firebaseRepository =
+        FirebaseCoffeeCartRepository();
 
 
 
     return Scaffold(
 
       appBar:
+
           AppBar(
-            title:
-                const Text(
-                  "סטטיסטיקות",
-                ),
-          ),
+
+        title:
+
+            const Text(
+
+          "סטטיסטיקות",
+
+        ),
+
+      ),
+
+
 
 
 
       body:
 
-          ListView(
+      StreamBuilder<List<CoffeeCart>>(
 
-        padding:
+
+        stream:
+
+        firebaseRepository.getCoffeeCarts(),
+
+
+
+
+        builder:
+
+            (context, snapshot) {
+
+
+
+          if(snapshot.connectionState ==
+              ConnectionState.waiting){
+
+
+            return const Center(
+
+              child:
+
+              CircularProgressIndicator(),
+
+            );
+
+          }
+
+
+
+
+
+
+          final carts =
+
+              snapshot.data ?? [];
+
+
+
+
+
+          final totalVisits =
+
+          carts.fold<int>(
+
+            0,
+
+                (sum, cart) =>
+
+            sum + cart.visitsCount,
+
+          );
+
+
+
+
+
+
+          CoffeeCart? bestCart;
+
+
+
+
+          if(carts.isNotEmpty){
+
+
+            bestCart =
+
+                carts.reduce(
+
+                      (a,b) =>
+
+                  a.score > b.score
+
+                      ? a
+
+                      : b,
+
+                );
+
+
+          }
+
+
+
+
+
+          return ListView(
+
+
+            padding:
+
             const EdgeInsets.all(20),
 
 
-        children: [
+
+            children: [
 
 
 
-          _card(
 
-            icon:
+              _card(
+
+                icon:
+
                 Icons.coffee,
 
 
-            title:
+
+                title:
+
                 "מספר עגלות",
 
 
-            value:
+
+                value:
+
                 carts.length.toString(),
 
-          ),
+
+              ),
 
 
 
 
-          _card(
 
-            icon:
+              _card(
+
+                icon:
+
                 Icons.restaurant,
 
 
-            title:
+
+                title:
+
                 "סה״כ ביקורים",
 
 
-            value:
+
+                value:
+
                 totalVisits.toString(),
 
-          ),
+
+              ),
 
 
 
 
-          _card(
 
-            icon:
+              _card(
+
+                icon:
+
                 Icons.star,
 
 
-            title:
+
+                title:
+
                 "ממוצע כללי",
 
 
-            value:
+
+                value:
+
                 _average(carts),
 
-          ),
+
+              ),
 
 
 
 
-          if(bestCart != null)
 
-            _card(
+              if(bestCart != null)
 
-              icon:
+                _card(
+
+                  icon:
+
                   Icons.emoji_events,
 
 
-              title:
+
+                  title:
+
                   "העגלה המובילה",
 
 
-              value:
+
+                  value:
+
                   bestCart.name,
 
-            ),
+
+                ),
 
 
 
-        ],
+            ],
+
+
+          );
+
+
+
+        },
+
 
       ),
+
 
     );
 
 
   }
+
+
 
 
 
@@ -173,55 +285,81 @@ class StatisticsScreen extends StatelessWidget {
     return Card(
 
       child:
-          Padding(
+
+      Padding(
 
         padding:
-            const EdgeInsets.all(20),
+
+        const EdgeInsets.all(20),
+
 
 
         child:
-            Row(
+
+        Row(
 
           children: [
 
 
+
             Icon(
+
               icon,
+
               size:40,
+
             ),
+
 
 
             const SizedBox(
+
               width:20,
+
             ),
+
 
 
 
             Expanded(
 
               child:
-                  Column(
+
+              Column(
 
                 crossAxisAlignment:
-                    CrossAxisAlignment.start,
+
+                CrossAxisAlignment.start,
+
 
 
                 children: [
 
 
+
                   Text(
+
                     title,
+
                     style:
-                        const TextStyle(
+
+                    const TextStyle(
+
                       fontSize:16,
+
                     ),
+
                   ),
+
 
 
 
                   const SizedBox(
+
                     height:6,
+
                   ),
+
 
 
 
@@ -229,30 +367,42 @@ class StatisticsScreen extends StatelessWidget {
 
                     value,
 
-
                     style:
-                        const TextStyle(
+
+                    const TextStyle(
+
                       fontSize:24,
+
                       fontWeight:
-                          FontWeight.bold,
+
+                      FontWeight.bold,
+
                     ),
 
                   ),
 
 
+
                 ],
+
 
               ),
 
             ),
 
+
+
           ],
+
 
         ),
 
+
       ),
 
+
     );
+
 
   }
 
@@ -261,12 +411,16 @@ class StatisticsScreen extends StatelessWidget {
 
 
 
+
+
   String _average(
+
       List<CoffeeCart> carts,
+
       ) {
 
 
-    if(carts.isEmpty) {
+    if(carts.isEmpty){
 
       return "0";
 
@@ -287,10 +441,14 @@ class StatisticsScreen extends StatelessWidget {
 
 
     return
+
         (total / carts.length)
+
             .toStringAsFixed(1);
 
+
   }
+
 
 
 }

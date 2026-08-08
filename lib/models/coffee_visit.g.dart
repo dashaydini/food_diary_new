@@ -28,13 +28,17 @@ class CoffeeVisitAdapter extends TypeAdapter<CoffeeVisit> {
       imageBase64: fields[8] as String,
       tags: (fields[9] as List).cast<String>(),
       date: fields[10] as DateTime,
+      userId: fields[11] as String,
+      userName: fields[12] as String,
+      userEmail: fields[13] as String,
+      createdAt: fields[14] as DateTime?,
     );
   }
 
   @override
   void write(BinaryWriter writer, CoffeeVisit obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(15)
       ..writeByte(0)
       ..write(obj.dish)
       ..writeByte(1)
@@ -56,7 +60,15 @@ class CoffeeVisitAdapter extends TypeAdapter<CoffeeVisit> {
       ..writeByte(9)
       ..write(obj.tags)
       ..writeByte(10)
-      ..write(obj.date);
+      ..write(obj.date)
+      ..writeByte(11)
+      ..write(obj.userId)
+      ..writeByte(12)
+      ..write(obj.userName)
+      ..writeByte(13)
+      ..write(obj.userEmail)
+      ..writeByte(14)
+      ..write(obj.createdAt);
   }
 
   @override

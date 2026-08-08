@@ -2,545 +2,1087 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/coffee_cart.dart';
 import '../models/coffee_visit.dart';
-
-
+import '../repositories/firebase_coffee_cart_repository.dart';
 
 class AddVisitScreen extends StatefulWidget {
-
-
   final CoffeeCart cart;
-
   final CoffeeVisit? existingVisit;
-
-
+  final bool viewOnly;
 
   const AddVisitScreen({
-
     super.key,
-
     required this.cart,
-
     this.existingVisit,
-
+    this.viewOnly = false,
   });
 
-
-
-
-
   @override
-  State<AddVisitScreen> createState() =>
-      _AddVisitScreenState();
-
+  State<AddVisitScreen> createState() => _AddVisitScreenState();
 }
 
+class _AddVisitScreenState extends State<AddVisitScreen> {
+  final FirebaseCoffeeCartRepository firebaseRepository =
+      FirebaseCoffeeCartRepository();
 
+  final TextEditingController dishController = TextEditingController();
+  final TextEditingController notesController = TextEditingController();
 
-
-
-
-class _AddVisitScreenState
-    extends State<AddVisitScreen> {
-
-
-
-  final dishController =
-      TextEditingController();
-
-
-
-  final notesController =
-      TextEditingController();
-
-
-
-
-
-  final picker =
-      ImagePicker();
-
-
-
-
+  final ImagePicker picker = ImagePicker();
 
   String imageBase64 = '';
 
-
-
-
+  DateTime visitDate = DateTime.now();
 
   double atmosphere = 5;
-
   double cleanliness = 5;
-
   double service = 5;
-
   double foodQuality = 5;
-
   double variety = 5;
-
   double value = 5;
-
-
-
-
 
   List<String> tags = [];
 
+  bool get readOnly {
+
+  if (widget.viewOnly) {
+    return true;
+  }
+
+  final user = FirebaseAuth.instance.currentUser;
+
+  if (widget.existingVisit == null) {
+    return false;
+  }
+
+  return widget.existingVisit!.userId != user?.uid;
+}
 
 
-
+bool saving = false;
+  bool hasChanges = false;
 
   final List<String> allTags = [
-
-
     "טעים",
-
+    "קפה מצוין",
+    "מאפים טריים",
     "מתאים למשפחה",
-
+    "נגישות",
+    "ילדים",
     "נוף",
-
+    "שקיעה",
     "ארוחת בוקר",
-
     "טבעוני",
-
     "עצירה בדרך",
-
+    "חניה נוחה",
     "שווה נסיעה",
-
-
+    "יקר",
   ];
-
-
-
-
-
-
-
-
 
   @override
   void initState() {
-
-
     super.initState();
 
+    final visit = widget.existingVisit;
 
+    if (visit != null) {
+      dishController.text = visit.dish;
+      notesController.text = visit.notes;
 
-    final visit =
-        widget.existingVisit;
+      atmosphere = visit.atmosphere;
+      cleanliness = visit.cleanliness;
+      service = visit.service;
+      foodQuality = visit.foodQuality;
+      variety = visit.variety;
+      value = visit.value;
 
+      imageBase64 = visit.imageBase64;
+      visitDate = visit.date;
 
-
-    if(visit != null){
-
-
-
-      dishController.text =
-          visit.dish;
-
-
-
-      notesController.text =
-          visit.notes;
-
-
-
-      atmosphere =
-          visit.atmosphere;
-
-
-
-      cleanliness =
-          visit.cleanliness;
-
-
-
-      service =
-          visit.service;
-
-
-
-      foodQuality =
-          visit.foodQuality;
-
-
-
-      variety =
-          visit.variety;
-
-
-
-      value =
-          visit.value;
-
-
-
-      imageBase64 =
-          visit.imageBase64;
-
-
-
-      tags =
-          List<String>.from(
-            visit.tags,
-          );
-
-
+      tags = List<String>.from(visit.tags);
     }
 
+    dishController.addListener(() {
+      hasChanges = true;
+    });
 
+    notesController.addListener(() {
+      hasChanges = true;
+    });
   }
 
+  @override
+  void dispose() {
+    dishController.dispose();
+    notesController.dispose();
+    super.dispose();
+  }
 
+  Future<bool> confirmExit() async {
+    if (!hasChanges || saving) {
+      return true;
+    }
 
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("לשמור שינויים?"),
+        content: const Text("בוצעו שינויים שלא נשמרו."),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, "cancel"),
+            child: const Text("ביטול"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, "discard"),
+            child: const Text("יציאה ללא שמירה"),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, "save"),
+            child: const Text("שמירה"),
+          ),
+        ],
+      ),
+    );
 
+    if (result == "save") {
+      await save();
+      return false;
+    }
 
+    return result == "discard";
+  }
 
+  Future<void> pickImage(ImageSource source) async {
+    try {
+      final image = await picker.pickImage(
+        source: source,
+        imageQuality: 80,
+      );
 
+      if (image == null) {
+        return;
+      }
 
+      final bytes = await image.readAsBytes();
 
-  Future<void> pickImage() async {
+      if (!mounted) {
+        return;
+      }
 
+      setState(() {
+        imageBase64 = base64Encode(bytes);
+        hasChanges = true;
+      });
+    } catch (e) {
+      debugPrint("IMAGE ERROR: $e");
 
-    final image =
-        await picker.pickImage(
-
-          source:
-              ImageSource.gallery,
-
-          imageQuality:
-              80,
-
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("שגיאה בבחירת תמונה: $e"),
+          ),
         );
+      }
+    }
+  }
 
+  Future<void> chooseImage() async {
+    await showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text("מצלמה"),
+              onTap: () {
+                Navigator.pop(context);
+                pickImage(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo),
+              title: const Text("גלריה"),
+              onTap: () {
+                Navigator.pop(context);
+                pickImage(ImageSource.gallery);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+    Future<void> save() async {
 
+    if (readOnly) {
 
-    if(image == null){
+      Navigator.pop(context);
 
       return;
 
     }
+    if (saving) {
+      return;
+    }
 
+    if (dishController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("יש להכניס מה אכלת"),
+        ),
+      );
+      return;
+    }
 
-
-
-    final bytes =
-        await image.readAsBytes();
-
-
-
-    setState((){
-
-
-      imageBase64 =
-          base64Encode(bytes);
-
-
+    setState(() {
+      saving = true;
     });
 
+    try {
+      final user = FirebaseAuth.instance.currentUser;
 
-  }
+      debugPrint("======================================");
+      debugPrint("SAVE VISIT");
+      debugPrint("Cart name: ${widget.cart.name}");
+      debugPrint("Firebase ID: ${widget.cart.firebaseId}");
+      debugPrint("Cart isInBox: ${widget.cart.isInBox}");
+      debugPrint("User ID: ${user?.uid}");
 
+      if (widget.existingVisit != null) {
+        final visit = widget.existingVisit!;
 
+        visit.dish = dishController.text.trim();
+        visit.notes = notesController.text.trim();
 
+        visit.atmosphere = atmosphere;
+        visit.cleanliness = cleanliness;
+        visit.service = service;
+        visit.foodQuality = foodQuality;
+        visit.variety = variety;
+        visit.value = value;
 
+        visit.imageBase64 = imageBase64;
+        visit.tags = List<String>.from(tags);
+        visit.date = visitDate;
 
+        debugPrint("Existing visit updated.");
+      } else {
+        final newVisit = CoffeeVisit(
+          dish: dishController.text.trim(),
+          notes: notesController.text.trim(),
+          atmosphere: atmosphere,
+          cleanliness: cleanliness,
+          service: service,
+          foodQuality: foodQuality,
+          variety: variety,
+          value: value,
+          imageBase64: imageBase64,
+          tags: List<String>.from(tags),
+          date: visitDate,
+          userId: user?.uid ?? '',
+          userName: user?.displayName ?? user?.email ?? 'משתמש',
+          userEmail: user?.email ?? '',
+          createdAt: DateTime.now(),
+        );
 
+        widget.cart.visits.add(newVisit);
 
+        debugPrint("New visit added.");
+        debugPrint("Visits count: ${widget.cart.visits.length}");
+      }
 
-  Future<void> save() async {
+      if (widget.cart.isInBox) {
+        debugPrint("Saving cart to Hive...");
+        await widget.cart.save();
+        debugPrint("Cart saved to Hive.");
+      } else {
+        debugPrint("Cart is NOT in Hive Box - skipping Hive save.");
+      }
 
+      if (widget.cart.firebaseId.isNotEmpty) {
+        debugPrint("Updating Firebase...");
 
-    if(widget.existingVisit != null){
+        await firebaseRepository.updateCoffeeCart(
+          widget.cart,
+        );
 
+        debugPrint("Firebase update completed.");
+      } else {
+        debugPrint("No Firebase ID - Firebase update skipped.");
+      }
 
+      hasChanges = false;
 
-      final visit =
-          widget.existingVisit!;
+      debugPrint("SAVE VISIT SUCCESS");
+      debugPrint("======================================");
 
+      if (mounted) {
+        Navigator.pop(context, true);
+      }
+    } catch (e, stackTrace) {
+      debugPrint("======================================");
+      debugPrint("SAVE VISIT ERROR");
+      debugPrint("$e");
+      debugPrint("STACK TRACE:");
+      debugPrint("$stackTrace");
+      debugPrint("======================================");
 
+      if (mounted) {
+        setState(() {
+          saving = false;
+        });
 
-
-      visit.dish =
-          dishController.text;
-
-
-
-      visit.notes =
-          notesController.text;
-
-
-
-      visit.atmosphere =
-          atmosphere;
-
-
-
-      visit.cleanliness =
-          cleanliness;
-
-
-
-      visit.service =
-          service;
-
-
-
-      visit.foodQuality =
-          foodQuality;
-
-
-
-      visit.variety =
-          variety;
-
-
-
-      visit.value =
-          value;
-
-
-
-      visit.tags =
-          tags;
-
-
-
-      visit.imageBase64 =
-          imageBase64;
-
-
-
-      await visit.save();
-
-
-
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("השמירה נכשלה:\n$e"),
+            duration: const Duration(seconds: 8),
+          ),
+        );
+      }
     }
-
-    else {
-
-
-
-      widget.cart.visits.add(
-
-
-        CoffeeVisit(
-
-
-          date:
-              DateTime.now(),
-
-
-          dish:
-              dishController.text,
-
-
-          notes:
-              notesController.text,
-
-
-          atmosphere:
-              atmosphere,
-
-
-          cleanliness:
-              cleanliness,
-
-
-          service:
-              service,
-
-
-          foodQuality:
-              foodQuality,
-
-
-          variety:
-              variety,
-
-
-          value:
-              value,
-
-
-          tags:
-              tags,
-
-
-          imageBase64:
-              imageBase64,
-
-
-        ),
-
-
-      );
-
-
-
-      await widget.cart.save();
-
-
-    }
-
-
-
-
-
-    if(mounted){
-
-      Navigator.pop(context);
-
-    }
-
-
   }
     Widget starPicker(
+String title,
+double currentValue,
+Function(double) update,
+) {
 
-      String title,
+if (readOnly) {
 
-      double value,
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
 
-      Function(double) update,
+      Text(
+        "$title: ${currentValue.toStringAsFixed(1)}",
+        style: const TextStyle(
+          fontSize: 16,
+        ),
+      ),
 
-      ){
+      Row(
+        children: List.generate(
+          5,
+          (index) => Icon(
+            index < currentValue.round()
+                ? Icons.star
+                : Icons.star_border,
+            color: Colors.amber,
+            size: 24,
+          ),
+        ),
+      ),
+
+    ],
+  );
+
+}
+
+
+return Column(
+crossAxisAlignment: CrossAxisAlignment.start,
+children: [
+
+Text(
+"$title: ${currentValue.toStringAsFixed(1)}",
+style: const TextStyle(
+fontSize: 16,
+),
+),
+
+Slider(
+value: currentValue,
+min: 0,
+max: 5,
+divisions: 10,
+onChanged: saving
+? null
+: (newValue) {
+
+setState(() {
+update(newValue);
+hasChanges = true;
+});
+
+},
+),
+
+],
+);
+
+}
+
+@override
+  Widget build(BuildContext context) {
+
+    debugPrint("BUILD ADD VISIT SCREEN");
+    debugPrint("existing user: ${widget.existingVisit?.userId}");
+    debugPrint("current user: ${FirebaseAuth.instance.currentUser?.uid}");
+debugPrint("READ ONLY VALUE: $readOnly");
+
+
+    return Directionality(
+
+
+      textDirection:
+
+      TextDirection.rtl,
 
 
 
-    return Column(
+      child:
 
-      crossAxisAlignment:
-          CrossAxisAlignment.start,
+      PopScope(
+
+    canPop: false,
+
+    onPopInvokedWithResult: (didPop, result) async {
+
+      if (didPop) {
+        return;
+      }
+
+      if (readOnly || !hasChanges) {
+        Navigator.pop(context);
+        return;
+      }
+
+      final shouldExit = await confirmExit();
+
+      if (shouldExit && context.mounted) {
+        Navigator.pop(context);
+      }
+
+    },
+
+    child:
+
+    Scaffold(
 
 
-      children: [
+
+        appBar:
+
+        AppBar(
 
 
 
-        Text(
+          title:
 
-          "$title: ${value.toStringAsFixed(1)}",
+          Text(
 
-          style:
-              const TextStyle(
 
-            fontWeight:
-                FontWeight.bold,
+
+            widget.existingVisit == null
+
+                ? "הוספת ביקור"
+
+                : readOnly
+
+                    ? "צפייה בביקור"
+
+                    : "עריכת ביקור",
+
+
 
           ),
 
+
+
         ),
 
 
 
 
 
-        Row(
 
-          children:
-
-          List.generate(
-
-            5,
-
-            (index){
+        body:
 
 
 
-              final starValue =
-                  index + 1.0;
+        ListView(
 
 
 
-              final halfValue =
-                  index + 0.5;
+          padding:
 
-
-
-              IconData icon;
-
-
-
-              if(value >= starValue){
-
-                icon =
-                    Icons.star;
-
-              }
-
-              else if(value >= halfValue){
-
-                icon =
-                    Icons.star_half;
-
-              }
-
-              else {
-
-                icon =
-                    Icons.star_border;
-
-              }
+          const EdgeInsets.all(16),
 
 
 
 
-              return GestureDetector(
-
-
-                onTapDown:(details){
+          children: [
 
 
 
-                  final box =
-                      context.findRenderObject()
-                      as RenderBox;
 
 
 
-                  final local =
-                      details.localPosition.dx;
+            imageBox(),
 
 
 
-                  final halfWidth =
-                      24 / 2;
 
 
 
-                  double newValue;
+            const SizedBox(
+
+              height:
+
+              16,
+
+            ),
 
 
 
-                  if(local < halfWidth){
-
-                    newValue =
-                        halfValue;
-
-                  }
-
-                  else {
-
-                    newValue =
-                        starValue;
-
-                  }
 
 
 
-                  setState((){
+            ListTile(
 
 
-                    update(
-                      newValue,
-                    );
+
+              leading:
+
+              const Icon(
+
+                Icons.calendar_today,
+
+              ),
 
 
-                  });
+
+              title:
+
+              const Text(
+
+                "תאריך ביקור",
+
+              ),
+
+
+
+              subtitle:
+
+              Text(
+
+
+
+                "${visitDate.day}/${visitDate.month}/${visitDate.year}",
+
+
+
+              ),
+
+
+
+              onTap:
+
+              pickDate,
+
+
+
+            ),
+
+
+
+
+
+
+
+
+            const SizedBox(
+
+              height:
+
+              10,
+
+            ),
+
+
+
+
+
+
+            TextField(
+
+
+
+              controller:
+
+              dishController,
+
+
+
+              
+
+                readOnly:
+
+                readOnly,
+
+
+                decoration:
+
+              const InputDecoration(
+
+
+
+                labelText:
+
+                "מה אכלת?",
+
+
+
+                border:
+
+                OutlineInputBorder(),
+
+
+
+              ),
+
+
+
+            ),
+
+
+
+
+
+
+            const SizedBox(
+
+              height:
+
+              12,
+
+            ),
+
+
+
+
+
+
+
+            TextField(
+
+
+
+              controller:
+
+              notesController,
+
+
+
+              
+
+                readOnly:
+
+                readOnly,
+
+
+                maxLines:
+
+              3,
+
+
+
+              decoration:
+
+              const InputDecoration(
+
+
+
+                labelText:
+
+                "הערות",
+
+
+
+                border:
+
+                OutlineInputBorder(),
+
+
+
+              ),
+
+
+
+            ),
+
+
+
+
+
+
+
+            const SizedBox(
+
+              height:
+
+              20,
+
+            ),
+
+
+
+
+
+
+            starPicker(
+
+
+
+              "אוכל",
+
+
+
+              foodQuality,
+
+
+
+              (v){
+
+
+
+                foodQuality =
+
+                    v;
+
+
+
+              },
+
+
+
+            ),
+
+
+
+
+
+
+            starPicker(
+
+
+
+              "אווירה",
+
+
+
+              atmosphere,
+
+
+
+              (v){
+
+
+
+                atmosphere =
+
+                    v;
+
+
+
+              },
+
+
+
+            ),
+
+
+
+
+
+
+            starPicker(
+
+
+
+              "שירות",
+
+
+
+              service,
+
+
+
+              (v){
+
+
+
+                service =
+
+                    v;
+
+
+
+              },
+
+
+
+            ),
+
+
+
+
+
+
+            starPicker(
+
+
+
+              "ניקיון",
+
+
+
+              cleanliness,
+
+
+
+              (v){
+
+
+
+                cleanliness =
+
+                    v;
+
+
+
+              },
+
+
+
+            ),
+
+
+
+
+
+
+            starPicker(
+
+
+
+              "מגוון",
+
+
+
+              variety,
+
+
+
+              (v){
+
+
+
+                variety =
+
+                    v;
+
+
+
+              },
+
+
+
+            ),
+
+
+
+
+
+
+            starPicker(
+
+
+
+              "תמורה למחיר",
+
+
+
+              value,
+
+
+
+              (v){
+
+
+
+                value =
+
+                    v;
+
+
+
+              },
+
+
+
+            ),
+
+
+
+
+
+
+
+            const SizedBox(
+
+              height:
+
+              20,
+
+            ),
+
+
+
+
+
+
+            const Text(
+
+
+
+              "תגיות",
+
+
+
+              style:
+
+              TextStyle(
+
+
+
+                fontSize:
+
+                18,
+
+
+
+                fontWeight:
+
+                FontWeight.bold,
+
+
+
+              ),
+
+
+
+            ),
+
+
+
+
+
+
+
+
+            const SizedBox(
+
+              height:
+
+              10,
+
+            ),
+
+
+
+
+
+
+
+            Wrap(
+
+
+
+              spacing:
+
+              8,
+
+
+
+              runSpacing:
+
+              8,
+
+
+
+              children:
+
+
+
+              (readOnly ? tags : allTags).map(
+
+
+
+                    (tag){
+
+
+
+                  return FilterChip(
+
+
+
+                    label:
+
+                    Text(tag),
+
+
+
+                    selected:
+
+                    tags.contains(tag),
+
+
+
+                    onSelected:(selected){
+
+
+
+                      setState((){
+
+
+
+                        if(selected){
+
+
+
+                          tags.add(tag);
+
+
+
+                        }
+
+                        else {
+
+
+
+                          tags.remove(tag);
+
+
+
+                        }
+
+
+
+                      });
+
+
+
+                    },
+
+
+
+                  );
 
 
 
@@ -548,60 +1090,89 @@ class _AddVisitScreenState
 
 
 
-                child:
-
-                Padding(
-
-                  padding:
-                      const EdgeInsets.symmetric(
-                        horizontal:2,
-                      ),
-
-
-                  child:
-
-                  Icon(
-
-                    icon,
-
-                    color:
-                        Colors.amber,
-
-                    size:
-                        32,
-
-                  ),
-
-                ),
-
-
-              );
+              ).toList(),
 
 
 
-            },
+            ),
 
-          ),
+
+
+
+
+
+
+
+            const SizedBox(
+
+              height:
+
+              30,
+
+            ),
+
+
+
+
+
+
+
+            if (!readOnly)
+
+              FilledButton.icon(
+
+
+
+              onPressed:
+
+              save,
+
+
+
+              icon:
+
+              const Icon(
+
+                Icons.save,
+
+              ),
+
+
+
+              label:
+
+              const Text(
+
+                "שמירה",
+
+              ),
+
+
+
+            ),
+
+
+
+
+
+          ],
+
 
 
         ),
 
 
 
-      ],
+      ),
 
 
+
+      ),
     );
 
 
+
   }
-
-
-
-
-
-
-
 
 
   Widget imageBox(){
@@ -609,64 +1180,116 @@ class _AddVisitScreenState
 
     return GestureDetector(
 
+
       onTap:
-          pickImage,
+
+      chooseImage,
+
 
 
       child:
 
+
+
       Container(
 
+
+
         height:
-            220,
+
+        220,
+
+
+
+        width:
+
+        double.infinity,
+
 
 
         decoration:
 
         BoxDecoration(
 
+
+
           color:
-              Colors.grey.shade200,
+
+          Colors.grey.shade200,
+
 
 
           borderRadius:
-              BorderRadius.circular(20),
+
+          BorderRadius.circular(
+
+            20,
+
+          ),
+
 
 
         ),
 
 
 
+
+
         child:
 
+
+
         imageBase64.isEmpty
+
 
 
             ?
 
 
+
         const Icon(
+
+
 
           Icons.add_a_photo,
 
+
+
           size:
-              60,
+
+          60,
+
+
 
         )
+
 
 
             :
 
 
+
         ClipRRect(
 
+
+
           borderRadius:
-              BorderRadius.circular(20),
+
+          BorderRadius.circular(
+
+            20,
+
+          ),
+
 
 
           child:
 
+
+
           Image.memory(
+
+
 
             base64Decode(
 
@@ -675,15 +1298,21 @@ class _AddVisitScreenState
             ),
 
 
+
             width:
-                double.infinity,
+
+            double.infinity,
+
 
 
             fit:
-                BoxFit.cover,
+
+            BoxFit.cover,
+
 
 
           ),
+
 
 
         ),
@@ -697,393 +1326,65 @@ class _AddVisitScreenState
 
 
   }
-    @override
-  Widget build(BuildContext context) {
 
 
-    return Scaffold(
+  Future<void> pickDate() async {
 
 
-      appBar:
 
-      AppBar(
+    final result =
 
-        title:
+    await showDatePicker(
 
-        Text(
 
-          widget.existingVisit == null
 
-              ? "הוספת ביקור"
+      context:
 
-              : "עריכת ביקור",
+      context,
 
-        ),
 
-      ),
 
+      initialDate:
 
+      visitDate,
 
 
 
-      body:
+      firstDate:
 
-      ListView(
+      DateTime(2020),
 
-        padding:
-            const EdgeInsets.all(16),
 
 
+      lastDate:
 
-        children: [
+      DateTime.now(),
 
-
-
-          imageBox(),
-
-
-
-
-
-          const SizedBox(
-            height:16,
-          ),
-
-
-
-
-
-          TextField(
-
-            controller:
-                dishController,
-
-
-            decoration:
-                const InputDecoration(
-
-              labelText:
-                  "מה אכלת?",
-
-              border:
-                  OutlineInputBorder(),
-
-            ),
-
-
-          ),
-
-
-
-
-
-
-          const SizedBox(
-            height:12,
-          ),
-
-
-
-
-
-          TextField(
-
-            controller:
-                notesController,
-
-
-            maxLines:
-                3,
-
-
-            decoration:
-                const InputDecoration(
-
-              labelText:
-                  "הערות",
-
-              border:
-                  OutlineInputBorder(),
-
-            ),
-
-
-          ),
-
-
-
-
-
-
-          const SizedBox(
-            height:20,
-          ),
-
-
-
-
-
-          starPicker(
-
-            "אוכל",
-
-            foodQuality,
-
-            (v){
-
-              foodQuality =
-                  v;
-
-            },
-
-          ),
-
-
-
-
-
-          starPicker(
-
-            "אווירה",
-
-            atmosphere,
-
-            (v){
-
-              atmosphere =
-                  v;
-
-            },
-
-          ),
-
-
-
-
-
-          starPicker(
-
-            "שירות",
-
-            service,
-
-            (v){
-
-              service =
-                  v;
-
-            },
-
-          ),
-
-
-
-
-
-          starPicker(
-
-            "ניקיון",
-
-            cleanliness,
-
-            (v){
-
-              cleanliness =
-                  v;
-
-            },
-
-          ),
-
-
-
-
-
-          starPicker(
-
-            "מגוון",
-
-            variety,
-
-            (v){
-
-              variety =
-                  v;
-
-            },
-
-          ),
-
-
-
-
-
-          starPicker(
-
-            "תמורה",
-
-            value,
-
-            (v){
-
-              value =
-                  v;
-
-            },
-
-          ),
-
-
-
-
-
-
-          const SizedBox(
-            height:20,
-          ),
-
-
-
-
-
-
-          const Text(
-
-            "תגיות",
-
-            style:
-
-            TextStyle(
-
-              fontSize:
-                  18,
-
-              fontWeight:
-                  FontWeight.bold,
-
-            ),
-
-          ),
-
-
-
-
-
-
-          Wrap(
-
-            spacing:
-                8,
-
-
-            runSpacing:
-                8,
-
-
-
-            children:
-
-            allTags.map(
-
-                  (tag){
-
-
-
-                return FilterChip(
-
-                  label:
-                      Text(tag),
-
-
-                  selected:
-                      tags.contains(tag),
-
-
-                  onSelected:(selected){
-
-
-
-                    setState((){
-
-
-
-                      if(selected){
-
-                        tags.add(tag);
-
-                      }
-
-                      else {
-
-                        tags.remove(tag);
-
-                      }
-
-
-
-                    });
-
-
-
-                  },
-
-
-                );
-
-
-              },
-
-            ).toList(),
-
-
-
-          ),
-
-
-
-
-
-
-          const SizedBox(
-            height:30,
-          ),
-
-
-
-
-
-
-          FilledButton(
-
-
-            onPressed:
-                save,
-
-
-            child:
-
-            const Text(
-
-              "שמירה",
-
-            ),
-
-
-          ),
-
-
-
-
-        ],
-
-
-      ),
 
 
     );
 
 
+
+    if(result != null){
+
+
+      setState((){
+
+
+        visitDate =
+
+            result;
+
+
+
+      });
+
+
+
+    }
+
+
+
   }
-
-
 }

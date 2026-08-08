@@ -24,13 +24,17 @@ class CoffeeCartAdapter extends TypeAdapter<CoffeeCart> {
       favorite: fields[4] as bool,
       latitude: fields[5] as double,
       longitude: fields[6] as double,
+      firebaseId: fields[7] as String,
+      ownerName: fields[8] as String,
+      createdAt: fields[9] as DateTime?,
+      ownerId: fields[10] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, CoffeeCart obj) {
     writer
-      ..writeByte(7)
+      ..writeByte(11)
       ..writeByte(0)
       ..write(obj.name)
       ..writeByte(1)
@@ -44,7 +48,15 @@ class CoffeeCartAdapter extends TypeAdapter<CoffeeCart> {
       ..writeByte(5)
       ..write(obj.latitude)
       ..writeByte(6)
-      ..write(obj.longitude);
+      ..write(obj.longitude)
+      ..writeByte(7)
+      ..write(obj.firebaseId)
+      ..writeByte(8)
+      ..write(obj.ownerName)
+      ..writeByte(9)
+      ..write(obj.createdAt)
+      ..writeByte(10)
+      ..write(obj.ownerId);
   }
 
   @override

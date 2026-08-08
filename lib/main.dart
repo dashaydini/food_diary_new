@@ -11,7 +11,7 @@ import 'repositories/coffee_cart_repository.dart';
 
 import 'services/firebase_sync_service.dart';
 
-import 'screens/main_navigation_screen.dart';
+import 'screens/auth_gate.dart';
 
 import 'theme/app_theme.dart';
 
@@ -20,10 +20,12 @@ import 'theme/app_theme.dart';
 Future<void> main() async {
 
   WidgetsFlutterBinding.ensureInitialized();
+print('MAIN START');
 
 
 
-  await Firebase.initializeApp(
+  print('BEFORE FIREBASE');
+await Firebase.initializeApp(
 
     options:
         DefaultFirebaseOptions.currentPlatform,
@@ -32,7 +34,8 @@ Future<void> main() async {
 
 
 
-  await Hive.initFlutter();
+  print('FIREBASE DONE');
+await Hive.initFlutter();
 
 
 
@@ -66,12 +69,15 @@ Future<void> main() async {
 
 
 
+
   await FirebaseSyncService()
       .syncCoffeeCarts();
 
 
 
-  runApp(
+
+  print('BEFORE RUN APP');
+runApp(
 
     const CoffeeDiaryApp(),
 
@@ -114,7 +120,7 @@ class CoffeeDiaryApp extends StatelessWidget {
 
       home:
 
-          const MainNavigationScreen(),
+          AuthGate(),
 
 
     );
