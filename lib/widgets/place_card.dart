@@ -223,25 +223,6 @@ class _PlaceCardState extends State<PlaceCard> {
                 children: [
                   Row(
                     children: [
-                      if (widget.place['latitude'] != null &&
-                          widget.place['longitude'] != null) ...[
-                        IconButton(
-                          tooltip: 'ניווט',
-                          visualDensity: VisualDensity.compact,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                            minWidth: 32,
-                            minHeight: 32,
-                          ),
-                          icon: const Icon(
-                            Icons.navigation_outlined,
-                            size: 20,
-                            color: AppColors.muted,
-                          ),
-                          onPressed: _openNavigation,
-                        ),
-                        const SizedBox(width: 4),
-                      ],
                       Expanded(
                         child: Text(
                           name,
@@ -252,6 +233,37 @@ class _PlaceCardState extends State<PlaceCard> {
                           ),
                         ),
                       ),
+                      if (widget.place['latitude'] != null &&
+                          widget.place['longitude'] != null) ...[
+                        const SizedBox(width: 8),
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              tooltip: 'ניווט למקום',
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 34,
+                                minHeight: 34,
+                              ),
+                              icon: const Icon(
+                                Icons.navigation_outlined,
+                                size: 22,
+                                color: AppColors.muted,
+                              ),
+                              onPressed: _openNavigation,
+                            ),
+                            const Text(
+                              'ניווט למקום',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: AppColors.muted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       if (weightedRating != null) ...[
                         const SizedBox(width: 10),
                         Row(
@@ -272,25 +284,6 @@ class _PlaceCardState extends State<PlaceCard> {
                               ),
                             ),
                           ],
-                        ),
-                      ],
-                      if (widget.place['latitude'] != null &&
-                          widget.place['longitude'] != null) ...[
-                        const SizedBox(width: 6),
-                        IconButton(
-                          tooltip: 'ניווט',
-                          visualDensity: VisualDensity.compact,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                            minWidth: 36,
-                            minHeight: 36,
-                          ),
-                          icon: const Icon(
-                            Icons.navigation_outlined,
-                            size: 21,
-                            color: AppColors.muted,
-                          ),
-                          onPressed: _openNavigation,
                         ),
                       ],
                     ],
