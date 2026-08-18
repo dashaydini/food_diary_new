@@ -112,7 +112,7 @@ class AuthService {
 
   Future<void> signInWithGoogle() async {
     final redirectTo = kIsWeb
-        ? '${Uri.base.origin}${Uri.base.path.endsWith('/') ? Uri.base.path : '${Uri.base.path}/'}'
+        ? 'https://dashaydini.github.io/food_diary_new/'
         : 'fooddiary://login-callback';
 
     await _supabase.auth.signInWithOAuth(
@@ -128,7 +128,7 @@ class AuthService {
 
   Future<void> signInWithApple() async {
     final redirectTo = kIsWeb
-        ? '${Uri.base.origin}${Uri.base.path.endsWith('/') ? Uri.base.path : '${Uri.base.path}/'}'
+        ? 'https://dashaydini.github.io/food_diary_new/'
         : 'fooddiary://login-callback';
 
     await _supabase.auth.signInWithOAuth(
