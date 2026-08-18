@@ -1,3 +1,4 @@
+import org.gradle.api.tasks.compile.JavaCompile
 allprojects {
     repositories {
         google()
@@ -21,4 +22,14 @@ subprojects {
 
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
+}
+
+
+
+
+subprojects {
+    tasks.withType<JavaCompile>().configureEach {
+        sourceCompatibility = "17"
+        targetCompatibility = "17"
+    }
 }

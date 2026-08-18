@@ -1,0 +1,336 @@
+import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'add_place_screen.dart';
+import 'add_visit_screen.dart';
+import '../theme/colors.dart';
+import '../utils/permissions.dart';
+import '../widgets/home_button.dart';
+import '../widgets/visit_card.dart';
+
+class PlaceDetailsScreen extends StatefulWidget {
+  final Map<String, dynamic> place;
+
+  const PlaceDetailsScreen({
+    super.key,
+    required this.place,
+  });
+
+  @override
+  State<PlaceDetailsScreen> createState() => _PlaceDetailsScreenState();
+}
+
+class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
+  List<Map<String, dynamic>> _visits = [];
+  bool _loadingVisits = true;
+  String? _visitsError;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVisits();
+  }
+
+  Future<void> _loadVisits() async {
+    try {
+      final rows = await Supabase.instance.client
+          .from('visits')
+          .select(
+            'id, place_id, user_id, visit_date, notes, rating, food, food_price, '
+            'drink, drink_price, image_url, food_rating, drink_rating, '
+            'atmosphere_rating, service_rating, cleanliness_rating, '
+            'variety_rating, value_rating, created_at, '
+            'profiles(display_name, email, avatar_url), '
+            'visit_tag_links(tag_id, visit_tags(name, icon))',
+          )
+          .eq('place_id', widget.place['id'])
+          .order('visit_date', ascending: false);
+
+      if (!mounted) return;
+
+      setState(() {
+        _visits = List<Map<String, dynamic>>.from(rows);
+        _loadingVisits = false;
+        _visitsError = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _loadingVisits = false;
+        _visitsError = e.toString();
+      });
+    }
+  }
+
+  Future<void> _editPlace() async {
+    final edited = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AddPlaceScreen(
+          categoryId: widget.place['category_id']?.toString() ?? '',
+          categoryTitle: widget.place['category_title']?.toString() ?? '',
+          place: widget.place,
+        ),
+      ),
+    );
+
+    if (edited == true && mounted) {
+      Navigator.of(context).pop(true);
+    }
+  }
+
+  Future<void> _deletePlace() async {
+    if (!Permissions.canDeletePlace()) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('מחיקת מקום'),
+          content: const Text(
+            'האם אתה בטוח שברצונך למחוק את המקום?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('ביטול'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('מחיקה'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await Supabase.instance.client
+          .from('places')
+          .delete()
+          .eq('id', widget.place['id']);
+
+      if (!mounted) return;
+
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('לא ניתן למחוק את המקום: $e'),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final name = widget.place['name'] as String? ?? '';
+    final description = widget.place['description'] as String? ?? '';
+    final address = widget.place['address'] as String? ?? '';
+    final imageUrl = widget.place['image_url'] as String? ?? '';
+
+    final canEdit = Permissions.canEditPlace(
+      widget.place['user_id']?.toString(),
+    );
+
+    final canDelete = Permissions.canDeletePlace();
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        title: Text(name),
+        actions: [
+          const HomeButton(),
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(24),
+        children: [
+          if (imageUrl.isNotEmpty)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: Container(
+                width: double.infinity,
+                height: 240,
+                color: AppColors.card,
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+          if (imageUrl.isNotEmpty) const SizedBox(height: 20),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  name,
+                  style: const TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (canEdit)
+                IconButton(
+                  tooltip: 'עריכה',
+                  icon: const Icon(
+                    Icons.edit_outlined,
+                    color: AppColors.muted,
+                  ),
+                  onPressed: _editPlace,
+                ),
+              if (canDelete)
+                IconButton(
+                  tooltip: 'מחיקה',
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: AppColors.muted,
+                  ),
+                  onPressed: _deletePlace,
+                ),
+            ],
+          ),
+          if (description.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              description,
+              style: const TextStyle(
+                fontSize: 16,
+                color: AppColors.muted,
+              ),
+            ),
+          ],
+          if (address.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.location_on_outlined,
+                  size: 20,
+                  color: AppColors.muted,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    address,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      color: AppColors.muted,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: FilledButton.icon(
+              onPressed: () async {
+                final added = await Navigator.of(context).push<bool>(
+                  MaterialPageRoute(
+                    builder: (_) => AddVisitScreen(
+                      place: widget.place,
+                    ),
+                  ),
+                );
+
+                if (added == true && mounted) {
+                  setState(() {
+                    _loadingVisits = true;
+                  });
+                  _loadVisits();
+                }
+              },
+              icon: const Icon(Icons.add),
+              label: const Text(
+                'הוספת ביקור',
+                style: TextStyle(fontSize: 17),
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+          const Text(
+            'ביקורים',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 14),
+          _buildVisits(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVisits() {
+    if (_loadingVisits) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_visitsError != null) {
+      return Column(
+        children: [
+          const Text('לא ניתן לטעון את הביקורים'),
+          const SizedBox(height: 10),
+          OutlinedButton(
+            onPressed: () {
+              setState(() {
+                _loadingVisits = true;
+                _visitsError = null;
+              });
+              _loadVisits();
+            },
+            child: const Text('נסה שוב'),
+          ),
+        ],
+      );
+    }
+
+    if (_visits.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 20),
+        child: Text(
+          'אין עדיין ביקורים במקום הזה',
+          style: TextStyle(
+            color: AppColors.muted,
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: _visits.map((visit) {
+        return VisitCard(
+          visit: visit,
+          place: widget.place,
+          onChanged: () async {
+            if (!mounted) return;
+
+            setState(() {
+              _loadingVisits = true;
+            });
+
+            await _loadVisits();
+          },
+        );
+      }).toList(),
+    );
+  }
+}

@@ -1,0 +1,130 @@
+import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../screens/add_visit_screen.dart';
+import '../theme/colors.dart';
+
+class VisitCard extends StatelessWidget {
+  final Map<String, dynamic> visit;
+  final Map<String, dynamic> place;
+  final VoidCallback? onChanged;
+
+  const VisitCard({
+    super.key,
+    required this.visit,
+    required this.place,
+    this.onChanged,
+  });
+
+  Future<void> _open(BuildContext context) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AddVisitScreen(
+          place: place,
+          visit: visit,
+          viewOnly: true,
+        ),
+      ),
+    );
+
+    if (changed == true) {
+      onChanged?.call();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rating = visit['rating'];
+
+    final profile = visit['profiles'] as Map<String, dynamic>?;
+    final displayName = profile?['display_name'] as String?;
+    final email = profile?['email'] as String?;
+
+    final ownerId = visit['user_id']?.toString();
+
+    final author = (displayName?.trim().isNotEmpty ?? false)
+        ? displayName!.trim()
+        : (email?.trim().isNotEmpty ?? false)
+            ? email!.trim().split('@').first
+            : 'משתמש';
+
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+
+    final visitDate = DateTime.tryParse(
+      visit['visit_date']?.toString() ?? '',
+    );
+
+    final dateText = visitDate != null
+        ? ' בתאריך '
+            '${visitDate.day.toString().padLeft(2, '0')}.'
+            '${visitDate.month.toString().padLeft(2, '0')}.'
+            '${visitDate.year}'
+        : '';
+
+    final isOwnVisit =
+        ownerId != null && currentUserId != null && ownerId == currentUserId;
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: AppColors.line,
+          width: 0.7,
+        ),
+      ),
+      child: InkWell(
+        onTap: () => _open(context),
+        borderRadius: BorderRadius.circular(18),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 18,
+            vertical: 16,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Icon(
+                    Icons.person_outline,
+                    size: 22,
+                    color: AppColors.muted,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      isOwnVisit
+                          ? 'ביקרת כאן$dateText'
+                          : 'נוסף ביקור על ידי $author$dateText',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  if (rating != null) ...[
+                    const Icon(
+                      Icons.star,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      (rating as num).toStringAsFixed(1),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
