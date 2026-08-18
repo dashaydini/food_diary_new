@@ -223,7 +223,7 @@ class _PlaceCardState extends State<PlaceCard> {
                 children: [
                   Row(
                     children: [
-                      Expanded(
+                      Flexible(
                         child: Text(
                           name,
                           style: const TextStyle(
@@ -231,11 +231,12 @@ class _PlaceCardState extends State<PlaceCard> {
                             fontWeight: FontWeight.w600,
                             color: Color(0xFFF5EEE6),
                           ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       if (widget.place['latitude'] != null &&
                           widget.place['longitude'] != null) ...[
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 14),
                         Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -264,8 +265,8 @@ class _PlaceCardState extends State<PlaceCard> {
                           ],
                         ),
                       ],
-                      if (weightedRating != null) ...[
-                        const SizedBox(width: 10),
+                      const Spacer(),
+                      if (weightedRating != null)
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -285,7 +286,6 @@ class _PlaceCardState extends State<PlaceCard> {
                             ),
                           ],
                         ),
-                      ],
                     ],
                   ),
                   if (description.isNotEmpty) ...[
