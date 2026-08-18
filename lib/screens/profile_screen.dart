@@ -282,7 +282,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (code == null || code.isEmpty) return;
 
     final inviteUrl =
-        'https://qvqrretduhivnxrquzte.supabase.co/?ref=${Uri.encodeComponent(code)}';
+        'https://dashaydini.github.io/food_diary_new/?ref=${Uri.encodeComponent(code)}';
 
     final text = 'הצטרף אליי ל-Food Diary 👋\n$inviteUrl';
 
