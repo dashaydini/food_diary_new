@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../models/content_filter.dart';
 import '../screens/place_details_screen.dart';
@@ -22,47 +21,6 @@ class PlaceCard extends StatefulWidget {
 }
 
 class _PlaceCardState extends State<PlaceCard> {
-  Future<void> _openNavigation() async {
-    final latitude = (widget.place['latitude'] as num?)?.toDouble();
-    final longitude = (widget.place['longitude'] as num?)?.toDouble();
-
-    if (latitude == null || longitude == null) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('אין מיקום זמין לניווט עבור המקום הזה'),
-        ),
-      );
-      return;
-    }
-
-    final uri = Uri.parse('geo:$latitude,$longitude?q=$latitude,$longitude');
-
-    try {
-      final launched = await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
-      );
-
-      if (!launched && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('לא נמצאה אפליקציית מפות במכשיר'),
-          ),
-        );
-      }
-    } catch (_) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('לא ניתן לפתוח אפליקציית ניווט'),
-        ),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final name = widget.place['name']?.toString() ?? '';
@@ -137,25 +95,6 @@ class _PlaceCardState extends State<PlaceCard> {
                               ),
                             ),
                           ],
-                        ),
-                      ],
-                      if (widget.place['latitude'] != null &&
-                          widget.place['longitude'] != null) ...[
-                        const SizedBox(width: 6),
-                        IconButton(
-                          tooltip: 'ניווט',
-                          visualDensity: VisualDensity.compact,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                            minWidth: 36,
-                            minHeight: 36,
-                          ),
-                          icon: const Icon(
-                            Icons.directions_outlined,
-                            size: 21,
-                            color: AppColors.muted,
-                          ),
-                          onPressed: _openNavigation,
                         ),
                       ],
                     ],
