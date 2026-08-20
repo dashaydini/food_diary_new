@@ -28,10 +28,11 @@ class AddVisitScreen extends StatefulWidget {
 
 class _AddVisitScreenState extends State<AddVisitScreen> {
   final _foodController = TextEditingController();
-  final _foodPriceController = TextEditingController();
   final _drinkController = TextEditingController();
-  final _drinkPriceController = TextEditingController();
+  final _totalPriceController = TextEditingController();
   final _notesController = TextEditingController();
+
+  int _priceLevel = 0;
 
   final ImagePicker _picker = ImagePicker();
 
@@ -68,9 +69,9 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
     if (visit == null) return;
 
     _foodController.text = visit['food']?.toString() ?? '';
-    _foodPriceController.text = visit['food_price']?.toString() ?? '';
     _drinkController.text = visit['drink']?.toString() ?? '';
-    _drinkPriceController.text = visit['drink_price']?.toString() ?? '';
+    _totalPriceController.text = visit['total_price']?.toString() ?? '';
+    _priceLevel = (visit['price_level'] as num?)?.toInt() ?? 0;
     _notesController.text = visit['notes']?.toString() ?? '';
 
     final visitDate = DateTime.tryParse(
@@ -123,9 +124,8 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
   @override
   void dispose() {
     _foodController.dispose();
-    _foodPriceController.dispose();
     _drinkController.dispose();
-    _drinkPriceController.dispose();
+    _totalPriceController.dispose();
     _notesController.dispose();
     super.dispose();
   }
@@ -681,9 +681,9 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
               'notes': _notesController.text.trim(),
               'rating': rating == 0 ? null : rating,
               'food': _foodController.text.trim(),
-              'food_price': double.tryParse(_foodPriceController.text.trim()),
               'drink': _drinkController.text.trim(),
-              'drink_price': double.tryParse(_drinkPriceController.text.trim()),
+              'total_price': double.tryParse(_totalPriceController.text.trim()),
+              'price_level': _priceLevel == 0 ? null : _priceLevel,
               'image_url': imageUrls.isNotEmpty ? imageUrls.first : null,
               'food_rating': _foodRating == 0 ? null : _foodRating,
               'drink_rating': _drinkRating == 0 ? null : _drinkRating,
@@ -737,9 +737,9 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
           'notes': _notesController.text.trim(),
           'rating': rating == 0 ? null : rating,
           'food': _foodController.text.trim(),
-          'food_price': double.tryParse(_foodPriceController.text.trim()),
           'drink': _drinkController.text.trim(),
-          'drink_price': double.tryParse(_drinkPriceController.text.trim()),
+          'total_price': double.tryParse(_totalPriceController.text.trim()),
+          'price_level': _priceLevel == 0 ? null : _priceLevel,
           'food_rating': _foodRating == 0 ? null : _foodRating,
           'drink_rating': _drinkRating == 0 ? null : _drinkRating,
           'atmosphere_rating':
@@ -936,6 +936,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
     String label, {
     TextInputType? keyboardType,
     int maxLines = 1,
+    String? suffixText,
   }) {
     return TextField(
       controller: controller,
@@ -948,6 +949,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
       keyboardType: keyboardType,
       maxLines: maxLines,
       decoration: InputDecoration(
+        suffixText: suffixText,
         labelText: label,
         filled: true,
         fillColor: AppColors.card,
@@ -1089,6 +1091,44 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
     );
   }
 
+  Widget _priceLevelButton(int level) {
+    final selected = _priceLevel == level;
+
+    return InkWell(
+      onTap: widget.viewOnly
+          ? null
+          : () {
+              setState(() {
+                _priceLevel = level;
+              });
+            },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 8,
+          vertical: 7,
+        ),
+        decoration: BoxDecoration(
+          color: selected
+              ? const Color(0xFFF5EEE6).withValues(alpha: 0.12)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: selected ? const Color(0xFFF5EEE6) : AppColors.line,
+          ),
+        ),
+        child: Text(
+          List.filled(level, '₪').join(' '),
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+            color: const Color(0xFFF5EEE6),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final placeName = widget.place['name'] as String? ?? '';
@@ -1171,50 +1211,53 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                 ),
               ),
               SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: _textField(
-                      _foodController,
-                      'מה אכלתי?',
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  SizedBox(
-                    width: 95,
-                    child: _textField(
-                      _foodPriceController,
-                      'מחיר',
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                    ),
-                  ),
-                ],
+              _textField(
+                _foodController,
+                'מה אכלתי?',
               ),
               const SizedBox(height: 14),
+              _textField(
+                _drinkController,
+                'מה שתיתי?',
+              ),
+              const SizedBox(height: 20),
               Row(
+                textDirection: TextDirection.rtl,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Expanded(
-                    child: _textField(
-                      _drinkController,
-                      'מה שתיתי?',
+                  const Text(
+                    'כמה שילמתי?',
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Color(0xFFD8CEC4),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
                   SizedBox(
-                    width: 95,
+                    width: 110,
                     child: _textField(
-                      _drinkPriceController,
-                      'מחיר',
+                      _totalPriceController,
+                      '',
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
+                      suffixText: '₪',
                     ),
+                  ),
+                  const SizedBox(width: 14),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _priceLevelButton(1),
+                      const SizedBox(width: 6),
+                      _priceLevelButton(2),
+                      const SizedBox(width: 6),
+                      _priceLevelButton(3),
+                    ],
                   ),
                 ],
               ),
-              SizedBox(height: 24),
+              const SizedBox(height: 24),
               OutlinedButton.icon(
                 onPressed: widget.viewOnly ? null : _showImageOptions,
                 icon: const Icon(Icons.restaurant_outlined),

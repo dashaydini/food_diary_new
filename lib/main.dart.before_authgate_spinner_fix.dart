@@ -63,7 +63,7 @@ class _AuthGateState extends State<AuthGate> {
   Future<void>? _permissionsFuture;
   String? _permissionsUserId;
   bool _isPasswordRecovery = false;
-  bool _checkingWebAuthCallback = false;
+  bool _checkingWebAuthCallback = true;
 
   @override
   void initState() {

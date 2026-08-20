@@ -63,7 +63,7 @@ class _AuthGateState extends State<AuthGate> {
   Future<void>? _permissionsFuture;
   String? _permissionsUserId;
   bool _isPasswordRecovery = false;
-  bool _checkingWebAuthCallback = false;
+  bool _checkingWebAuthCallback = true;
 
   @override
   void initState() {
@@ -111,20 +111,51 @@ class _AuthGateState extends State<AuthGate> {
 
   Future<void> _handleWebAuthCallback() async {
     try {
-      // Supabase handles the OAuth callback and PKCE exchange on Web.
-      // Do not call exchangeCodeForSession() manually here.
-      final session = Supabase.instance.client.auth.currentSession;
+      final currentSession = Supabase.instance.client.auth.currentSession;
 
-      if (session != null && mounted) {
-        setState(() {
-          _session = session;
-        });
-
+      // Supabase may already have restored the OAuth session automatically.
+      // In that case there is nothing left to exchange.
+      if (currentSession != null) {
         debugPrint(
           'AUTH CALLBACK: existing session found, '
-          'user=${session.user.id}',
+          'user=${currentSession.user.id}',
         );
+
+        if (mounted) {
+          setState(() {
+            _session = currentSession;
+          });
+        }
+        return;
       }
+
+      if (!Uri.base.hasQuery) return;
+
+      final code = Uri.base.queryParameters['code'];
+
+      // Do not treat referral codes as OAuth PKCE codes.
+      if (code == null || code.isEmpty) return;
+
+      debugPrint('AUTH CALLBACK: exchanging PKCE code');
+
+      await Supabase.instance.client.auth.exchangeCodeForSession(code);
+
+      if (!mounted) return;
+
+      final session = Supabase.instance.client.auth.currentSession;
+
+      if (session == null) {
+        debugPrint('AUTH CALLBACK: no session after code exchange');
+        return;
+      }
+
+      debugPrint(
+        'AUTH CALLBACK: session established, user=${session.user.id}',
+      );
+
+      setState(() {
+        _session = session;
+      });
     } catch (e) {
       debugPrint('AUTH CALLBACK ERROR: $e');
     } finally {

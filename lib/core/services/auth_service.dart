@@ -112,7 +112,7 @@ class AuthService {
 
   Future<void> signInWithGoogle() async {
     final redirectTo = kIsWeb
-        ? 'https://dashaydini.github.io/food_diary_new/'
+        ? '${Uri.base.origin}${Uri.base.path}'
         : 'fooddiary://login-callback';
 
     await _supabase.auth.signInWithOAuth(

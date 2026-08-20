@@ -87,7 +87,6 @@ class _PlacesScreenState extends State<PlacesScreen> {
             return {
               ...place,
               'weighted_rating': count > 0 ? sum / count : null,
-              'rating_count': count,
             };
           }).toList();
         }
