@@ -192,7 +192,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
       final rows = await client
           .from('visits')
           .select(
-            'id, place_id, user_id, visit_date, notes, rating, food, food_price, '
+            'id, place_id, user_id, visit_date, notes, rating, food, food_price, total_price, price_level, '
             'drink, drink_price, image_url, food_rating, drink_rating, '
             'atmosphere_rating, service_rating, cleanliness_rating, '
             'variety_rating, value_rating, created_at, '

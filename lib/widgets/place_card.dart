@@ -219,10 +219,10 @@ class _PlaceCardState extends State<PlaceCard> {
       ),
       decoration: BoxDecoration(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(28),
         border: Border.all(
-          color: const Color(0xFF757575),
-          width: 0.8,
+          color: const Color(0xFF555555),
+          width: 1.0,
         ),
       ),
       clipBehavior: Clip.antiAlias,
@@ -237,7 +237,7 @@ class _PlaceCardState extends State<PlaceCard> {
               // שמאל = תמונה | ימין = פרטי המקום
               // =========================================================
               SizedBox(
-                height: 260,
+                height: 300,
                 child: Row(
                   textDirection: TextDirection.ltr,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -249,13 +249,13 @@ class _PlaceCardState extends State<PlaceCard> {
                       flex: 47,
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(
-                          12,
-                          12,
+                          14,
+                          14,
                           0,
-                          12,
+                          14,
                         ),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(22),
                           child: Container(
                             color: Colors.transparent,
                             alignment: Alignment.center,
@@ -292,9 +292,9 @@ class _PlaceCardState extends State<PlaceCard> {
                         textDirection: TextDirection.rtl,
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(
-                            22,
+                            24,
                             20,
-                            8,
+                            18,
                             16,
                           ),
                           child: Column(
@@ -350,7 +350,7 @@ class _PlaceCardState extends State<PlaceCard> {
                                 Container(
                                   height: 1,
                                   width: double.infinity,
-                                  color: const Color(0xFF757575),
+                                  color: const Color(0xFF666666),
                                 ),
                                 const SizedBox(height: 12),
                                 Expanded(
@@ -380,12 +380,12 @@ class _PlaceCardState extends State<PlaceCard> {
               // שורת הפעולות התחתונה
               // =========================================================
               SizedBox(
-                height: 54,
+                height: 68,
                 child: Container(
                   decoration: const BoxDecoration(
                     border: Border(
                       top: BorderSide(
-                        color: Color(0xFF757575),
+                        color: Color(0xFF666666),
                         width: 1,
                       ),
                     ),
@@ -429,7 +429,7 @@ class _PlaceCardState extends State<PlaceCard> {
                         Container(
                           width: 1,
                           height: 25,
-                          color: const Color(0xFF757575),
+                          color: const Color(0xFF666666),
                         ),
 
                         // דירוג — שמאל
