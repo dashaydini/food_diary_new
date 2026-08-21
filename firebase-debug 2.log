@@ -1,0 +1,29 @@
+[debug] [2026-07-26T14:01:25.120Z] ----------------------------------------------------------------------
+[debug] [2026-07-26T14:01:25.122Z] Command:       /opt/homebrew/Cellar/node/26.5.0/bin/node /opt/homebrew/bin/firebase apps:create web food_diary (web) --json --project=foodiary-91a6b
+[debug] [2026-07-26T14:01:25.123Z] CLI Version:   15.24.0
+[debug] [2026-07-26T14:01:25.123Z] Platform:      darwin
+[debug] [2026-07-26T14:01:25.123Z] Node Version:  v26.5.0
+[debug] [2026-07-26T14:01:25.123Z] Detected Agent: unknown
+[debug] [2026-07-26T14:01:25.123Z] Time:          Sun Jul 26 2026 17:01:25 GMT+0300 (Israel Daylight Time)
+[debug] [2026-07-26T14:01:25.123Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-07-26T14:01:25.136Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-07-26T14:01:25.136Z] > authorizing via signed-in user (dashaydini@gmail.com)
+[info] Create your WEB app in project foodiary-91a6b:
+[debug] [2026-07-26T14:01:25.148Z] Checked if tokens are valid: true, expires at: 1785078038566
+[debug] [2026-07-26T14:01:25.148Z] Checked if tokens are valid: true, expires at: 1785078038566
+[debug] [2026-07-26T14:01:25.149Z] >>> [apiv2][query] POST https://firebase.googleapis.com/v1beta1/projects/foodiary-91a6b/webApps [none]
+[debug] [2026-07-26T14:01:25.149Z] >>> [apiv2][body] POST https://firebase.googleapis.com/v1beta1/projects/foodiary-91a6b/webApps {"displayName":"food_diary (web)"}
+[debug] [2026-07-26T14:01:26.542Z] <<< [apiv2][status] POST https://firebase.googleapis.com/v1beta1/projects/foodiary-91a6b/webApps 200
+[debug] [2026-07-26T14:01:26.542Z] <<< [apiv2][body] POST https://firebase.googleapis.com/v1beta1/projects/foodiary-91a6b/webApps {"name":"operations/workflows/NzRkY2U5ZWEtY2NjNy00Y2RkLWEzZTgtNDAzZTQ1NjQxMjIw"}
+[debug] [2026-07-26T14:01:26.543Z] Checked if tokens are valid: true, expires at: 1785078038566
+[debug] [2026-07-26T14:01:26.543Z] Checked if tokens are valid: true, expires at: 1785078038566
+[debug] [2026-07-26T14:01:26.543Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/operations/workflows/NzRkY2U5ZWEtY2NjNy00Y2RkLWEzZTgtNDAzZTQ1NjQxMjIw [none]
+[debug] [2026-07-26T14:01:26.872Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/operations/workflows/NzRkY2U5ZWEtY2NjNy00Y2RkLWEzZTgtNDAzZTQ1NjQxMjIw 200
+[debug] [2026-07-26T14:01:26.872Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/operations/workflows/NzRkY2U5ZWEtY2NjNy00Y2RkLWEzZTgtNDAzZTQ1NjQxMjIw {"name":"operations/workflows/NzRkY2U5ZWEtY2NjNy00Y2RkLWEzZTgtNDAzZTQ1NjQxMjIw"}
+[debug] [2026-07-26T14:01:27.374Z] [Create Web app Poller] Retrying task index 0
+[debug] [2026-07-26T14:01:27.375Z] Checked if tokens are valid: true, expires at: 1785078038566
+[debug] [2026-07-26T14:01:27.375Z] Checked if tokens are valid: true, expires at: 1785078038566
+[debug] [2026-07-26T14:01:27.375Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/operations/workflows/NzRkY2U5ZWEtY2NjNy00Y2RkLWEzZTgtNDAzZTQ1NjQxMjIw [none]
+[debug] [2026-07-26T14:01:27.863Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/operations/workflows/NzRkY2U5ZWEtY2NjNy00Y2RkLWEzZTgtNDAzZTQ1NjQxMjIw 200
+[debug] [2026-07-26T14:01:27.863Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/operations/workflows/NzRkY2U5ZWEtY2NjNy00Y2RkLWEzZTgtNDAzZTQ1NjQxMjIw {"name":"operations/workflows/NzRkY2U5ZWEtY2NjNy00Y2RkLWEzZTgtNDAzZTQ1NjQxMjIw"}

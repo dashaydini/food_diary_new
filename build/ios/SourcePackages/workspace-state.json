@@ -1,0 +1,153 @@
+{
+  "object" : {
+    "artifacts" : [
+
+    ],
+    "dependencies" : [
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "app_links-7.2.1",
+          "kind" : "fileSystem",
+          "location" : "/Users/macair/Developer/food_diary_new/ios/Flutter/ephemeral/Packages/.packages/app_links-7.2.1",
+          "name" : "app_links"
+        },
+        "state" : {
+          "name" : "fileSystem",
+          "path" : "/Users/macair/Developer/food_diary_new/ios/Flutter/ephemeral/Packages/.packages/app_links-7.2.1"
+        },
+        "subpath" : "app_links-7.2.1"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "flutterframework",
+          "kind" : "fileSystem",
+          "location" : "/Users/macair/Developer/food_diary_new/ios/Flutter/ephemeral/Packages/.packages/FlutterFramework",
+          "name" : "FlutterFramework"
+        },
+        "state" : {
+          "name" : "fileSystem",
+          "path" : "/Users/macair/Developer/food_diary_new/ios/Flutter/ephemeral/Packages/.packages/FlutterFramework"
+        },
+        "subpath" : "flutterframework"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "geocoding_ios-3.1.0",
+          "kind" : "fileSystem",
+          "location" : "/Users/macair/Developer/food_diary_new/ios/Flutter/ephemeral/Packages/.packages/geocoding_ios-3.1.0",
+          "name" : "geocoding_ios"
+        },
+        "state" : {
+          "name" : "fileSystem",
+          "path" : "/Users/macair/Developer/food_diary_new/ios/Flutter/ephemeral/Packages/.packages/geocoding_ios-3.1.0"
+        },
+        "subpath" : "geocoding_ios-3.1.0"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "geolocator_apple-2.3.14",
+          "kind" : "fileSystem",
+          "location" : "/Users/macair/Developer/food_diary_new/ios/Flutter/ephemeral/Packages/.packages/geolocator_apple-2.3.14",
+          "name" : "geolocator_apple"
+        },
+        "state" : {
+          "name" : "fileSystem",
+          "path" : "/Users/macair/Developer/food_diary_new/ios/Flutter/ephemeral/Packages/.packages/geolocator_apple-2.3.14"
+        },
+        "subpath" : "geolocator_apple-2.3.14"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "image_picker_ios-0.8.13+6",
+          "kind" : "fileSystem",
+          "location" : "/Users/macair/Developer/food_diary_new/ios/Flutter/ephemeral/Packages/.packages/image_picker_ios-0.8.13+6",
+          "name" : "image_picker_ios"
+        },
+        "state" : {
+          "name" : "fileSystem",
+          "path" : "/Users/macair/Developer/food_diary_new/ios/Flutter/ephemeral/Packages/.packages/image_picker_ios-0.8.13+6"
+        },
+        "subpath" : "image_picker_ios-0.8.13+6"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "package_info_plus-10.2.1",
+          "kind" : "fileSystem",
+          "location" : "/Users/macair/Developer/food_diary_new/ios/Flutter/ephemeral/Packages/.packages/package_info_plus-10.2.1",
+          "name" : "package_info_plus"
+        },
+        "state" : {
+          "name" : "fileSystem",
+          "path" : "/Users/macair/Developer/food_diary_new/ios/Flutter/ephemeral/Packages/.packages/package_info_plus-10.2.1"
+        },
+        "subpath" : "package_info_plus-10.2.1"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "share_plus-13.3.0",
+          "kind" : "fileSystem",
+          "location" : "/Users/macair/Developer/food_diary_new/ios/Flutter/ephemeral/Packages/.packages/share_plus-13.3.0",
+          "name" : "share_plus"
+        },
+        "state" : {
+          "name" : "fileSystem",
+          "path" : "/Users/macair/Developer/food_diary_new/ios/Flutter/ephemeral/Packages/.packages/share_plus-13.3.0"
+        },
+        "subpath" : "share_plus-13.3.0"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "shared_preferences_foundation-2.5.6",
+          "kind" : "fileSystem",
+          "location" : "/Users/macair/Developer/food_diary_new/ios/Flutter/ephemeral/Packages/.packages/shared_preferences_foundation-2.5.6",
+          "name" : "shared_preferences_foundation"
+        },
+        "state" : {
+          "name" : "fileSystem",
+          "path" : "/Users/macair/Developer/food_diary_new/ios/Flutter/ephemeral/Packages/.packages/shared_preferences_foundation-2.5.6"
+        },
+        "subpath" : "shared_preferences_foundation-2.5.6"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "sign_in_with_apple-8.1.0",
+          "kind" : "fileSystem",
+          "location" : "/Users/macair/Developer/food_diary_new/ios/Flutter/ephemeral/Packages/.packages/sign_in_with_apple-8.1.0",
+          "name" : "sign_in_with_apple"
+        },
+        "state" : {
+          "name" : "fileSystem",
+          "path" : "/Users/macair/Developer/food_diary_new/ios/Flutter/ephemeral/Packages/.packages/sign_in_with_apple-8.1.0"
+        },
+        "subpath" : "sign_in_with_apple-8.1.0"
+      },
+      {
+        "basedOn" : null,
+        "packageRef" : {
+          "identity" : "url_launcher_ios-6.4.1",
+          "kind" : "fileSystem",
+          "location" : "/Users/macair/Developer/food_diary_new/ios/Flutter/ephemeral/Packages/.packages/url_launcher_ios-6.4.1",
+          "name" : "url_launcher_ios"
+        },
+        "state" : {
+          "name" : "fileSystem",
+          "path" : "/Users/macair/Developer/food_diary_new/ios/Flutter/ephemeral/Packages/.packages/url_launcher_ios-6.4.1"
+        },
+        "subpath" : "url_launcher_ios-6.4.1"
+      }
+    ],
+    "prebuilts" : [
+
+    ]
+  },
+  "version" : 7
+}
