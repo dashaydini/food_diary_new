@@ -15,7 +15,17 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 'stable'
+          channel: stable
+
+      - name: Debug Flutter environment
+        run: |
+          echo "--- Environment ---"
+          uname -a
+          sw_vers || true
+          echo "--- which flutter ---"
+          which flutter || true
+          echo "--- flutter --version (if installed) ---"
+          flutter --version || true
 
       - name: Install dependencies
         run: flutter pub get
