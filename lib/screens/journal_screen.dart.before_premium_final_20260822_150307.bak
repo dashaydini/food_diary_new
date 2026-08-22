@@ -1,0 +1,417 @@
+import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../core/services/premium_service.dart';
+import '../theme/colors.dart';
+import 'place_details_screen.dart';
+
+class JournalScreen extends StatefulWidget {
+  const JournalScreen({super.key});
+
+  @override
+  State<JournalScreen> createState() => _JournalScreenState();
+}
+
+class _JournalScreenState extends State<JournalScreen> {
+  final SupabaseClient _client = Supabase.instance.client;
+
+  List<Map<String, dynamic>> _visits = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVisits();
+  }
+
+  Future<void> _loadVisits() async {
+    final user = _client.auth.currentUser;
+
+    if (user == null || user.isAnonymous || !PremiumService.isPremium) {
+      if (!mounted) return;
+      setState(() {
+        _visits = [];
+        _loading = false;
+      });
+      return;
+    }
+
+    try {
+      final rows = await _client
+          .from('visits')
+          .select(
+            'id, place_id, created_at, food_rating, drink_rating, '
+            'atmosphere_rating, service_rating, cleanliness_rating, '
+            'variety_rating, value_rating, drink, drink_price, '
+            'image_url, places(id, name, address, image_url)',
+          )
+          .eq('user_id', user.id)
+          .order('created_at', ascending: false);
+
+      if (!mounted) return;
+
+      setState(() {
+        _visits = List<Map<String, dynamic>>.from(rows);
+        _loading = false;
+        _error = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _loading = false;
+        _error = e.toString();
+      });
+    }
+  }
+
+  String _formatDate(String? value) {
+    if (value == null || value.isEmpty) return '';
+
+    final date = DateTime.tryParse(value);
+    if (date == null) return '';
+
+    final local = date.toLocal();
+
+    const months = [
+      'ינואר',
+      'פברואר',
+      'מרץ',
+      'אפריל',
+      'מאי',
+      'יוני',
+      'יולי',
+      'אוגוסט',
+      'ספטמבר',
+      'אוקטובר',
+      'נובמבר',
+      'דצמבר',
+    ];
+
+    return '${local.day} ${months[local.month - 1]} ${local.year}';
+  }
+
+  double? _averageRating(Map<String, dynamic> visit) {
+    final values = [
+      visit['food_rating'],
+      visit['drink_rating'],
+      visit['atmosphere_rating'],
+      visit['service_rating'],
+      visit['cleanliness_rating'],
+      visit['variety_rating'],
+      visit['value_rating'],
+    ]
+        .map((value) => (value as num?)?.toDouble())
+        .whereType<double>()
+        .where((value) => value > 0)
+        .toList();
+
+    if (values.isEmpty) return null;
+
+    return values.reduce((a, b) => a + b) / values.length;
+  }
+
+  void _openVisit(Map<String, dynamic> visit) {
+    final place = visit['places'] is Map
+        ? Map<String, dynamic>.from(visit['places'] as Map)
+        : <String, dynamic>{};
+
+    if (place.isEmpty) return;
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PlaceDetailsScreen(place: place),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        titleSpacing: 24,
+        title: const Text(
+          'היומן שלי',
+          textDirection: TextDirection.rtl,
+          style: TextStyle(
+            color: AppColors.ink,
+            fontSize: 23,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+      body: Directionality(
+        textDirection: TextDirection.rtl,
+        child: _buildBody(),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (!PremiumService.isPremium) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Text(
+            'היומן שלי זמין למשתמשי Premium.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.muted,
+              fontSize: 16,
+              height: 1.5,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_loading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          strokeWidth: 1.5,
+          color: AppColors.brass,
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'לא ניתן לטעון את היומן',
+              style: TextStyle(
+                color: AppColors.ink,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _loading = true;
+                  _error = null;
+                });
+                _loadVisits();
+              },
+              child: const Text('נסה שוב'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_visits.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.menu_book_outlined,
+                size: 38,
+                color: AppColors.brass,
+              ),
+              SizedBox(height: 18),
+              Text(
+                'היומן שלך עדיין ריק',
+                style: TextStyle(
+                  color: AppColors.ink,
+                  fontSize: 21,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'כל ביקור שתוסיף באפליקציה\nיופיע כאן באופן אוטומטי.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.muted,
+                  fontSize: 14,
+                  height: 1.55,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      color: AppColors.brass,
+      backgroundColor: AppColors.card,
+      onRefresh: _loadVisits,
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(22, 8, 22, 36),
+        itemCount: _visits.length,
+        separatorBuilder: (_, __) => Divider(
+          height: 1,
+          color: AppColors.muted.withValues(alpha: 0.16),
+        ),
+        itemBuilder: (context, index) {
+          return _buildVisitRow(_visits[index]);
+        },
+      ),
+    );
+  }
+
+  Widget _buildVisitRow(Map<String, dynamic> visit) {
+    final place = visit['places'] is Map
+        ? Map<String, dynamic>.from(visit['places'] as Map)
+        : <String, dynamic>{};
+
+    final placeName = place['name']?.toString().trim().isNotEmpty == true
+        ? place['name'].toString().trim()
+        : 'מקום ללא שם';
+
+    final address = place['address']?.toString().trim() ?? '';
+
+    final visitImage = visit['image_url']?.toString().trim() ?? '';
+    final placeImage = place['image_url']?.toString().trim() ?? '';
+    final imageUrl = visitImage.isNotEmpty ? visitImage : placeImage;
+
+    final rating = _averageRating(visit);
+    final date = _formatDate(visit['created_at']?.toString());
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _openVisit(visit),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              _buildThumbnail(imageUrl),
+              const SizedBox(width: 15),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      placeName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        color: AppColors.ink,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        height: 1.2,
+                      ),
+                    ),
+                    if (address.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        address,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 9),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          date,
+                          style: const TextStyle(
+                            color: AppColors.muted,
+                            fontSize: 11.5,
+                          ),
+                        ),
+                        if (rating != null)
+                          Directionality(
+                            textDirection: TextDirection.ltr,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.star_rounded,
+                                  size: 15,
+                                  color: AppColors.brass,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  rating.toStringAsFixed(1),
+                                  style: const TextStyle(
+                                    color: AppColors.ink,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThumbnail(String imageUrl) {
+    const size = 72.0;
+
+    if (imageUrl.isEmpty) {
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(13),
+          border: Border.all(
+            color: AppColors.muted.withValues(alpha: 0.16),
+            width: 0.8,
+          ),
+        ),
+        child: const Icon(
+          Icons.restaurant_outlined,
+          size: 23,
+          color: AppColors.muted,
+        ),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(13),
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: Image.network(
+          imageUrl,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) {
+            return Container(
+              color: AppColors.card,
+              child: const Icon(
+                Icons.image_outlined,
+                size: 23,
+                color: AppColors.muted,
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}

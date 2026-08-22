@@ -1,0 +1,690 @@
+import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../core/services/premium_service.dart';
+import '../theme/colors.dart';
+import '../widgets/home_button.dart';
+
+class JournalScreen extends StatefulWidget {
+  const JournalScreen({super.key});
+
+  @override
+  State<JournalScreen> createState() => _JournalScreenState();
+}
+
+class _JournalScreenState extends State<JournalScreen> {
+  final SupabaseClient _client = Supabase.instance.client;
+
+  List<Map<String, dynamic>> _entries = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEntries();
+  }
+
+  Future<void> _loadEntries() async {
+    final user = _client.auth.currentUser;
+
+    if (user == null || user.isAnonymous || !PremiumService.isPremium) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+      });
+      return;
+    }
+
+    try {
+      final rows = await _client
+          .from('journal_entries')
+          .select(
+            'id, title, content, entry_date, created_at, updated_at',
+          )
+          .eq('user_id', user.id)
+          .order('entry_date', ascending: false)
+          .order('created_at', ascending: false);
+
+      if (!mounted) return;
+
+      setState(() {
+        _entries = List<Map<String, dynamic>>.from(rows as List);
+        _loading = false;
+        _error = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _loading = false;
+        _error = e.toString();
+      });
+    }
+  }
+
+  String _formatDate(String? value) {
+    if (value == null || value.isEmpty) return '';
+
+    final date = DateTime.tryParse(value);
+    if (date == null) return value;
+
+    const months = [
+      'ינואר',
+      'פברואר',
+      'מרץ',
+      'אפריל',
+      'מאי',
+      'יוני',
+      'יולי',
+      'אוגוסט',
+      'ספטמבר',
+      'אוקטובר',
+      'נובמבר',
+      'דצמבר',
+    ];
+
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
+
+  Future<void> _openEditor({
+    Map<String, dynamic>? entry,
+  }) async {
+    final titleController = TextEditingController(
+      text: entry?['title']?.toString() ?? '',
+    );
+
+    final contentController = TextEditingController(
+      text: entry?['content']?.toString() ?? '',
+    );
+
+    DateTime selectedDate = DateTime.tryParse(
+          entry?['entry_date']?.toString() ?? '',
+        ) ??
+        DateTime.now();
+
+    final isEditing = entry != null;
+
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        bool saving = false;
+
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            Future<void> save() async {
+              final user = _client.auth.currentUser;
+
+              if (user == null || user.isAnonymous) return;
+
+              final title = titleController.text.trim();
+              final content = contentController.text.trim();
+
+              if (title.isEmpty && content.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('כתוב משהו ביומן לפני השמירה'),
+                  ),
+                );
+                return;
+              }
+
+              setSheetState(() {
+                saving = true;
+              });
+
+              try {
+                final data = {
+                  'title': title.isEmpty ? null : title,
+                  'content': content.isEmpty ? null : content,
+                  'entry_date':
+                      '${selectedDate.year.toString().padLeft(4, '0')}-'
+                          '${selectedDate.month.toString().padLeft(2, '0')}-'
+                          '${selectedDate.day.toString().padLeft(2, '0')}',
+                };
+
+                if (isEditing) {
+                  await _client
+                      .from('journal_entries')
+                      .update(data)
+                      .eq('id', entry['id'])
+                      .eq('user_id', user.id);
+                } else {
+                  await _client.from('journal_entries').insert({
+                    ...data,
+                    'user_id': user.id,
+                  });
+                }
+
+                if (!sheetContext.mounted) return;
+
+                Navigator.of(sheetContext).pop(true);
+              } catch (e) {
+                if (!sheetContext.mounted) return;
+
+                setSheetState(() {
+                  saving = false;
+                });
+
+                ScaffoldMessenger.of(sheetContext).showSnackBar(
+                  SnackBar(
+                    content: Text('לא ניתן לשמור את הרשומה: $e'),
+                  ),
+                );
+              }
+            }
+
+            return Container(
+              decoration: const BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(28),
+                ),
+              ),
+              padding: EdgeInsets.fromLTRB(
+                24,
+                12,
+                24,
+                MediaQuery.of(context).viewInsets.bottom + 24,
+              ),
+              child: Directionality(
+                textDirection: TextDirection.rtl,
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 38,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: AppColors.muted.withValues(alpha: 0.35),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              isEditing ? 'עריכת רשומה' : 'רשומה חדשה',
+                              textAlign: TextAlign.right,
+                              style: const TextStyle(
+                                color: AppColors.ink,
+                                fontSize: 24,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: saving
+                                ? null
+                                : () => Navigator.of(sheetContext).pop(),
+                            icon: const Icon(
+                              Icons.close,
+                              color: AppColors.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 18),
+                      GestureDetector(
+                        onTap: saving
+                            ? null
+                            : () async {
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: selectedDate,
+                                  firstDate: DateTime(2000),
+                                  lastDate: DateTime(2100),
+                                  locale: const Locale('he'),
+                                );
+
+                                if (picked != null) {
+                                  setSheetState(() {
+                                    selectedDate = picked;
+                                  });
+                                }
+                              },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.card,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: AppColors.brass.withValues(alpha: 0.22),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.calendar_today_outlined,
+                                size: 19,
+                                color: AppColors.brass,
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                _formatDate(
+                                  selectedDate.toIso8601String(),
+                                ),
+                                style: const TextStyle(
+                                  color: AppColors.ink,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              const Spacer(),
+                              const Icon(
+                                Icons.chevron_left,
+                                color: AppColors.muted,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        controller: titleController,
+                        textDirection: TextDirection.rtl,
+                        textAlign: TextAlign.right,
+                        textInputAction: TextInputAction.next,
+                        style: const TextStyle(
+                          color: AppColors.ink,
+                          fontSize: 17,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'כותרת',
+                          hintTextDirection: TextDirection.rtl,
+                          filled: true,
+                          fillColor: AppColors.card,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(
+                              color: AppColors.brass.withValues(alpha: 0.55),
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 15,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: contentController,
+                        textDirection: TextDirection.rtl,
+                        textAlign: TextAlign.right,
+                        minLines: 7,
+                        maxLines: 14,
+                        style: const TextStyle(
+                          color: AppColors.ink,
+                          fontSize: 16,
+                          height: 1.55,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'מה בא לך לזכור?',
+                          hintTextDirection: TextDirection.rtl,
+                          filled: true,
+                          fillColor: AppColors.card,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(
+                              color: AppColors.brass.withValues(alpha: 0.55),
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.all(16),
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      SizedBox(
+                        height: 52,
+                        child: ElevatedButton(
+                          onPressed: saving ? null : save,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.brass,
+                            foregroundColor: AppColors.background,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          child: saving
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 1.5,
+                                  ),
+                                )
+                              : Text(
+                                  isEditing ? 'שמור שינויים' : 'שמור ביומן',
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    titleController.dispose();
+    contentController.dispose();
+
+    if (saved == true) {
+      await _loadEntries();
+    }
+  }
+
+  Future<void> _deleteEntry(Map<String, dynamic> entry) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            backgroundColor: AppColors.card,
+            title: const Text(
+              'למחוק את הרשומה?',
+              style: TextStyle(color: AppColors.ink),
+            ),
+            content: const Text(
+              'הרשומה תימחק לצמיתות.',
+              style: TextStyle(color: AppColors.muted),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('ביטול'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text(
+                  'מחק',
+                  style: TextStyle(color: Colors.redAccent),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    final user = _client.auth.currentUser;
+    if (user == null || user.isAnonymous) return;
+
+    try {
+      await _client
+          .from('journal_entries')
+          .delete()
+          .eq('id', entry['id'])
+          .eq('user_id', user.id);
+
+      await _loadEntries();
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('לא ניתן למחוק את הרשומה: $e'),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final premium = PremiumService.isPremium;
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        centerTitle: false,
+        title: const Text(
+          'היומן שלי',
+          textDirection: TextDirection.rtl,
+          style: TextStyle(
+            color: AppColors.ink,
+            fontSize: 21,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        actions: const [
+          HomeButton(),
+        ],
+      ),
+      floatingActionButton: premium
+          ? FloatingActionButton(
+              onPressed: () => _openEditor(),
+              backgroundColor: AppColors.brass,
+              foregroundColor: AppColors.background,
+              elevation: 2,
+              child: const Icon(Icons.add),
+            )
+          : null,
+      body: Directionality(
+        textDirection: TextDirection.rtl,
+        child: premium ? _buildBody() : _buildPremiumMessage(),
+      ),
+    );
+  }
+
+  Widget _buildPremiumMessage() {
+    return const Center(
+      child: Padding(
+        padding: EdgeInsets.all(32),
+        child: Text(
+          'היומן האישי זמין למשתמשי Premium.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: AppColors.muted,
+            fontSize: 17,
+            height: 1.5,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          strokeWidth: 1.5,
+          color: AppColors.brass,
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'לא ניתן לטעון את היומן',
+              style: TextStyle(color: AppColors.ink),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _loading = true;
+                  _error = null;
+                });
+                _loadEntries();
+              },
+              child: const Text('נסה שוב'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_entries.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.menu_book_outlined,
+                size: 48,
+                color: AppColors.brass,
+              ),
+              const SizedBox(height: 18),
+              const Text(
+                'היומן שלך עדיין ריק',
+                style: TextStyle(
+                  color: AppColors.ink,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 9),
+              const Text(
+                'כתוב משהו שתרצה לזכור.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.muted,
+                  fontSize: 14,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 20),
+              OutlinedButton.icon(
+                onPressed: () => _openEditor(),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('רשומה ראשונה'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.brass,
+                  side: BorderSide(
+                    color: AppColors.brass.withValues(alpha: 0.45),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      color: AppColors.brass,
+      onRefresh: _loadEntries,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(22, 18, 22, 90),
+        itemCount: _entries.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          return _buildEntry(_entries[index]);
+        },
+      ),
+    );
+  }
+
+  Widget _buildEntry(Map<String, dynamic> entry) {
+    final title = entry['title']?.toString().trim() ?? '';
+    final content = entry['content']?.toString().trim() ?? '';
+    final date = entry['entry_date']?.toString();
+
+    return GestureDetector(
+      onTap: () => _openEditor(entry: entry),
+      onLongPress: () => _deleteEntry(entry),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 17),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: AppColors.brass.withValues(alpha: 0.18),
+            width: 0.8,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Row(
+              children: [
+                IconButton(
+                  onPressed: () => _deleteEntry(entry),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
+                  icon: const Icon(
+                    Icons.more_horiz,
+                    size: 20,
+                    color: AppColors.muted,
+                  ),
+                ),
+                const Spacer(),
+                Text(
+                  _formatDate(date),
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    color: AppColors.brass,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+            if (title.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                title,
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  color: AppColors.ink,
+                  fontSize: 19,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+            if (content.isNotEmpty) ...[
+              const SizedBox(height: 9),
+              Text(
+                content,
+                maxLines: 5,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  color: AppColors.ink,
+                  fontSize: 14,
+                  height: 1.55,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}

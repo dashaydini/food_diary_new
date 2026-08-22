@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'core/services/premium_service.dart';
 import 'features/authentication/screens/login_screen.dart';
 import 'features/authentication/screens/register_screen.dart';
 import 'features/authentication/screens/reset_password_screen.dart';
@@ -24,6 +25,7 @@ Future<void> main() async {
   );
 
   await Permissions.load();
+  await PremiumService.load();
 
   runApp(const FoodDiaryApp());
 }
@@ -203,6 +205,9 @@ class _AuthGateState extends State<AuthGate> {
 
       if (session != null && !session.user.isAnonymous) {
         _applyPendingReferralCode();
+        PremiumService.load();
+      } else {
+        PremiumService.clear();
       }
 
       if (session == null || session.user.isAnonymous) {

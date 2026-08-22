@@ -1,0 +1,50 @@
+name: Build Web and iOS (unsigned)
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    name: Build web and iOS (unsigned)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 'stable'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build web (release)
+        run: flutter build web --release
+
+      - name: Build iOS (no codesign)
+        run: flutter build ios --no-codesign --release
+
+      - name: Package web artifact
+        run: |
+          mkdir -p artifacts
+          cd build
+          zip -r ../artifacts/web-build.zip web
+
+      - name: Package iOS .app
+        run: |
+          mkdir -p artifacts
+          if [ -d build/ios/iphoneos/Runner.app ]; then
+            cd build/ios/iphoneos
+            zip -r ../../../../artifacts/Runner.app.zip Runner.app
+          else
+            echo "Runner.app not found; iOS build may have failed."
+            ls -la build/ios || true
+          fi
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: artifacts

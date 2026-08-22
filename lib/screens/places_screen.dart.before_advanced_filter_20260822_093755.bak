@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'add_place_screen.dart';
@@ -155,47 +154,8 @@ class _PlacesScreenState extends State<PlacesScreen> {
             return ids.contains(place['id']?.toString());
           }).toList();
         } else if (filter == ContentFilter.nearby) {
-          try {
-            final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-
-            if (!serviceEnabled) {
-              places = [];
-            } else {
-              var permission = await Geolocator.checkPermission();
-
-              if (permission == LocationPermission.denied) {
-                permission = await Geolocator.requestPermission();
-              }
-
-              if (permission == LocationPermission.denied ||
-                  permission == LocationPermission.deniedForever) {
-                places = [];
-              } else {
-                final position = await Geolocator.getCurrentPosition();
-
-                final nearbyRows = await client.rpc(
-                  'get_nearby_places',
-                  params: {
-                    'user_lat': position.latitude,
-                    'user_lon': position.longitude,
-                    'radius_km': 10,
-                  },
-                );
-
-                final nearbyIds = {
-                  for (final row in nearbyRows as List)
-                    if (row['id'] != null) row['id'].toString(),
-                };
-
-                places = places.where((place) {
-                  return nearbyIds.contains(place['id']?.toString());
-                }).toList();
-              }
-            }
-          } catch (e) {
-            debugPrint('NEARBY FILTER ERROR: $e');
-            places = [];
-          }
+          // Intentionally unfiltered for now.
+          // Distance filtering will be implemented later.
         }
       }
 
@@ -350,27 +310,6 @@ class _PlacesScreenState extends State<PlacesScreen> {
   bool get _hasAdvancedFilter {
     return _searchController.text.trim().isNotEmpty ||
         _selectedTagIds.isNotEmpty;
-  }
-
-  String _tagLabel() {
-    if (_selectedTagIds.isEmpty) {
-      return 'בחירת תגיות';
-    }
-
-    if (_selectedTagIds.length == 1) {
-      final id = _selectedTagIds.first;
-      final tag = _availableTags.cast<Map<String, dynamic>?>().firstWhere(
-            (tag) => tag?['id']?.toString() == id,
-            orElse: () => null,
-          );
-
-      final name = tag?['name']?.toString();
-      if (name != null && name.isNotEmpty) {
-        return name;
-      }
-    }
-
-    return '${_selectedTagIds.length} תגיות נבחרו';
   }
 
   Future<void> _openAdvancedFilter() async {
@@ -555,63 +494,6 @@ class _PlacesScreenState extends State<PlacesScreen> {
     _applyAdvancedFilters();
   }
 
-  Widget _buildSelectedTagChips() {
-    if (_selectedTagIds.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    final selectedTags = _availableTags
-        .where(
-          (tag) => _selectedTagIds.contains(tag['id']?.toString()),
-        )
-        .toList();
-
-    if (selectedTags.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 10),
-      child: Align(
-        alignment: Alignment.centerRight,
-        child: Wrap(
-          alignment: WrapAlignment.end,
-          spacing: 7,
-          runSpacing: 7,
-          children: selectedTags.map((tag) {
-            final id = tag['id']?.toString();
-            final name = tag['name']?.toString() ?? '';
-
-            if (id == null || name.isEmpty) {
-              return const SizedBox.shrink();
-            }
-
-            return InputChip(
-              label: Text(
-                name,
-                textDirection: TextDirection.rtl,
-              ),
-              deleteIcon: const Icon(
-                Icons.close,
-                size: 16,
-              ),
-              onDeleted: () {
-                setState(() {
-                  _selectedTagIds.remove(id);
-                });
-                _applyAdvancedFilters();
-              },
-              backgroundColor: AppColors.card,
-              side: BorderSide(
-                color: AppColors.brass.withValues(alpha: 0.35),
-              ),
-            );
-          }).toList(),
-        ),
-      ),
-    );
-  }
-
   Widget _buildAdvancedFilterBar() {
     if (!PremiumService.isPremium || !_advancedFilterOpen) {
       return const SizedBox.shrink();
@@ -646,50 +528,17 @@ class _PlacesScreenState extends State<PlacesScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          _buildSelectedTagChips(),
-          if (_selectedTagIds.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: Text(
-                  _matchAllTags
-                      ? 'התוצאה חייבת לכלול את כל התגיות'
-                      : 'התוצאה חייבת לכלול לפחות תגית אחת',
-                  textAlign: TextAlign.right,
-                  style: const TextStyle(
-                    color: AppColors.muted,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ),
-          if (_hasAdvancedFilter)
-            Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: Text(
-                  _places.isEmpty
-                      ? 'לא נמצאו מקומות התואמים לסינון'
-                      : 'נמצאו ${_places.length} ${_places.length == 1 ? 'מקום' : 'מקומות'}',
-                  textAlign: TextAlign.right,
-                  style: TextStyle(
-                    color: _places.isEmpty ? AppColors.muted : AppColors.ink,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ),
-          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
                 child: OutlinedButton.icon(
                   onPressed: _showTagSelector,
                   icon: const Icon(Icons.local_offer_outlined),
-                  label: Text(_tagLabel()),
+                  label: Text(
+                    _selectedTagIds.isEmpty
+                        ? 'בחירת תגיות'
+                        : '${_selectedTagIds.length} תגיות נבחרו',
+                  ),
                 ),
               ),
               if (_hasAdvancedFilter) ...[
@@ -812,20 +661,10 @@ class _PlacesScreenState extends State<PlacesScreen> {
       itemBuilder: (context, index) {
         final place = _places[index];
 
-        final placeId = place['id']?.toString();
-        final placeTagIds = placeId == null
-            ? <String>{}
-            : (_placeTagIds[placeId] ?? <String>{});
-
-        final displayTags = _availableTags
-            .where((tag) => placeTagIds.contains(tag['id']?.toString()))
-            .toList();
-
         return PlaceCard(
           place: {
             ...place,
             'category_title': widget.categoryTitle,
-            'display_tags': displayTags,
           },
           onChanged: () {
             _loadPlaces();

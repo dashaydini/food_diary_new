@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/content_filter.dart';
+import '../core/services/premium_service.dart';
 import '../theme/colors.dart';
 
 import 'places_screen.dart';
 import 'map_screen.dart';
 import 'profile_screen.dart';
+import 'journal_screen.dart';
 import '../widgets/admin_notification_button.dart';
 
 class PlaceCategory {
@@ -468,6 +470,51 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
     await _loadCategories();
   }
 
+  Future<void> _openJournal() async {
+    final user = Supabase.instance.client.auth.currentUser;
+
+    if (user == null || user.isAnonymous) {
+      return;
+    }
+
+    if (!PremiumService.isPremium) {
+      if (!mounted) return;
+
+      await showDialog<void>(
+        context: context,
+        builder: (context) {
+          return AlertDialog(
+            title: const Text(
+              'היומן שלי',
+              textAlign: TextAlign.right,
+            ),
+            content: const Text(
+              'היומן האישי זמין למשתמשי Premium.',
+              textAlign: TextAlign.right,
+              textDirection: TextDirection.rtl,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('סגור'),
+              ),
+            ],
+          );
+        },
+      );
+
+      return;
+    }
+
+    if (!mounted) return;
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const JournalScreen(),
+      ),
+    );
+  }
+
   void _openMap() {
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -522,6 +569,28 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
       mainAxisAlignment: MainAxisAlignment.start,
       textDirection: TextDirection.rtl,
       children: [
+        if (canFilter)
+          GestureDetector(
+            onTap: _openJournal,
+            child: Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: AppColors.card,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppColors.brass.withValues(alpha: 0.45),
+                  width: 0.8,
+                ),
+              ),
+              child: const Icon(
+                Icons.menu_book_outlined,
+                size: 21,
+                color: AppColors.brass,
+              ),
+            ),
+          ),
+        if (canFilter) const SizedBox(width: 12),
         GestureDetector(
           onTap: _openMap,
           child: Container(
