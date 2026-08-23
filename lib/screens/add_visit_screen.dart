@@ -56,6 +56,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
   bool _saving = false;
   bool _hasChanges = false;
   String? _error;
+  bool _isFavoriteMemory = false;
 
   @override
   void initState() {
@@ -73,6 +74,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
     _totalPriceController.text = visit['total_price']?.toString() ?? '';
     _priceLevel = (visit['price_level'] as num?)?.toInt() ?? 0;
     _notesController.text = visit['notes']?.toString() ?? '';
+    _isFavoriteMemory = visit['favorite_memory'] == true;
 
     final visitDate = DateTime.tryParse(
       visit['visit_date']?.toString() ?? '',
@@ -867,6 +869,36 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
     }
   }
 
+  Future<void> _toggleFavoriteMemory() async {
+    final visit = widget.visit;
+    if (visit == null) return;
+
+    final newValue = !_isFavoriteMemory;
+
+    setState(() {
+      _isFavoriteMemory = newValue;
+    });
+
+    try {
+      await Supabase.instance.client
+          .from('visits')
+          .update({'favorite_memory': newValue})
+          .eq('id', visit['id']);
+
+      widget.visit?['favorite_memory'] = newValue;
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isFavoriteMemory = !newValue;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('לא ניתן לשמור את הזיכרון: $e')),
+      );
+    }
+  }
+
   Future<void> _pickDate() async {
     if (widget.viewOnly) return;
 
@@ -1179,6 +1211,16 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                   icon: const Icon(Icons.delete_outline),
                   onPressed: _deleteVisit,
                 ),
+            if (widget.visit != null)
+              IconButton(
+                tooltip: _isFavoriteMemory ? 'הסר מזיכרונות' : 'שמור בזיכרונות',
+                icon: Icon(
+                  _isFavoriteMemory
+                      ? Icons.favorite_rounded
+                      : Icons.favorite_border_rounded,
+                ),
+                onPressed: _toggleFavoriteMemory,
+              ),
             HomeButton(),
           ],
           title: Text(

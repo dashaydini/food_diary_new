@@ -43,3 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+lib/screens/add_visit_screen.dart.backup
+lib/screens/journal_screen.dart.backup
+lib/screens/journal_screen.dart.backup2
+lib/screens/journal_screen.dart.backup3
+lib/screens/journal_screen.dart.backup4

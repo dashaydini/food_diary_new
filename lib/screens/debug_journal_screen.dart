@@ -155,6 +155,25 @@ class _DebugJournalScreenState extends State<DebugJournalScreen> {
                     icon: const Icon(Icons.login),
                     label: const Text('Sign in'),
                   ),
+                const SizedBox(width: 8),
+                // Google OAuth sign-in (web)
+                if (_client.auth.currentSession == null)
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      try {
+                        await _client.auth.signInWithOAuth(
+                          OAuthProvider.google,
+                          redirectTo: Uri.base.toString(),
+                        );
+                      } catch (e) {
+                        setState(() {
+                          _error = e.toString();
+                        });
+                      }
+                    },
+                    icon: const Icon(Icons.login),
+                    label: const Text('Sign in with Google'),
+                  ),
                 if (_client.auth.currentUser != null) ...[
                   const SizedBox(width: 8),
                   ElevatedButton.icon(
