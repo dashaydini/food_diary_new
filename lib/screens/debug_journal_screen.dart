@@ -85,10 +85,89 @@ class _DebugJournalScreenState extends State<DebugJournalScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ElevatedButton.icon(
-              onPressed: _loadDebugInfo,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Refresh'),
+            Row(
+              children: [
+                ElevatedButton.icon(
+                  onPressed: _loadDebugInfo,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Refresh'),
+                ),
+                const SizedBox(width: 8),
+                if (_client.auth.currentUser == null)
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      final creds = await showDialog<Map<String, String>>(
+                        context: context,
+                        builder: (c) {
+                          final emailCtrl = TextEditingController();
+                          final passCtrl = TextEditingController();
+                          return AlertDialog(
+                            title: const Text('Sign in (email/password)'),
+                            content: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                TextField(
+                                    controller: emailCtrl,
+                                    decoration: const InputDecoration(
+                                        hintText: 'email')),
+                                const SizedBox(height: 8),
+                                TextField(
+                                    controller: passCtrl,
+                                    decoration: const InputDecoration(
+                                        hintText: 'password'),
+                                    obscureText: true),
+                              ],
+                            ),
+                            actions: [
+                              TextButton(
+                                  onPressed: () => Navigator.of(c).pop(null),
+                                  child: const Text('Cancel')),
+                              TextButton(
+                                  onPressed: () => Navigator.of(c).pop({
+                                        'email': emailCtrl.text.trim(),
+                                        'password': passCtrl.text
+                                      }),
+                                  child: const Text('Sign in')),
+                            ],
+                          );
+                        },
+                      );
+
+                      if (creds == null) return;
+
+                      try {
+                        setState(() {
+                          _loading = true;
+                          _error = null;
+                        });
+                        await _client.auth.signInWithPassword(
+                            email: creds['email']!,
+                            password: creds['password']!);
+                        await _loadDebugInfo();
+                      } catch (e) {
+                        setState(() {
+                          _error = e.toString();
+                        });
+                      } finally {
+                        if (mounted) setState(() => _loading = false);
+                      }
+                    },
+                    icon: const Icon(Icons.login),
+                    label: const Text('Sign in'),
+                  ),
+                if (_client.auth.currentUser != null) ...[
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      await _client.auth.signOut();
+                      await _loadDebugInfo();
+                      setState(() {});
+                    },
+                    icon: const Icon(Icons.logout),
+                    label: const Text('Sign out'),
+                  ),
+                ]
+              ],
             ),
             const SizedBox(height: 12),
             Text('Current user:',
