@@ -50,3 +50,4 @@ lib/screens/journal_screen.dart.backup3
 lib/screens/journal_screen.dart.backup4
 *.backup
 *.bak
+*.backup*

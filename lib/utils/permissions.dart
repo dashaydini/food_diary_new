@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../core/services/premium_service.dart';
 
 class Permissions {
   Permissions._();
@@ -7,29 +8,10 @@ class Permissions {
 
   static String? get currentUserId => _supabase.auth.currentUser?.id;
 
-  static bool _isAdmin = false;
-
-  static bool get isAdmin => _isAdmin;
+  static bool get isAdmin => PremiumService.isAdmin;
 
   static Future<void> load() async {
-    final user = _supabase.auth.currentUser;
-
-    if (user == null || user.isAnonymous) {
-      _isAdmin = false;
-      return;
-    }
-
-    try {
-      final profile = await _supabase
-          .from('profiles')
-          .select('is_admin')
-          .eq('id', user.id)
-          .maybeSingle();
-
-      _isAdmin = profile?['is_admin'] == true;
-    } catch (e) {
-      _isAdmin = false;
-    }
+    await PremiumService.load();
   }
 
   static bool canEditPlace(String? ownerId) {

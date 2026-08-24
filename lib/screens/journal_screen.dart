@@ -16,13 +16,15 @@ class _JournalScreenState extends State<JournalScreen> {
   final SupabaseClient _client = Supabase.instance.client;
 
   List<Map<String, dynamic>> _visits = [];
-  List<Map<String, dynamic>> _collections = [];
   bool _loading = true;
-  bool _collectionsLoading = false;
   String? _error;
   int _section = 0;
+  // ignore: unused_field
+  List<Map<String, dynamic>> _collections = [];
+  // ignore: unused_field
+  bool _collectionsLoading = false;
 
-  @override
+@override
   void initState() {
     super.initState();
     _loadVisits();
@@ -72,32 +74,31 @@ class _JournalScreenState extends State<JournalScreen> {
     }
   }
 
-  Future<void> _loadCollections() async {
-    final user = _client.auth.currentUser;
-    if (user == null || user.isAnonymous || !PremiumService.isPremium) return;
-
-    try {
-      if (mounted) setState(() => _collectionsLoading = true);
-
-      final rows = await _client
-          .from('journal_collections')
-          .select(
-            'id, name, description, cover_image_url, created_at, '
-            'journal_collection_visits(visit_id)',
-          )
-          .eq('user_id', user.id)
-          .order('created_at', ascending: false);
-
-      if (!mounted) return;
-
-      setState(() {
-        _collections = List<Map<String, dynamic>>.from(rows);
-        _collectionsLoading = false;
-      });
-    } catch (e) {
-      print('=== ERROR LOADING COLLECTIONS: $e ===');
-      if (mounted) setState(() => _collectionsLoading = false);
-    }
+    Future<void> _loadCollections() async {
+      final user = _client.auth.currentUser;
+      if (user == null || user.isAnonymous || !PremiumService.isPremium) return;
+  
+      try {
+        if (mounted) setState(() => _collectionsLoading = true);
+  
+        final rows = await _client
+            .from('journal_collections')
+            .select(
+              'id, name, description, cover_image_url, created_at, '
+              'journal_collection_visits(visit_id)',
+            )
+            .eq('user_id', user.id)
+            .order('created_at', ascending: false);
+  
+        if (!mounted) return;
+  
+        setState(() {
+          _collections = List<Map<String, dynamic>>.from(rows);
+          _collectionsLoading = false;
+        });
+      } catch (e) {
+        if (mounted) setState(() => _collectionsLoading = false);
+      }
   }
 
   Future<void> _toggleMemory(Map<String, dynamic> visit) async {
@@ -124,209 +125,6 @@ class _JournalScreenState extends State<JournalScreen> {
         SnackBar(content: Text('לא ניתן לשמור את הזיכרון: $e')),
       );
     }
-  }
-
-  Future<void> _createCollection() async {
-    final nameController = TextEditingController();
-    final descriptionController = TextEditingController();
-
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          title: const Text('אוסף חדש'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: 'שם האוסף',
-                  hintText: 'למשל: תל אביב או הטובים ביותר',
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: descriptionController,
-                maxLines: 2,
-                decoration: const InputDecoration(
-                  labelText: 'תיאור',
-                  hintText: 'לא חובה',
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('ביטול'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final name = nameController.text.trim();
-                if (name.isEmpty) return;
-
-                final user = _client.auth.currentUser;
-                if (user == null) return;
-
-                await _client.from('journal_collections').insert({
-                  'user_id': user.id,
-                  'name': name,
-                  'description': descriptionController.text.trim().isEmpty
-                      ? null
-                      : descriptionController.text.trim(),
-                });
-
-                if (context.mounted) Navigator.pop(context, true);
-              },
-              child: const Text('צור'),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    nameController.dispose();
-    descriptionController.dispose();
-
-    if (result == true) await _loadCollections();
-  }
-
-  Future<void> _deleteCollection(Map<String, dynamic> collection) async {
-    final id = collection['id'];
-    if (id == null) return;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          title: const Text('מחיקת אוסף'),
-          content: Text('למחוק את "${collection['name']}"?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('ביטול'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('מחיקה'),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    if (confirmed != true) return;
-
-    await _client
-        .from('journal_collections')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', _client.auth.currentUser!.id);
-
-    await _loadCollections();
-  }
-
-  Future<void> _showCollectionVisits(
-    Map<String, dynamic> collection,
-  ) async {
-    final collectionId = collection['id'];
-    if (collectionId == null) return;
-
-    final links = collection['journal_collection_visits'];
-    final selected = <String>{
-      if (links is List)
-        for (final link in links)
-          if (link is Map && link['visit_id'] != null)
-            link['visit_id'].toString(),
-    };
-
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        final localSelected = {...selected};
-
-        return StatefulBuilder(
-          builder: (context, setDialogState) => Directionality(
-            textDirection: TextDirection.rtl,
-            child: AlertDialog(
-              title: Text(collection['name']?.toString() ?? 'אוסף'),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: _visits.isEmpty
-                    ? const Text('אין עדיין ביקורים ביומן.')
-                    : ListView(
-                        shrinkWrap: true,
-                        children: _visits.map((visit) {
-                          final id = visit['id']?.toString();
-                          if (id == null) return const SizedBox.shrink();
-
-                          final place = visit['places'];
-                          final placeName = place is Map
-                              ? (place['name']?.toString() ?? 'מקום')
-                              : 'מקום';
-
-                          final checked = localSelected.contains(id);
-
-                          return CheckboxListTile(
-                            value: checked,
-                            onChanged: (value) {
-                              setDialogState(() {
-                                if (value == true) {
-                                  localSelected.add(id);
-                                } else {
-                                  localSelected.remove(id);
-                                }
-                              });
-                            },
-                            title: Text(placeName),
-                            subtitle: Text(
-                              _date(visit['visit_date']?.toString()),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: const Text('ביטול'),
-                ),
-                FilledButton(
-                  onPressed: () async {
-                    final oldIds = {...selected};
-                    final newIds = {...localSelected};
-
-                    for (final visitId in oldIds.difference(newIds)) {
-                      await _client
-                          .from('journal_collection_visits')
-                          .delete()
-                          .eq('collection_id', collectionId)
-                          .eq('visit_id', visitId);
-                    }
-
-                    for (final visitId in newIds.difference(oldIds)) {
-                      await _client.from('journal_collection_visits').insert({
-                        'collection_id': collectionId,
-                        'visit_id': visitId,
-                      });
-                    }
-
-                    if (context.mounted) Navigator.pop(context, true);
-                  },
-                  child: const Text('שמור'),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-
-    if (result == true) await _loadCollections();
   }
 
   String _date(String? value) {
@@ -412,9 +210,8 @@ class _JournalScreenState extends State<JournalScreen> {
       if (place is! Map) continue;
 
       final categoryData = place['categories'];
-      final category = categoryData is Map
-          ? categoryData['title']?.toString().trim()
-          : null;
+      final category =
+          categoryData is Map ? categoryData['title']?.toString().trim() : null;
       if (category == null || category.isEmpty) continue;
 
       counts[category] = (counts[category] ?? 0) + 1;
@@ -824,152 +621,6 @@ class _JournalScreenState extends State<JournalScreen> {
             fontWeight: FontWeight.w600,
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildCollections() {
-    if (_collectionsLoading) {
-      return const Center(
-        child: CircularProgressIndicator(
-          strokeWidth: 1.5,
-          color: AppColors.brass,
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      color: AppColors.brass,
-      onRefresh: _loadCollections,
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 40),
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'האוספים שלי',
-                  style: const TextStyle(
-                    color: AppColors.ink,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              SizedBox(
-                height: 40,
-                child: FilledButton(
-                  onPressed: _createCollection,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.add, size: 18),
-                      const SizedBox(width: 8),
-                      const Text('אוסף חדש'),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          if (_collections.isEmpty)
-            Card(
-              color: AppColors.card,
-              elevation: 0,
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    const Icon(
-                      Icons.collections_bookmark_outlined,
-                      size: 42,
-                      color: AppColors.brass,
-                    ),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'עדיין אין לך אוספים',
-                      style: TextStyle(
-                        color: AppColors.ink,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'צור אוסף כדי לקבץ ביקורים לפי טיול, נושא או כל רעיון אחר.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: AppColors.muted,
-                        fontSize: 13,
-                        height: 1.4,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    OutlinedButton(
-                      onPressed: _createCollection,
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.add), SizedBox(width: 8), Text('צור אוסף ראשון')]),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          else
-            ..._collections.map((collection) {
-              final links = collection['journal_collection_visits'];
-              final count = links is List ? links.length : 0;
-
-              return Card(
-                color: AppColors.card,
-                elevation: 0,
-                margin: const EdgeInsets.only(bottom: 10),
-                child: ListTile(
-                  onTap: () => _showCollectionVisits(collection),
-                  leading: const Icon(
-                    Icons.collections_bookmark_outlined,
-                    color: AppColors.brass,
-                  ),
-                  title: Text(
-                    collection['name']?.toString() ?? '',
-                    style: const TextStyle(
-                      color: AppColors.ink,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  subtitle: Text(
-                    '$count ${count == 1 ? 'ביקור' : 'ביקורים'}'
-                    '${collection['description'] != null && collection['description'].toString().trim().isNotEmpty ? ' · ${collection['description']}' : ''}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.muted,
-                      fontSize: 12,
-                    ),
-                  ),
-                  trailing: PopupMenuButton<String>(
-                    onSelected: (value) {
-                      if (value == 'visits') {
-                        _showCollectionVisits(collection);
-                      } else if (value == 'delete') {
-                        _deleteCollection(collection);
-                      }
-                    },
-                    itemBuilder: (_) => const [
-                      PopupMenuItem(
-                        value: 'visits',
-                        child: Text('ניהול ביקורים'),
-                      ),
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: Text('מחיקת אוסף'),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }),
-        ],
       ),
     );
   }
