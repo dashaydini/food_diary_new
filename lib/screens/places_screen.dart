@@ -1,3 +1,4 @@
+import 'place_details_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -811,7 +812,6 @@ class _PlacesScreenState extends State<PlacesScreen> {
       separatorBuilder: (_, __) => const SizedBox(height: 14),
       itemBuilder: (context, index) {
         final place = _places[index];
-
         final placeId = place['id']?.toString();
         final placeTagIds = placeId == null
             ? <String>{}
@@ -827,8 +827,13 @@ class _PlacesScreenState extends State<PlacesScreen> {
             'category_title': widget.categoryTitle,
             'display_tags': displayTags,
           },
-          onChanged: () {
-            _loadPlaces();
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => PlaceDetailsScreen(place: place),
+              ),
+            ).then((_) => _loadPlaces());
           },
         );
       },

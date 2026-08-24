@@ -302,7 +302,50 @@ class _VisitGalleryScreenState extends State<_VisitGalleryScreen> {
                 ),
               ),
             ),
-          ],
+          
+            // Navigation arrows for Web/Desktop
+            if (widget.images.length > 1) ...[
+              Positioned(
+                left: 16,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: CircleAvatar(
+                    backgroundColor: Colors.black38,
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 20),
+                      onPressed: () {
+                        _controller.previousPage(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 16,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: CircleAvatar(
+                    backgroundColor: Colors.black38,
+                    child: IconButton(
+                      icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+                      onPressed: () {
+                        _controller.nextPage(
+                          duration: const Duration(milliseconds: 300),
+                          curve: Curves.easeInOut,
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ],
+
+],
         ),
       ),
     );

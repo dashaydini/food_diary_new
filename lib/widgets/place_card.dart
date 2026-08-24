@@ -1,491 +1,228 @@
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/material.dart';
 
-import '../models/content_filter.dart';
-import '../screens/place_details_screen.dart';
-import '../theme/colors.dart';
-
-class PlaceCard extends StatefulWidget {
-  final Map<String, dynamic> place;
-  final ContentFilter filter;
+class PlaceCard extends StatelessWidget {
+  final dynamic place;
+  final VoidCallback? onTap;
   final VoidCallback? onChanged;
+  final VoidCallback? onSelected;
+  final VoidCallback? onNavigate;
 
   const PlaceCard({
     super.key,
     required this.place,
-    this.filter = ContentFilter.all,
+    this.onTap,
     this.onChanged,
+    this.onSelected,
+    this.onNavigate,
   });
 
-  @override
-  State<PlaceCard> createState() => _PlaceCardState();
-}
-
-class _PlaceCardState extends State<PlaceCard> {
-  Future<void> _openPlaceDetails() async {
-    final changed = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => PlaceDetailsScreen(
-          place: widget.place,
-          filter: widget.filter,
-        ),
-      ),
-    );
-
-    if (changed == true) {
-      widget.onChanged?.call();
-    }
-  }
-
-  Future<void> _openNavigation() async {
-    final latitude = (widget.place['latitude'] as num?)?.toDouble();
-    final longitude = (widget.place['longitude'] as num?)?.toDouble();
-
-    if (latitude == null || longitude == null) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('אין מיקום זמין לניווט עבור המקום הזה'),
-        ),
-      );
-      return;
-    }
-
-    if (kIsWeb) {
-      await _showNavigationOptions(latitude, longitude);
-      return;
-    }
-
-    final uri = Uri.parse(
-      'geo:$latitude,$longitude?q=$latitude,$longitude',
-    );
-
-    try {
-      final launched = await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
-      );
-
-      if (!launched && mounted) {
-        await _showNavigationOptions(latitude, longitude);
+  dynamic _getVal(List<String> keys) {
+    if (place is Map) {
+      for (var key in keys) {
+        if (place.containsKey(key) && place[key] != null) {
+          return place[key];
+        }
       }
-    } catch (_) {
-      if (!mounted) return;
-      await _showNavigationOptions(latitude, longitude);
+      return null;
+    } else {
+      try {
+        for (var key in keys) {
+          switch (key) {
+            case 'name': return place.name;
+            case 'address': return place.address;
+            case 'description': return place.description;
+            case 'imageUrl': case 'image_url': case 'image': return place.imageUrl;
+            case 'weighted_rating': case 'rating_weighted': case 'rating': case 'avg_rating': case 'score': 
+              try { return place.weighted_rating; } catch(_) { return place.rating; }
+            case 'rating_count': case 'reviewCount': case 'reviews_count': case 'total_reviews': case 'visits_count': 
+              try { return place.rating_count; } catch(_) { return place.reviewCount; }
+          }
+        }
+      } catch (_) {}
+      return null;
     }
-  }
-
-  Future<void> _showNavigationOptions(
-    double latitude,
-    double longitude,
-  ) async {
-    if (!mounted) return;
-
-    final googleMaps = Uri.parse(
-      'https://www.google.com/maps/dir/?api=1&destination=$latitude,$longitude',
-    );
-
-    final waze = Uri.parse(
-      'https://www.waze.com/ul?ll=$latitude%2C$longitude&navigate=yes',
-    );
-
-    final appleMaps = Uri.parse(
-      'https://maps.apple.com/?daddr=$latitude,$longitude',
-    );
-
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: AppColors.card,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(20),
-        ),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 42,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.muted,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                const Text(
-                  'בחר אפליקציית ניווט',
-                  style: TextStyle(
-                    fontSize: 19,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFF5EEE6),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ListTile(
-                  leading: const Icon(
-                    Icons.map_outlined,
-                    color: AppColors.muted,
-                  ),
-                  title: const Text(
-                    'Google Maps',
-                    style: TextStyle(
-                      color: Color(0xFFF5EEE6),
-                    ),
-                  ),
-                  onTap: () async {
-                    Navigator.pop(context);
-                    await launchUrl(
-                      googleMaps,
-                      mode: LaunchMode.platformDefault,
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(
-                    Icons.navigation_outlined,
-                    color: AppColors.muted,
-                  ),
-                  title: const Text(
-                    'Waze',
-                    style: TextStyle(
-                      color: Color(0xFFF5EEE6),
-                    ),
-                  ),
-                  onTap: () async {
-                    Navigator.pop(context);
-                    await launchUrl(
-                      waze,
-                      mode: LaunchMode.platformDefault,
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(
-                    Icons.location_on_outlined,
-                    color: AppColors.muted,
-                  ),
-                  title: const Text(
-                    'Apple Maps',
-                    style: TextStyle(
-                      color: Color(0xFFF5EEE6),
-                    ),
-                  ),
-                  onTap: () async {
-                    Navigator.pop(context);
-                    await launchUrl(
-                      appleMaps,
-                      mode: LaunchMode.platformDefault,
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final name = widget.place['name']?.toString() ?? '';
-    final address = widget.place['address']?.toString() ?? '';
-    final description = widget.place['description']?.toString() ??
-        widget.place['short_description']?.toString() ??
-        '';
-    final imageUrl = widget.place['image_url']?.toString() ?? '';
+    final effectiveOnTap = onTap ?? onChanged ?? onSelected;
+    
+    final name = _getVal(['name', 'title']) ?? '';
+    final address = _getVal(['address', 'location']) ?? '';
+    final description = _getVal(['description', 'notes', 'details']) ?? '';
+    
+    dynamic imageUrl;
+    if (place is Map) {
+      imageUrl = place['imageUrl'] ?? place['image_url'] ?? place['image'] ?? place['photo'] ?? place['photo_url'] ?? place['img'];
+    } else {
+      imageUrl = _getVal(['imageUrl', 'image_url', 'image']);
+    }
 
-    final weightedRating =
-        (widget.place['weighted_rating'] as num?)?.toDouble();
+    final rawRating = _getVal(['weighted_rating', 'rating_weighted', 'rating', 'avg_rating', 'score']) ?? 0.0;
+    // final rawReviews = _getVal(['rating_count', 'reviewCount', 'reviews_count', 'total_reviews', 'visits_count']) ?? 0;
 
-    final ratingCount = (widget.place['rating_count'] as num?)?.toInt() ??
-        (widget.place['reviews_count'] as num?)?.toInt() ??
-        (widget.place['review_count'] as num?)?.toInt();
-
-    final hasLocation =
-        widget.place['latitude'] != null && widget.place['longitude'] != null;
+    final ratingNum = rawRating is num ? rawRating.toDouble() : double.tryParse(rawRating.toString()) ?? 0.0;
+    // // final reviewCountInt = rawReviews is num ? rawReviews.toInt() : int.tryParse(rawReviews.toString()) ?? 0;
 
     return Container(
-      margin: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 8,
-      ),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(
-          color: const Color(0xFF555555),
-          width: 1.0,
-        ),
+        color: const Color(0xFF1A1D24),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white12, width: 1),
       ),
-      clipBehavior: Clip.antiAlias,
       child: Material(
         color: Colors.transparent,
+        borderRadius: BorderRadius.circular(16),
         child: InkWell(
-          onTap: _openPlaceDetails,
-          child: Column(
-            children: [
-              // =========================================================
-              // גוף הכרטיס
-              // שמאל = תמונה | ימין = פרטי המקום
-              // =========================================================
-              SizedBox(
-                height: 300,
-                child: Row(
-                  textDirection: TextDirection.ltr,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+          onTap: effectiveOnTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ---------------------------------------------------
-                    // תמונה — שמאל
-                    // ---------------------------------------------------
-                    Expanded(
-                      flex: 47,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          14,
-                          14,
-                          0,
-                          14,
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(22),
-                          child: Container(
-                            color: Colors.transparent,
-                            alignment: Alignment.center,
-                            child: imageUrl.isNotEmpty
-                                ? Image.network(
-                                    imageUrl,
-                                    width: double.infinity,
-                                    height: double.infinity,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) {
-                                      return const Icon(
-                                        Icons.image_outlined,
-                                        size: 38,
-                                        color: AppColors.muted,
-                                      );
-                                    },
-                                  )
-                                : const Icon(
-                                    Icons.image_outlined,
-                                    size: 38,
-                                    color: AppColors.muted,
-                                  ),
+                    if (imageUrl != null && imageUrl.toString().isNotEmpty)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: SizedBox(
+                          width: 110,
+                          height: 110,
+                          child: Image.network(
+                            imageUrl.toString(),
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
                           ),
                         ),
                       ),
-                    ),
-
-                    // ---------------------------------------------------
-                    // פרטי המקום — ימין
-                    // ---------------------------------------------------
+                    if (imageUrl != null && imageUrl.toString().isNotEmpty)
+                      const SizedBox(width: 16),
                     Expanded(
-                      flex: 53,
-                      child: Directionality(
-                        textDirection: TextDirection.rtl,
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(
-                            24,
-                            20,
-                            18,
-                            16,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name.toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
+                          const SizedBox(height: 4),
+                          Row(
                             children: [
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: Align(
-                                  alignment: Alignment.centerRight,
-                                  child: Text(
-                                    name,
-                                    textAlign: TextAlign.right,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 23,
-                                      height: 1.15,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
-                                    ),
+                              const Icon(Icons.location_on_outlined,
+                                  size: 14, color: Color(0xFFD4AF37)),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  address.toString(),
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 13,
                                   ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              if (address.isNotEmpty) ...[
-                                const SizedBox(height: 12),
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Icon(
-                                      Icons.location_on_outlined,
-                                      size: 18,
-                                      color: AppColors.muted,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(
-                                        address,
-                                        textAlign: TextAlign.right,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontSize: 14,
-                                          height: 1.3,
-                                          color: Color(0xFF757575),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                              if (description.isNotEmpty) ...[
-                                const SizedBox(height: 14),
-                                Container(
-                                  height: 1,
-                                  width: double.infinity,
-                                  color: const Color(0xFF666666),
-                                ),
-                                const SizedBox(height: 12),
-                                Expanded(
-                                  child: Text(
-                                    description,
-                                    textAlign: TextAlign.right,
-                                    maxLines: 5,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 13.5,
-                                      height: 1.45,
-                                      color: Color(0xFF757575),
-                                    ),
-                                  ),
-                                ),
-                              ],
                             ],
                           ),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 8.0),
+                            child: Divider(color: Colors.white12, height: 1),
+                          ),
+                          Text(
+                            description.toString(),
+                            style: const TextStyle(
+                              color: Colors.white60,
+                              fontSize: 12,
+                              height: 1.3,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12.0),
+                  child: Divider(color: Colors.white12, height: 1),
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.star, color: Color(0xFFE6C687), size: 18),
+                        const SizedBox(width: 6),
+                        Text(
+                          ratingNum.toStringAsFixed(1),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '()',
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    InkWell(
+                      onTap: onNavigate ?? () async {
+      final lat = place is Map ? (place['latitude'] != null ? double.tryParse(place['latitude'].toString()) : null) : null;
+      final lng = place is Map ? (place['longitude'] != null ? double.tryParse(place['longitude'].toString()) : null) : null;
+      final addr = place is Map ? (place['address']?.toString() ?? '') : '';
+
+      if (lat != null && lng != null) {
+        final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+        if (await canLaunchUrl(url)) {
+          await launchUrl(url, mode: LaunchMode.externalApplication);
+        }
+      } else if (addr.isNotEmpty) {
+        final encodedAddress = Uri.encodeComponent(addr);
+        final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$encodedAddress');
+        if (await canLaunchUrl(url)) {
+          await launchUrl(url, mode: LaunchMode.externalApplication);
+        }
+      }
+    },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        child: Row(
+                          children: const [
+                            Icon(Icons.navigation_outlined,
+                                color: Color(0xFFE6C687), size: 16),
+                            SizedBox(width: 6),
+                            Text(
+                              'ניווט',
+                              style: TextStyle(
+                                color: Color(0xFFE6C687),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
                   ],
                 ),
-              ),
-
-              // =========================================================
-              // שורת הפעולות התחתונה
-              // =========================================================
-              SizedBox(
-                height: 68,
-                child: Container(
-                  decoration: const BoxDecoration(
-                    border: Border(
-                      top: BorderSide(
-                        color: Color(0xFF666666),
-                        width: 1,
-                      ),
-                    ),
-                  ),
-                  child: Directionality(
-                    textDirection: TextDirection.rtl,
-                    child: Row(
-                      children: [
-                        // ניווט — ימין
-                        if (hasLocation)
-                          Expanded(
-                            child: InkWell(
-                              onTap: _openNavigation,
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  const Icon(
-                                    Icons.navigation_outlined,
-                                    size: 21,
-                                    color: Color(0xFFF5EEE6),
-                                  ),
-                                  const SizedBox(width: 7),
-                                  const Text(
-                                    'ניווט',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFFF5EEE6),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )
-                        else
-                          const Expanded(
-                            child: SizedBox.shrink(),
-                          ),
-
-                        // מפריד
-                        Container(
-                          width: 1,
-                          height: 25,
-                          color: const Color(0xFF666666),
-                        ),
-
-                        // דירוג — שמאל
-                        Expanded(
-                          child: Align(
-                            alignment: Alignment.centerLeft,
-                            child: weightedRating != null
-                                ? Directionality(
-                                    textDirection: TextDirection.ltr,
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(
-                                        left: 16,
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(
-                                            Icons.star,
-                                            size: 19,
-                                            color: Color(0xFFF5EEE6),
-                                          ),
-                                          const SizedBox(width: 5),
-                                          Text(
-                                            weightedRating.toStringAsFixed(1),
-                                            style: const TextStyle(
-                                              fontSize: 17,
-                                              fontWeight: FontWeight.w600,
-                                              color: Color(0xFFF5EEE6),
-                                            ),
-                                          ),
-
-                                          // כמות מדרגים
-                                          if (ratingCount != null) ...[
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              '($ratingCount)',
-                                              style: const TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w400,
-                                                color: AppColors.muted,
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-                                  )
-                                : const SizedBox.shrink(),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

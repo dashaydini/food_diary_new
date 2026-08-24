@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -231,50 +231,30 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
   }
 
   Future<void> _openNavigation() async {
-    final latitude = (widget.place['latitude'] as num?)?.toDouble();
-    final longitude = (widget.place['longitude'] as num?)?.toDouble();
+    final lat = widget.place['latitude'] != null ? double.tryParse(widget.place['latitude'].toString()) : null;
+    final lng = widget.place['longitude'] != null ? double.tryParse(widget.place['longitude'].toString()) : null;
+    final addr = widget.place['address']?.toString() ?? '';
 
-    if (latitude == null || longitude == null) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('אין מיקום זמין לניווט עבור המקום הזה'),
-        ),
-      );
-      return;
-    }
-
-    if (kIsWeb) {
-      await _showNavigationOptions(latitude, longitude);
-      return;
-    }
-
-    final uri = Uri.parse(
-      'geo:$latitude,$longitude?q=$latitude,$longitude',
-    );
-
-    try {
-      final launched = await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
-      );
-
-      if (!launched && mounted) {
+    if (lat != null && lng != null) {
+      await _showNavigationOptions(lat, lng);
+    } else if (addr.isNotEmpty) {
+      final encodedAddress = Uri.encodeComponent(addr);
+      final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$encodedAddress');
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('לא ניתן לפתוח את הניווט')),
+          );
+        }
+      }
+    } else {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('לא ניתן לפתוח את המפות'),
-          ),
+          const SnackBar(content: Text('אין מיקום זמין לניווט עבור המקום הזה')),
         );
       }
-    } catch (_) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('לא ניתן לפתוח את המפות'),
-        ),
-      );
     }
   }
 
@@ -313,7 +293,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                   width: 42,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: AppColors.muted,
+                    color: Colors.transparent,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -510,7 +490,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
               child: Container(
                 width: double.infinity,
                 height: 240,
-                color: AppColors.card,
+                color: Colors.transparent,
                 child: Image.network(
                   imageUrl,
                   fit: BoxFit.contain,
