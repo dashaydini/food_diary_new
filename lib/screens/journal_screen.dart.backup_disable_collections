@@ -554,7 +554,7 @@ class _JournalScreenState extends State<JournalScreen> {
   }
 
   Widget _buildSections() {
-    const labels = ['ציר זמן', 'זיכרונות', 'סטטיסטיקות'];
+    const labels = ['ציר זמן', 'זיכרונות', 'סטטיסטיקות', 'אוספים'];
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -594,6 +594,8 @@ class _JournalScreenState extends State<JournalScreen> {
         return _buildMemories();
       case 2:
         return _buildStatistics();
+      case 3:
+        return _buildCollections();
       default:
         return _buildTimeline(_visits);
     }
