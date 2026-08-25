@@ -882,8 +882,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
     try {
       await Supabase.instance.client
           .from('visits')
-          .update({'favorite_memory': newValue})
-          .eq('id', visit['id']);
+          .update({'favorite_memory': newValue}).eq('id', visit['id']);
 
       widget.visit?['favorite_memory'] = newValue;
     } catch (e) {
@@ -929,7 +928,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
             child: Text(
               title,
               style: TextStyle(
-                color: Color(0xFFF5EEE6),
+                color: AppColors.card,
                 fontSize: 16,
               ),
             ),
@@ -1142,11 +1141,11 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
         ),
         decoration: BoxDecoration(
           color: selected
-              ? const Color(0xFFF5EEE6).withValues(alpha: 0.12)
+              ? AppColors.card.withValues(alpha: 0.12)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: selected ? const Color(0xFFF5EEE6) : AppColors.line,
+            color: selected ? AppColors.card : AppColors.line,
           ),
         ),
         child: Text(
@@ -1154,7 +1153,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
           style: TextStyle(
             fontSize: 14,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-            color: const Color(0xFFF5EEE6),
+            color: AppColors.card,
           ),
         ),
       ),
@@ -1241,7 +1240,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                 style: TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFFF5EEE6),
+                  color: AppColors.card,
                 ),
               ),
               const SizedBox(height: 6),
@@ -1249,7 +1248,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                 'תעד את הביקור שלך',
                 style: TextStyle(
                   fontSize: 15,
-                  color: const Color(0xFFD8CEC4),
+                  color: AppColors.cardBorder,
                 ),
               ),
               SizedBox(height: 24),
@@ -1271,7 +1270,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                     'כמה שילמתי?',
                     style: TextStyle(
                       fontSize: 15,
-                      color: Color(0xFFD8CEC4),
+                      color: AppColors.cardBorder,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1326,7 +1325,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFFF5EEE6),
+                  color: AppColors.card,
                 ),
               ),
               const SizedBox(height: 14),
@@ -1394,7 +1393,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                       'תאריך הביקור',
                       style: TextStyle(
                         fontSize: 16,
-                        color: Color(0xFFF5EEE6),
+                        color: AppColors.card,
                       ),
                     ),
                   ),
@@ -1417,7 +1416,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFFF5EEE6),
+                  color: AppColors.card,
                 ),
               ),
               const SizedBox(height: 14),

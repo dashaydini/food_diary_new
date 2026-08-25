@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'screens/chat_screen.dart';
+import 'theme/colors.dart';
 
 void main() => runApp(const LogoDemoApp());
 
@@ -23,7 +24,7 @@ class LogoDemoScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0B0B0B),
+      backgroundColor: const Color(0xFF0F1117),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -52,7 +53,7 @@ class LogoDemoScreen extends StatelessWidget {
             const Text(
               'BITE THE WAY',
               style: TextStyle(
-                color: Color(0xFFF8EDE0),
+                color: AppColors.card,
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 2,

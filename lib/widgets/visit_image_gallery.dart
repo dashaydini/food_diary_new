@@ -150,7 +150,7 @@ class _VisitGalleryScreenState extends State<_VisitGalleryScreen> {
     final dateText = _dateText(image.date);
 
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Stack(
           children: [
@@ -197,7 +197,7 @@ class _VisitGalleryScreenState extends State<_VisitGalleryScreen> {
                     vertical: 7,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.55),
+                    color: Colors.white.withValues(alpha: 0.55),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -217,7 +217,7 @@ class _VisitGalleryScreenState extends State<_VisitGalleryScreen> {
               top: 10,
               right: 10,
               child: Material(
-                color: Colors.black.withValues(alpha: 0.55),
+                color: Colors.white.withValues(alpha: 0.55),
                 borderRadius: BorderRadius.circular(12),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(12),
@@ -239,7 +239,7 @@ class _VisitGalleryScreenState extends State<_VisitGalleryScreen> {
               top: 10,
               left: 10,
               child: Material(
-                color: Colors.black.withValues(alpha: 0.55),
+                color: Colors.white.withValues(alpha: 0.55),
                 borderRadius: BorderRadius.circular(12),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(12),
@@ -284,7 +284,7 @@ class _VisitGalleryScreenState extends State<_VisitGalleryScreen> {
                   vertical: 12,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.62),
+                  color: Colors.white.withValues(alpha: 0.62),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Directionality(
@@ -302,7 +302,7 @@ class _VisitGalleryScreenState extends State<_VisitGalleryScreen> {
                 ),
               ),
             ),
-          
+
             // Navigation arrows for Web/Desktop
             if (widget.images.length > 1) ...[
               Positioned(
@@ -313,7 +313,8 @@ class _VisitGalleryScreenState extends State<_VisitGalleryScreen> {
                   child: CircleAvatar(
                     backgroundColor: Colors.black38,
                     child: IconButton(
-                      icon: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 20),
+                      icon: const Icon(Icons.arrow_forward_ios,
+                          color: Colors.white, size: 20),
                       onPressed: () {
                         _controller.previousPage(
                           duration: const Duration(milliseconds: 300),
@@ -332,7 +333,8 @@ class _VisitGalleryScreenState extends State<_VisitGalleryScreen> {
                   child: CircleAvatar(
                     backgroundColor: Colors.black38,
                     child: IconButton(
-                      icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+                      icon: const Icon(Icons.arrow_back_ios_new,
+                          color: Colors.white, size: 20),
                       onPressed: () {
                         _controller.nextPage(
                           duration: const Duration(milliseconds: 300),
@@ -344,8 +346,7 @@ class _VisitGalleryScreenState extends State<_VisitGalleryScreen> {
                 ),
               ),
             ],
-
-],
+          ],
         ),
       ),
     );

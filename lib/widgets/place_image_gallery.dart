@@ -251,7 +251,7 @@ class _GalleryScreenState extends State<_GalleryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Stack(
           children: [
@@ -282,7 +282,7 @@ class _GalleryScreenState extends State<_GalleryScreen> {
               top: 10,
               left: 10,
               child: Material(
-                color: Colors.black.withValues(alpha: 0.55),
+                color: Colors.white.withValues(alpha: 0.55),
                 borderRadius: BorderRadius.circular(12),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(12),
@@ -338,7 +338,7 @@ class _GalleryScreenState extends State<_GalleryScreen> {
                   vertical: 12,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.62),
+                  color: Colors.white.withValues(alpha: 0.62),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Directionality(
@@ -356,7 +356,7 @@ class _GalleryScreenState extends State<_GalleryScreen> {
                 ),
               ),
             ),
-          
+
             // Navigation arrows for Web/Desktop
             if (widget.images.length > 1) ...[
               Positioned(
@@ -367,7 +367,8 @@ class _GalleryScreenState extends State<_GalleryScreen> {
                   child: CircleAvatar(
                     backgroundColor: Colors.black38,
                     child: IconButton(
-                      icon: const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 20),
+                      icon: const Icon(Icons.arrow_forward_ios,
+                          color: Colors.white, size: 20),
                       onPressed: () {
                         _controller.previousPage(
                           duration: const Duration(milliseconds: 300),
@@ -386,7 +387,8 @@ class _GalleryScreenState extends State<_GalleryScreen> {
                   child: CircleAvatar(
                     backgroundColor: Colors.black38,
                     child: IconButton(
-                      icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
+                      icon: const Icon(Icons.arrow_back_ios_new,
+                          color: Colors.white, size: 20),
                       onPressed: () {
                         _controller.nextPage(
                           duration: const Duration(milliseconds: 300),
@@ -398,8 +400,7 @@ class _GalleryScreenState extends State<_GalleryScreen> {
                 ),
               ),
             ],
-
-],
+          ],
         ),
       ),
     );

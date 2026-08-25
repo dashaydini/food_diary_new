@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -231,15 +230,20 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
   }
 
   Future<void> _openNavigation() async {
-    final lat = widget.place['latitude'] != null ? double.tryParse(widget.place['latitude'].toString()) : null;
-    final lng = widget.place['longitude'] != null ? double.tryParse(widget.place['longitude'].toString()) : null;
+    final lat = widget.place['latitude'] != null
+        ? double.tryParse(widget.place['latitude'].toString())
+        : null;
+    final lng = widget.place['longitude'] != null
+        ? double.tryParse(widget.place['longitude'].toString())
+        : null;
     final addr = widget.place['address']?.toString() ?? '';
 
     if (lat != null && lng != null) {
       await _showNavigationOptions(lat, lng);
     } else if (addr.isNotEmpty) {
       final encodedAddress = Uri.encodeComponent(addr);
-      final url = Uri.parse('https://www.google.com/maps/search/?api=1&query=$encodedAddress');
+      final url = Uri.parse(
+          'https://www.google.com/maps/search/?api=1&query=$encodedAddress');
       if (await canLaunchUrl(url)) {
         await launchUrl(url, mode: LaunchMode.externalApplication);
       } else {
@@ -303,7 +307,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                   style: TextStyle(
                     fontSize: 19,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFFF5EEE6),
+                    color: AppColors.card,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -314,7 +318,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                   ),
                   title: const Text(
                     'Google Maps',
-                    style: TextStyle(color: Color(0xFFF5EEE6)),
+                    style: TextStyle(color: AppColors.card),
                   ),
                   onTap: () async {
                     Navigator.pop(context);
@@ -331,7 +335,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                   ),
                   title: const Text(
                     'Waze',
-                    style: TextStyle(color: Color(0xFFF5EEE6)),
+                    style: TextStyle(color: AppColors.card),
                   ),
                   onTap: () async {
                     Navigator.pop(context);
@@ -348,7 +352,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                   ),
                   title: const Text(
                     'Apple Maps',
-                    style: TextStyle(color: Color(0xFFF5EEE6)),
+                    style: TextStyle(color: AppColors.card),
                   ),
                   onTap: () async {
                     Navigator.pop(context);

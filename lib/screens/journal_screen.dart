@@ -24,7 +24,7 @@ class _JournalScreenState extends State<JournalScreen> {
   // ignore: unused_field
   bool _collectionsLoading = false;
 
-@override
+  @override
   void initState() {
     super.initState();
     _loadVisits();
@@ -74,31 +74,31 @@ class _JournalScreenState extends State<JournalScreen> {
     }
   }
 
-    Future<void> _loadCollections() async {
-      final user = _client.auth.currentUser;
-      if (user == null || user.isAnonymous || !PremiumService.isPremium) return;
-  
-      try {
-        if (mounted) setState(() => _collectionsLoading = true);
-  
-        final rows = await _client
-            .from('journal_collections')
-            .select(
-              'id, name, description, cover_image_url, created_at, '
-              'journal_collection_visits(visit_id)',
-            )
-            .eq('user_id', user.id)
-            .order('created_at', ascending: false);
-  
-        if (!mounted) return;
-  
-        setState(() {
-          _collections = List<Map<String, dynamic>>.from(rows);
-          _collectionsLoading = false;
-        });
-      } catch (e) {
-        if (mounted) setState(() => _collectionsLoading = false);
-      }
+  Future<void> _loadCollections() async {
+    final user = _client.auth.currentUser;
+    if (user == null || user.isAnonymous || !PremiumService.isPremium) return;
+
+    try {
+      if (mounted) setState(() => _collectionsLoading = true);
+
+      final rows = await _client
+          .from('journal_collections')
+          .select(
+            'id, name, description, cover_image_url, created_at, '
+            'journal_collection_visits(visit_id)',
+          )
+          .eq('user_id', user.id)
+          .order('created_at', ascending: false);
+
+      if (!mounted) return;
+
+      setState(() {
+        _collections = List<Map<String, dynamic>>.from(rows);
+        _collectionsLoading = false;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _collectionsLoading = false);
+    }
   }
 
   Future<void> _toggleMemory(Map<String, dynamic> visit) async {

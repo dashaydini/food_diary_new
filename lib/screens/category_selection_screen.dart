@@ -1,3 +1,4 @@
+import '../widgets/category_card.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -280,21 +281,6 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
     }
   }
 
-  void _selectCategory(
-    BuildContext context,
-    PlaceCategory category,
-  ) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => PlacesScreen(
-          categoryId: category.id,
-          categoryTitle: category.title,
-          filter: _contentFilter,
-        ),
-      ),
-    );
-  }
-
   String _filterLabel(ContentFilter filter) {
     switch (filter) {
       case ContentFilter.favorites:
@@ -356,7 +342,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.20),
+                        color: Colors.white.withValues(alpha: 0.20),
                         blurRadius: 28,
                         spreadRadius: 0,
                         offset: const Offset(0, 12),
@@ -652,10 +638,13 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                 width: 0.8,
               ),
             ),
-            child: const Icon(
-              Icons.person_outline,
-              size: 22,
-              color: AppColors.white,
+            child: IconTheme(
+              data: const IconThemeData(color: AppColors.brass),
+              child: const Icon(
+                Icons.person_outline,
+                size: 22,
+                color: AppColors.brass,
+              ),
             ),
           ),
         ),
@@ -796,26 +785,27 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
     return ListView.separated(
       padding: EdgeInsets.zero,
       itemCount: _categories.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 0),
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
-        return _buildCategory(_categories[index]);
+        final cat = _categories[index];
+        return CategoryCard(
+          title: cat.title,
+          subtitle: cat.subtitle,
+          icon: cat.iconName == 'coffee_cart'
+              ? Icons.storefront_outlined
+              : cat.icon,
+          onTap: () {
+            // ניווט למסך הקטגוריות / סינון המקומות
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    PlacesScreen(categoryId: cat.id, categoryTitle: cat.title),
+              ),
+            );
+          },
+        );
       },
-    );
-  }
-
-  Widget _buildCategoryIcon(PlaceCategory category) {
-    if (category.iconName == 'coffee_cart') {
-      return const Icon(
-        Icons.storefront_outlined,
-        color: AppColors.brass,
-        size: 22,
-      );
-    }
-
-    return Icon(
-      category.icon,
-      color: AppColors.brass,
-      size: 22,
     );
   }
 
@@ -824,61 +814,82 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
     Key? key,
     bool showDragHandle = false,
   }) {
-    return Material(
+    return Container(
       key: key,
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: _editingOrder ? null : () => _selectCategory(context, category),
-        splashColor: AppColors.brass.withValues(alpha: 0.04),
-        highlightColor: AppColors.brass.withValues(alpha: 0.02),
-        child: Container(
-          height: 88,
-          decoration: const BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                color: AppColors.line,
-                width: 0.7,
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.line, width: 1),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => PlacesScreen(
+                    categoryId: category.id, categoryTitle: category.title),
               ),
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+            child: Row(
+              textDirection: TextDirection.rtl,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.background,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.line, width: 1),
+                  ),
+                  child: Icon(
+                    category.iconName == 'coffee_cart'
+                        ? Icons.storefront_outlined
+                        : category.icon,
+                    color: AppColors.ink,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    textDirection: TextDirection.rtl,
+                    children: [
+                      Text(
+                        category.title,
+                        style: const TextStyle(
+                          color: AppColors.ink,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.3,
+                        ),
+                        textAlign: TextAlign.right,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        category.subtitle,
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 12,
+                          letterSpacing: 0.5,
+                        ),
+                        textAlign: TextAlign.right,
+                      ),
+                    ],
+                  ),
+                ),
+                if (showDragHandle) ...[
+                  const SizedBox(width: 12),
+                  const Icon(Icons.drag_handle, color: AppColors.muted),
+                ],
+              ],
             ),
-          ),
-          child: Row(
-            children: [
-              _buildCategoryIcon(category),
-              const SizedBox(width: 18),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      category.title,
-                      style: const TextStyle(
-                        color: AppColors.ink,
-                        fontSize: 19,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      category.subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.muted,
-                        fontSize: 9.5,
-                        letterSpacing: 1.1,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (showDragHandle)
-                const Icon(
-                  Icons.drag_handle,
-                  size: 21,
-                  color: AppColors.brass,
-                ),
-            ],
           ),
         ),
       ),

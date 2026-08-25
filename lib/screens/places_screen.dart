@@ -725,9 +725,7 @@ class _PlacesScreenState extends State<PlacesScreen> {
                 _hasAdvancedFilter
                     ? Icons.filter_alt
                     : Icons.filter_alt_outlined,
-                color: _hasAdvancedFilter
-                    ? AppColors.brass
-                    : const Color(0xFFF5EEE6),
+                color: _hasAdvancedFilter ? AppColors.brass : AppColors.card,
               ),
               tooltip: 'סינון מתקדם',
               onPressed: _openAdvancedFilter,
@@ -737,7 +735,7 @@ class _PlacesScreenState extends State<PlacesScreen> {
             IconButton(
               icon: const Icon(
                 Icons.add,
-                color: Color(0xFFF5EEE6),
+                color: AppColors.card,
               ),
               tooltip: 'הוספת מקום',
               onPressed: () async {

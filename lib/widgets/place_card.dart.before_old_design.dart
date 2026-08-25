@@ -116,7 +116,7 @@ class _PlaceCardState extends State<PlaceCard> {
                   style: TextStyle(
                     fontSize: 19,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFFF5EEE6),
+                    color: AppColors.card,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -127,7 +127,7 @@ class _PlaceCardState extends State<PlaceCard> {
                   ),
                   title: const Text(
                     'Google Maps',
-                    style: TextStyle(color: Color(0xFFF5EEE6)),
+                    style: TextStyle(color: AppColors.card),
                   ),
                   onTap: () async {
                     Navigator.pop(context);
@@ -144,7 +144,7 @@ class _PlaceCardState extends State<PlaceCard> {
                   ),
                   title: const Text(
                     'Waze',
-                    style: TextStyle(color: Color(0xFFF5EEE6)),
+                    style: TextStyle(color: AppColors.card),
                   ),
                   onTap: () async {
                     Navigator.pop(context);
@@ -161,7 +161,7 @@ class _PlaceCardState extends State<PlaceCard> {
                   ),
                   title: const Text(
                     'Apple Maps',
-                    style: TextStyle(color: Color(0xFFF5EEE6)),
+                    style: TextStyle(color: AppColors.card),
                   ),
                   onTap: () async {
                     Navigator.pop(context);
@@ -229,7 +229,7 @@ class _PlaceCardState extends State<PlaceCard> {
                           style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w600,
-                            color: Color(0xFFF5EEE6),
+                            color: AppColors.card,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -273,7 +273,7 @@ class _PlaceCardState extends State<PlaceCard> {
                             const Icon(
                               Icons.star,
                               size: 17,
-                              color: Color(0xFFF5EEE6),
+                              color: AppColors.card,
                             ),
                             const SizedBox(width: 4),
                             Text(
@@ -281,7 +281,7 @@ class _PlaceCardState extends State<PlaceCard> {
                               style: const TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFFF5EEE6),
+                                color: AppColors.card,
                               ),
                             ),
                           ],

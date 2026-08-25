@@ -1,5 +1,131 @@
-import 'package:flutter/material.dart';
+import os
+import shutil
+
+# קבצים ליצירת גיבוי
+files_to_update = {
+    'lib/theme/app_theme.dart': '''import 'package:flutter/material.dart';
+
+class AppColors {
+  static const Color background = Color(0xFF0D0F14);
+  static const Color cardBg = Color(0xFF131722);
+  static const Color cardBorder = Color(0xFF2C3242); // מסגרת אפורה מובלטת
+  static const Color gold = Color(0xFFFFC107);
+  static const Color textPrimary = Colors.white;
+  static const Color textSecondary = Color(0xFF8E99A8);
+  static const Color inputBg = Color(0xFF1B202E);
+}
+
+class AppTheme {
+  static ThemeData get darkTheme {
+    return ThemeData.dark().copyWith(
+      scaffoldBackgroundColor: AppColors.background,
+      colorScheme: const ColorScheme.dark(
+        primary: AppColors.gold,
+        surface: AppColors.cardBg,
+      ),
+      appBarTheme: const AppBarTheme(
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        centerTitle: true,
+        titleTextStyle: TextStyle(
+          color: AppColors.textPrimary,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  static ThemeData get lightTheme => darkTheme;
+  static ThemeData get light => darkTheme;
+  static ThemeData get dark => darkTheme;
+}
+''',
+
+    'lib/widgets/category_card.dart': '''import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
+
+class CategoryCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const CategoryCard({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.cardBg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.cardBorder, width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          child: Row(
+            children: [
+              Icon(icon, color: AppColors.gold, size: 28),
+              const SizedBox(width: 16),
+              Container(
+                width: 1,
+                height: 32,
+                color: AppColors.cardBorder,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+''',
+
+    'lib/widgets/place_card.dart': '''import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../theme/app_theme.dart';
 
 class PlaceCard extends StatelessWidget {
   final Map<String, dynamic> place;
@@ -46,7 +172,7 @@ class PlaceCard extends StatelessWidget {
       availableApps.add({'title': 'Waze', 'icon': Icons.navigation_rounded, 'color': Colors.cyan, 'uri': wazeApp});
     }
     if (await canLaunchUrl(googleMapsApp)) {
-      availableApps.add({'title': 'Google Maps', 'icon': Icons.map_rounded, 'color': Colors.blueAccent, 'uri': googleMapsApp});
+      availableApps.add({'title': 'Google Maps', 'icon': Icons.map_rounded, 'color': Colors.blue, 'uri': googleMapsApp});
     } else {
       availableApps.add({'title': 'Google Maps (בדפדפן)', 'icon': Icons.language_rounded, 'color': Colors.blue, 'uri': googleMapsWeb});
     }
@@ -58,7 +184,7 @@ class PlaceCard extends StatelessWidget {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF161922),
+      backgroundColor: AppColors.cardBg,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -81,7 +207,7 @@ class PlaceCard extends StatelessWidget {
                 Text(
                   'נווט ל-$title',
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AppColors.textPrimary,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
@@ -90,7 +216,7 @@ class PlaceCard extends StatelessWidget {
                 for (var app in availableApps)
                   ListTile(
                     leading: Icon(app['icon'] as IconData, color: app['color'] as Color),
-                    title: Text(app['title'] as String, style: const TextStyle(color: Colors.white)),
+                    title: Text(app['title'] as String, style: const TextStyle(color: AppColors.textPrimary)),
                     onTap: () async {
                       Navigator.pop(ctx);
                       final uri = app['uri'] as Uri;
@@ -119,14 +245,14 @@ class PlaceCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF131722), // כהה ועמוק לפי התמונה הימנית
+        color: AppColors.cardBg,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 1.2),
+        border: Border.all(color: AppColors.cardBorder, width: 1.2),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.4),
-            blurRadius: 16,
-            offset: const Offset(0, 6),
+            blurRadius: 12,
+            offset: const Offset(0, 5),
           ),
         ],
       ),
@@ -140,31 +266,31 @@ class PlaceCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // תמונה מרובעת עם פינות עגולות בצד שמאל
+                  // התמונה בצד שמאל
                   ClipRRect(
                     borderRadius: BorderRadius.circular(20),
                     child: imageUrl != null && imageUrl.isNotEmpty
                         ? Image.network(
                             imageUrl,
-                            width: 125,
-                            height: 125,
+                            width: 120,
+                            height: 120,
                             fit: BoxFit.cover,
                             errorBuilder: (ctx, err, stack) => Container(
-                              width: 125,
-                              height: 125,
-                              color: const Color(0xFF1E2330),
-                              child: const Icon(Icons.restaurant_rounded, color: Colors.white30, size: 40),
+                              width: 120,
+                              height: 120,
+                              color: AppColors.inputBg,
+                              child: const Icon(Icons.restaurant_rounded, color: AppColors.textSecondary, size: 36),
                             ),
                           )
                         : Container(
-                            width: 125,
-                            height: 125,
-                            color: const Color(0xFF1E2330),
-                            child: const Icon(Icons.storefront_rounded, color: Colors.white30, size: 40),
+                            width: 120,
+                            height: 120,
+                            color: AppColors.inputBg,
+                            child: const Icon(Icons.storefront_rounded, color: AppColors.textSecondary, size: 36),
                           ),
                   ),
-                  const SizedBox(width: 16),
-                  // פרטים מימין
+                  const SizedBox(width: 14),
+                  // הפרטים מימין לתמונה
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -172,11 +298,11 @@ class PlaceCard extends StatelessWidget {
                         const SizedBox(height: 2),
                         Text(
                           title,
+                          textAlign: TextAlign.right,
                           style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
+                            color: AppColors.textPrimary,
+                            fontSize: 19,
                             fontWeight: FontWeight.bold,
-                            letterSpacing: -0.3,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -188,8 +314,9 @@ class PlaceCard extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   address,
+                                  textAlign: TextAlign.right,
                                   style: const TextStyle(
-                                    color: Color(0xFF8E99A8),
+                                    color: AppColors.textSecondary,
                                     fontSize: 13,
                                   ),
                                   maxLines: 1,
@@ -197,7 +324,7 @@ class PlaceCard extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(width: 4),
-                              const Icon(Icons.location_on_outlined, color: Color(0xFF8E99A8), size: 15),
+                              const Icon(Icons.location_on_outlined, color: AppColors.textSecondary, size: 15),
                             ],
                           ),
                         ],
@@ -205,8 +332,9 @@ class PlaceCard extends StatelessWidget {
                           const SizedBox(height: 8),
                           Text(
                             description,
+                            textAlign: TextAlign.right,
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.65),
+                              color: AppColors.textPrimary.withValues(alpha: 0.65),
                               fontSize: 12.5,
                               height: 1.35,
                             ),
@@ -219,24 +347,24 @@ class PlaceCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
               Container(
                 height: 1,
-                color: Colors.white.withValues(alpha: 0.08),
+                color: AppColors.cardBorder.withValues(alpha: 0.6),
               ),
               const SizedBox(height: 10),
-              // שורת הדירוג והניווט התחתונה
+              // שורת דירוג וניווט
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.star_rounded, color: Color(0xFFFFC107), size: 20),
+                      const Icon(Icons.star_rounded, color: AppColors.gold, size: 20),
                       const SizedBox(width: 4),
                       Text(
                         (rating ?? 4.6).toStringAsFixed(1),
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: AppColors.textPrimary,
                           fontWeight: FontWeight.bold,
                           fontSize: 15,
                         ),
@@ -245,7 +373,7 @@ class PlaceCard extends StatelessWidget {
                       Text(
                         '($ratingCount)',
                         style: const TextStyle(
-                          color: Color(0xFF8E99A8),
+                          color: AppColors.textSecondary,
                           fontSize: 13,
                         ),
                       ),
@@ -255,19 +383,19 @@ class PlaceCard extends StatelessWidget {
                     onTap: onNavigate ?? () => showNavigationOptions(context, place),
                     borderRadius: BorderRadius.circular(8),
                     child: const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       child: Row(
                         children: [
                           Text(
                             'ניווט',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: AppColors.textPrimary,
                               fontWeight: FontWeight.w600,
                               fontSize: 15,
                             ),
                           ),
                           SizedBox(width: 6),
-                          Icon(Icons.near_me_outlined, color: Colors.white, size: 18),
+                          Icon(Icons.near_me_outlined, color: AppColors.textPrimary, size: 18),
                         ],
                       ),
                     ),
@@ -281,3 +409,25 @@ class PlaceCard extends StatelessWidget {
     );
   }
 }
+'''
+}
+
+def main():
+    for filepath, content in files_to_update.items():
+        # יצירת תיקייה אם אינה קיימת
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        
+        # גיבוי אם הקובץ קיים
+        if os.path.exists(filepath):
+            shutil.copyfile(filepath, f"{filepath}.bak")
+            print(f"[גיבוי נוצר]: {filepath}.bak")
+            
+        # כתיבת התוכן החדש
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(content)
+        print(f"[קובץ עודכן בהצלחה]: {filepath}")
+
+    print("\nכל הקבצים עודכנו לשפה העיצובית המבוקשת!")
+
+if __name__ == "__main__":
+    main()

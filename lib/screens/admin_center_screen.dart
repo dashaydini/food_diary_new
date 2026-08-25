@@ -366,9 +366,9 @@ class _AdminImagePreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: Colors.white,
         foregroundColor: Colors.white,
         elevation: 0,
       ),

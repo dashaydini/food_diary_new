@@ -124,7 +124,7 @@ class _PlaceCardState extends State<PlaceCard> {
                   style: TextStyle(
                     fontSize: 19,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFFF5EEE6),
+                    color: AppColors.card,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -136,7 +136,7 @@ class _PlaceCardState extends State<PlaceCard> {
                   title: const Text(
                     'Google Maps',
                     style: TextStyle(
-                      color: Color(0xFFF5EEE6),
+                      color: AppColors.card,
                     ),
                   ),
                   onTap: () async {
@@ -155,7 +155,7 @@ class _PlaceCardState extends State<PlaceCard> {
                   title: const Text(
                     'Waze',
                     style: TextStyle(
-                      color: Color(0xFFF5EEE6),
+                      color: AppColors.card,
                     ),
                   ),
                   onTap: () async {
@@ -174,7 +174,7 @@ class _PlaceCardState extends State<PlaceCard> {
                   title: const Text(
                     'Apple Maps',
                     style: TextStyle(
-                      color: Color(0xFFF5EEE6),
+                      color: AppColors.card,
                     ),
                   ),
                   onTap: () async {
@@ -266,7 +266,7 @@ class _PlaceCardState extends State<PlaceCard> {
                           style: const TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFFF5EEE6),
+                            color: AppColors.card,
                           ),
                         ),
                         if (address.isNotEmpty) ...[
@@ -349,7 +349,7 @@ class _PlaceCardState extends State<PlaceCard> {
                                   const Icon(
                                     Icons.star,
                                     size: 27,
-                                    color: Color(0xFFF5EEE6),
+                                    color: AppColors.card,
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
@@ -357,7 +357,7 @@ class _PlaceCardState extends State<PlaceCard> {
                                     style: const TextStyle(
                                       fontSize: 21,
                                       fontWeight: FontWeight.w600,
-                                      color: Color(0xFFF5EEE6),
+                                      color: AppColors.card,
                                     ),
                                   ),
                                 ],
@@ -381,14 +381,14 @@ class _PlaceCardState extends State<PlaceCard> {
                             icon: const Icon(
                               Icons.navigation_outlined,
                               size: 25,
-                              color: Color(0xFFF5EEE6),
+                              color: AppColors.card,
                             ),
                             label: const Text(
                               'ניווט',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFFF5EEE6),
+                                color: AppColors.card,
                               ),
                             ),
                           )
