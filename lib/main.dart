@@ -38,7 +38,9 @@ class FoodDiaryApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Food Diary',
-      theme: AppTheme.light,
+      theme: AppTheme.darkTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.dark,
       locale: const Locale('he', 'IL'),
       builder: (context, child) {
         return Directionality(

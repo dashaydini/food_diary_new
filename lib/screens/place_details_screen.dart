@@ -433,6 +433,23 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
     }
   }
 
+  Future<void> _navigateToAddVisit() async {
+    final added = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => AddVisitScreen(
+          place: widget.place,
+        ),
+      ),
+    );
+
+    if (added == true && mounted) {
+      setState(() {
+        _loadingVisits = true;
+      });
+      await _loadVisits();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final name = widget.place['name'] as String? ?? '';
@@ -446,6 +463,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
 
     final canDelete = Permissions.canDeletePlace();
     final galleryImages = _buildPlaceGalleryImages();
+    final isUserLoggedIn = !(Supabase.instance.client.auth.currentUser?.isAnonymous ?? false);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -486,7 +504,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 100), // מרווח תחתון למניעת הסתרת תוכן ע"י הכפתור הצף
         children: [
           if (imageUrl.isNotEmpty)
             ClipRRect(
@@ -514,7 +532,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                   ),
                 ),
               ),
-              if (!_loadingPreferences) ...[
+              if (!_loadingPreferences && isUserLoggedIn) ...[
                 _PreferenceButton(
                   icon: Icons.star_rounded,
                   selected: _isFavorite,
@@ -572,71 +590,6 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
               images: galleryImages,
             ),
           ],
-          if (!_loadingPreferences &&
-              !(Supabase.instance.client.auth.currentUser?.isAnonymous ??
-                  false))
-            Align(
-              alignment: Alignment.centerRight,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    tooltip: 'מועדפים',
-                    onPressed: _savingFavorite ? null : _toggleFavorite,
-                    icon: Icon(
-                      _isFavorite
-                          ? Icons.star_rounded
-                          : Icons.star_border_rounded,
-                      color: _isFavorite ? AppColors.brass : AppColors.muted,
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Wishlist',
-                    onPressed: _savingWishlist ? null : _toggleWishlist,
-                    icon: Icon(
-                      _isWishlist
-                          ? Icons.bookmark_rounded
-                          : Icons.bookmark_border_rounded,
-                      color: _isWishlist ? AppColors.brass : AppColors.muted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          const SizedBox(height: 24),
-          if (!(Supabase.instance.client.auth.currentUser?.isAnonymous ??
-              false))
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: FilledButton.icon(
-                onPressed: () async {
-                  final added = await Navigator.of(context).push<bool>(
-                    MaterialPageRoute(
-                      builder: (_) => AddVisitScreen(
-                        place: widget.place,
-                      ),
-                    ),
-                  );
-
-                  if (added == true && mounted) {
-                    setState(() {
-                      _loadingVisits = true;
-                    });
-                    await _loadVisits();
-
-                    if (!context.mounted) return;
-
-                    Navigator.of(context).pop(true);
-                  }
-                },
-                icon: const Icon(Icons.add),
-                label: const Text(
-                  'הוספת ביקור',
-                  style: TextStyle(fontSize: 17),
-                ),
-              ),
-            ),
           const SizedBox(height: 32),
           const Text(
             'ביקורים',
@@ -649,6 +602,33 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
           _buildVisits(),
         ],
       ),
+      floatingActionButton: isUserLoggedIn
+          ? FloatingActionButton.extended(
+              onPressed: _navigateToAddVisit,
+              backgroundColor: AppColors.card,
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+                side: const BorderSide(
+                  color: AppColors.brass,
+                  width: 1,
+                ),
+              ),
+              icon: const Icon(
+                Icons.add_rounded,
+                color: AppColors.brass,
+              ),
+              label: const Text(
+                'תיעוד ביקור חדש',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                ),
+              ),
+            )
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 

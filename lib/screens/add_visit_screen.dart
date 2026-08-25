@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme/colors.dart';
-import '../widgets/home_button.dart';
 import '../utils/permissions.dart';
 import '../widgets/visit_image_gallery.dart';
 
@@ -111,16 +110,12 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
 
       if (!mounted) return;
 
-      // Existing images are displayed separately from newly selected images.
-      // The URLs are kept in the visit map for the next gallery step.
       final existingImages = List<Map<String, dynamic>>.from(rows);
 
       setState(() {
         widget.visit?['visit_images'] = existingImages;
       });
-    } catch (_) {
-      // The visit itself can still be edited if image loading fails.
-    }
+    } catch (_) {}
   }
 
   @override
@@ -305,19 +300,13 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
     return urls;
   }
 
-  Future<void> _handleBack() async {
+  Future<bool> _onWillPop() async {
     if (widget.viewOnly) {
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
-      return;
+      return true;
     }
 
     if (!_hasChanges) {
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
-      return;
+      return true;
     }
 
     final result = await showDialog<String>(
@@ -350,12 +339,21 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
       },
     );
 
-    if (!mounted) return;
+    if (!mounted) return false;
 
     if (result == 'discard') {
-      Navigator.of(context).pop();
+      return true;
     } else if (result == 'save') {
       await _saveVisit();
+      return true;
+    }
+    return false;
+  }
+
+  Future<void> _handleBack() async {
+    final shouldPop = await _onWillPop();
+    if (shouldPop && mounted) {
+      Navigator.of(context).pop();
     }
   }
 
@@ -498,8 +496,6 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
   Widget _buildImageGallery() {
     final existingImages = _existingVisitImages();
 
-    // במצב צפייה משתמשים בגלריה המלאה:
-    // לחיצה פותחת מסך גלריה, עם החלקה, 1/N, דיווח והגדלה.
     if (widget.viewOnly) {
       if (existingImages.isEmpty) {
         return const SizedBox.shrink();
@@ -545,7 +541,6 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
       );
     }
 
-    // מצב עריכה — משאירים את מנגנון התמונות הקיים.
     final totalImages = existingImages.length + _imageBytes.length;
 
     if (totalImages == 0) {
@@ -771,7 +766,6 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
               );
         }
 
-        // Upload newly added images when editing an existing visit.
         if (_imageBytes.isNotEmpty) {
           final imageUrls = await _uploadImages(user.id);
 
@@ -898,23 +892,6 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
     }
   }
 
-  Future<void> _pickDate() async {
-    if (widget.viewOnly) return;
-
-    final date = await showDatePicker(
-      context: context,
-      initialDate: _visitDate,
-      firstDate: DateTime(2000),
-      lastDate: DateTime.now(),
-    );
-
-    if (date == null || !mounted) return;
-
-    setState(() {
-      _visitDate = date;
-    });
-  }
-
   Widget _ratingRow(
     String title,
     int value,
@@ -927,7 +904,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
           Expanded(
             child: Text(
               title,
-              style: TextStyle(
+              style: const TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 16,
               ),
@@ -983,10 +960,14 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
         suffixText: suffixText,
         labelText: label,
         filled: true,
-        fillColor: AppColors.card,
-        border: OutlineInputBorder(
+        fillColor: const Color(0xFF121212), // שחור פחם עמוק ויוקרתי
+        enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide.none,
+          borderSide: const BorderSide(color: AppColors.line), // קו מסגרת עדין
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.champagne, width: 1.5),
         ),
       ),
     );
@@ -1038,6 +1019,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                 style: const TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -1049,8 +1031,19 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                   final selected = _selectedTags.contains(id);
 
                   return FilterChip(
-                    label: Text(tag['name'] as String),
+                    label: Text(
+                      tag['name'] as String,
+                      style: TextStyle(
+                        color: selected ? Colors.black : AppColors.textPrimary,
+                      ),
+                    ),
                     selected: selected,
+                    backgroundColor: const Color(0xFF121212), // שחור פחם
+                    selectedColor: AppColors.champagne,
+                    side: const BorderSide(
+                      color: AppColors.line, // מסגרת עדינה
+                      width: 1,
+                    ),
                     onSelected: widget.viewOnly
                         ? null
                         : (value) {
@@ -1141,19 +1134,17 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
         ),
         decoration: BoxDecoration(
           color: selected
-              ? AppColors.card.withValues(alpha: 0.12)
+              ? Colors.white.withValues(alpha: 0.12)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: selected ? AppColors.card : AppColors.line,
+            color: selected ? Colors.white : AppColors.line,
           ),
         ),
         child: Text(
           List.filled(level, '₪').join(' '),
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-            color: AppColors.card,
+          style: const TextStyle(
+            color: AppColors.muted,
           ),
         ),
       ),
@@ -1162,73 +1153,46 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final placeName = widget.place['name'] as String? ?? '';
+    final placeName = widget.place['name']?.toString() ?? 'מקום';
 
     return PopScope(
       canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
+      onPopInvokedWithResult: (didPop, result) async {
         if (didPop) return;
-        _handleBack();
+        final shouldPop = await _onWillPop();
+        if (shouldPop && mounted) {
+          if (!context.mounted) return;
+          Navigator.of(context).pop();
+        }
       },
       child: Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: const Color(0xFF121212), // שחור פחם עמוק ויוקרתי
         appBar: AppBar(
-          backgroundColor: AppColors.background,
-          elevation: 0,
+          title: Text(
+            widget.isEditing ? 'עריכת ביקור' : 'תיעוד ביקור חדש',
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: _handleBack,
+          ),
           actions: [
-            if (widget.viewOnly && widget.visit != null)
-              if (Permissions.canEditVisit(
-                widget.visit!['user_id']?.toString(),
-              ))
-                IconButton(
-                  tooltip: 'עריכה',
-                  icon: const Icon(Icons.edit_outlined),
-                  onPressed: () async {
-                    final navigator = Navigator.of(context);
-
-                    final changed = await navigator.push<bool>(
-                      MaterialPageRoute(
-                        builder: (_) => AddVisitScreen(
-                          place: widget.place,
-                          visit: widget.visit,
-                          viewOnly: false,
-                        ),
-                      ),
-                    );
-
-                    if (changed == true && mounted) {
-                      navigator.pop(true);
-                    }
-                  },
-                ),
-            if (widget.viewOnly && widget.visit != null)
-              if (Permissions.canDeleteVisit(
-                widget.visit!['user_id']?.toString(),
-              ))
-                IconButton(
-                  tooltip: 'מחיקה',
-                  icon: const Icon(Icons.delete_outline),
-                  onPressed: _deleteVisit,
-                ),
-            if (widget.visit != null)
+            if (widget.isEditing &&
+                Permissions.canDeleteVisit(
+                  widget.visit?['user_id']?.toString(),
+                ))
               IconButton(
-                tooltip: _isFavoriteMemory ? 'הסר מזיכרונות' : 'שמור בזיכרונות',
+                icon: const Icon(Icons.delete_outline),
+                onPressed: _deleteVisit,
+              ),
+            if (widget.isEditing)
+              IconButton(
                 icon: Icon(
-                  _isFavoriteMemory
-                      ? Icons.favorite_rounded
-                      : Icons.favorite_border_rounded,
+                  _isFavoriteMemory ? Icons.favorite : Icons.favorite_border,
+                  color: _isFavoriteMemory ? Colors.red : null,
                 ),
                 onPressed: _toggleFavoriteMemory,
               ),
-            HomeButton(),
           ],
-          title: Text(
-            widget.viewOnly
-                ? 'צפייה בביקור'
-                : widget.isEditing
-                    ? 'עריכת ביקור'
-                    : 'הוספת ביקור',
-          ),
         ),
         body: SizedBox(
           width: double.infinity,
@@ -1237,21 +1201,21 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
             children: [
               Text(
                 placeName,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.card,
+                  color: AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 6),
-              Text(
+              const Text(
                 'תעד את הביקור שלך',
                 style: TextStyle(
                   fontSize: 15,
-                  color: AppColors.cardBorder,
+                  color: AppColors.muted,
                 ),
               ),
-              SizedBox(height: 24),
+              const SizedBox(height: 24),
               _textField(
                 _foodController,
                 'מה אכלתי?',
@@ -1270,7 +1234,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                     'כמה שילמתי?',
                     style: TextStyle(
                       fontSize: 15,
-                      color: AppColors.cardBorder,
+                      color: AppColors.muted,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1308,149 +1272,99 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                       : 'הוספת תמונות נוספות',
                 ),
               ),
-              if (_existingVisitImages().isNotEmpty ||
-                  _imageBytes.isNotEmpty) ...[
-                const SizedBox(height: 12),
-                _buildImageGallery(),
-              ],
+              const SizedBox(height: 16),
+              _buildImageGallery(),
               const SizedBox(height: 24),
               _textField(
                 _notesController,
-                'הערות על המקום',
-                maxLines: 4,
+                'הערות נוספות / חוויות',
+                maxLines: 3,
               ),
-              const SizedBox(height: 28),
-              Text(
-                'דירוג',
+              const SizedBox(height: 24),
+              const Text(
+                'דירוגים',
                 style: TextStyle(
-                  fontSize: 22,
+                  fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.card,
+                  color: AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 14),
-              _ratingRow(
-                'אוכל',
-                _foodRating,
-                (value) => setState(() {
-                  _foodRating = value;
+              _ratingRow('אוכל', _foodRating, (v) {
+                setState(() {
+                  _foodRating = v;
                   _hasChanges = true;
-                }),
-              ),
-              _ratingRow(
-                'שתייה',
-                _drinkRating,
-                (value) => setState(() {
-                  _drinkRating = value;
+                });
+              }),
+              _ratingRow('שתייה', _drinkRating, (v) {
+                setState(() {
+                  _drinkRating = v;
                   _hasChanges = true;
-                }),
-              ),
-              _ratingRow(
-                'אווירה',
-                _atmosphereRating,
-                (value) => setState(() {
-                  _atmosphereRating = value;
+                });
+              }),
+              _ratingRow('אווירה', _atmosphereRating, (v) {
+                setState(() {
+                  _atmosphereRating = v;
                   _hasChanges = true;
-                }),
-              ),
-              _ratingRow(
-                'שירות',
-                _serviceRating,
-                (value) => setState(() {
-                  _serviceRating = value;
+                });
+              }),
+              _ratingRow('שירות', _serviceRating, (v) {
+                setState(() {
+                  _serviceRating = v;
                   _hasChanges = true;
-                }),
-              ),
-              _ratingRow(
-                'ניקיון',
-                _cleanlinessRating,
-                (value) => setState(() {
-                  _cleanlinessRating = value;
+                });
+              }),
+              _ratingRow('ניקיון', _cleanlinessRating, (v) {
+                setState(() {
+                  _cleanlinessRating = v;
                   _hasChanges = true;
-                }),
-              ),
-              _ratingRow(
-                'מגוון',
-                _varietyRating,
-                (value) => setState(() {
-                  _varietyRating = value;
+                });
+              }),
+              _ratingRow('מבחר', _varietyRating, (v) {
+                setState(() {
+                  _varietyRating = v;
                   _hasChanges = true;
-                }),
-              ),
-              _ratingRow(
-                'תמורה למחיר',
-                _valueRating,
-                (value) => setState(() {
-                  _valueRating = value;
+                });
+              }),
+              _ratingRow('תמורה למחיר', _valueRating, (v) {
+                setState(() {
+                  _valueRating = v;
                   _hasChanges = true;
-                }),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'תאריך הביקור',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: AppColors.card,
-                      ),
-                    ),
-                  ),
-                  SizedBox(
-                    width: 130,
-                    child: OutlinedButton(
-                      onPressed: widget.viewOnly ? null : _pickDate,
-                      child: Text(
-                        '${_visitDate.day.toString().padLeft(2, '0')}.'
-                        '${_visitDate.month.toString().padLeft(2, '0')}.'
-                        '${_visitDate.year}',
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 24),
-              Text(
+                });
+              }),
+              const SizedBox(height: 24),
+              const Text(
                 'תגיות',
                 style: TextStyle(
-                  fontSize: 22,
+                  fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.card,
+                  color: AppColors.textPrimary,
                 ),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
               _buildTags(),
               if (_error != null) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: 16),
                 Text(
                   _error!,
-                  style: TextStyle(
-                    color: AppColors.brass,
-                  ),
+                  style: const TextStyle(color: Colors.red),
                 ),
               ],
-              const SizedBox(height: 20),
-              if (!widget.viewOnly)
-                SizedBox(
-                  width: double.infinity,
-                  height: 54,
-                  child: FilledButton(
-                    onPressed: _saving ? null : _saveVisit,
+              if (!widget.viewOnly) ...[
+                const SizedBox(height: 30),
+                FilledButton(
+                  onPressed: _saving ? null : _saveVisit,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                     child: _saving
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                            ),
-                          )
+                        ? const CircularProgressIndicator.adaptive()
                         : const Text(
-                            'שמירת ביקור',
-                            style: TextStyle(fontSize: 17),
+                            'שמור ביקור',
+                            style: TextStyle(fontSize: 16),
                           ),
                   ),
                 ),
+              ],
             ],
           ),
         ),

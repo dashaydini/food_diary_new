@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 import '../../../theme/colors.dart';
 
 class WelcomeScreen extends StatelessWidget {
@@ -30,6 +29,7 @@ class WelcomeScreen extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 34,
                     fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -37,7 +37,7 @@ class WelcomeScreen extends StatelessWidget {
                   'יומן האוכל שלך',
                   style: TextStyle(
                     fontSize: 16,
-                    color: Colors.black54,
+                    color: AppColors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 64),
@@ -46,23 +46,28 @@ class WelcomeScreen extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w500,
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 12),
                 const Icon(
                   Icons.keyboard_arrow_down_rounded,
                   size: 28,
-                  color: AppColors.muted,
+                  color: AppColors.champagne,
                 ),
                 const SizedBox(height: 4),
                 SizedBox(
                   width: double.infinity,
                   height: 52,
                   child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.champagne,
+                      foregroundColor: AppColors.background,
+                    ),
                     onPressed: onRegister,
                     child: const Text(
                       'הרשמה',
-                      style: TextStyle(fontSize: 17),
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -71,7 +76,7 @@ class WelcomeScreen extends StatelessWidget {
                   'כבר יש לך חשבון?',
                   style: TextStyle(
                     fontSize: 16,
-                    color: AppColors.muted,
+                    color: AppColors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -79,6 +84,10 @@ class WelcomeScreen extends StatelessWidget {
                   width: double.infinity,
                   height: 52,
                   child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppColors.cardBorder),
+                      foregroundColor: AppColors.textPrimary,
+                    ),
                     onPressed: onLogin,
                     child: const Text(
                       'כניסה',
@@ -89,7 +98,10 @@ class WelcomeScreen extends StatelessWidget {
                 const SizedBox(height: 20),
                 TextButton(
                   onPressed: onGuest,
-                  child: const Text('כניסה כאורח'),
+                  child: const Text(
+                    'כניסה כאורח',
+                    style: TextStyle(color: AppColors.champagne),
+                  ),
                 ),
               ],
             ),

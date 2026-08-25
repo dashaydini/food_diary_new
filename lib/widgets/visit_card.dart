@@ -102,6 +102,7 @@ class VisitCard extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
+                        color: AppColors.textPrimary, // תוקן לצבע הבהיר המוגדר
                       ),
                     ),
                   ),
@@ -109,6 +110,7 @@ class VisitCard extends StatelessWidget {
                     const Icon(
                       Icons.star,
                       size: 20,
+                      color: AppColors.champagne, // הותאם לצבע השמפניה/זהב של האפליקציה
                     ),
                     const SizedBox(width: 5),
                     Text(
@@ -116,6 +118,7 @@ class VisitCard extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary, // תוקן לצבע הבהיר המוגדר
                       ),
                     ),
                   ],

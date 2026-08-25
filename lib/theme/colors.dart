@@ -1,30 +1,79 @@
 import 'package:flutter/material.dart';
 
+/// צבעי המותג המרכזיים של Food Diary.
+/// כל האפליקציה אמורה להשתמש בצבעים מכאן במקום בצבעים ישירים.
 class AppColors {
-  // Backgrounds & Surfaces
-  static const Color background = Color(0xFF0B0D12);
-  static const Color surface = Color(0xFF13161D);
-  static const Color card = Color(0xFF13161D);
-  static const Color cardBg = Color(0xFF13161D);
-  static const Color cardBorder = Color(0xFF2A2E39);
-  static const Color inputBg = Color(0xFF181C25);
-  static const Color line = Color(0xFF2A2E39);
+  // ─────────────────────────────────────────────
+  // BACKGROUNDS
+  // ─────────────────────────────────────────────
 
-  // Text Colors
-  static const Color textPrimary = Color(0xFFF7F4EC);
-  static const Color textSecondary = Color(0xFF9E9B93);
-  static const Color textMuted = Color(0xFF6E6B63);
-  
-  // Legacy aliases
-  static const Color ink = Color(0xFFF7F4EC);
-  static const Color white = Color(0xFFF7F4EC);
-  static const Color muted = Color(0xFF6E6B63);
+  /// הרקע הראשי של האפליקציה.
+  static const Color background = Color(0xFF0F1015);
 
-  // Accents - הצבע המעודן והבהיר של הכתוביות בכרטיסים
-  static const Color champagne = Color(0xFFD4C3A3);
-  static const Color gold = Color(0xFFD4C3A3);
-  static const Color brass = Color(0xFFD4C3A3);
+  /// משטח פנימי / אזורים מעט מורמים מהרקע.
+  static const Color surface = Color(0xFF14171F);
 
-  // Functional
+  /// רקע כרטיס.
+  static const Color card = Color(0xFF14171F);
+
+  /// alias לכרטיסים.
+  static const Color cardBg = Color(0xFF14171F);
+
+  /// רקע שדות קלט.
+  static const Color inputBg = Color(0xFF14171F);
+
+  // ─────────────────────────────────────────────
+  // BORDERS / DIVIDERS
+  // ─────────────────────────────────────────────
+
+  /// מסגרת דקה של כרטיסים.
+  static const Color cardBorder = Color(0xFF3A3C43);
+
+  /// קווים מפרידים.
+  static const Color line = Color(0xFF3A3C43);
+
+  // ─────────────────────────────────────────────
+  // TEXT
+  // ─────────────────────────────────────────────
+
+  /// טקסט ראשי — כמעט לבן.
+  static const Color textPrimary = Color(0xFFF0F0F0);
+
+  /// alias היסטורי.
+  static const Color ink = Color(0xFFF0F0F0);
+
+  /// לבן של המערכת.
+  static const Color white = Color(0xFFF0F0F0);
+
+  /// טקסט משני.
+  static const Color textSecondary = Color(0xFFB8B8BC);
+
+  /// טקסט חלש.
+  static const Color textMuted = Color(0xFF777980);
+
+  /// alias היסטורי.
+  static const Color muted = Color(0xFF777980);
+
+  // ─────────────────────────────────────────────
+  // BRAND / CHAMPAGNE
+  // ─────────────────────────────────────────────
+
+  /// צבע המותג — שמפניה עדין.
+  static const Color champagne = Color(0xFFE6D5B8);
+
+  /// alias.
+  static const Color gold = Color(0xFFE6D5B8);
+
+  /// alias.
+  static const Color brass = Color(0xFFE6D5B8);
+
+  // ─────────────────────────────────────────────
+  // FUNCTIONAL
+  // ─────────────────────────────────────────────
+
   static const Color error = Color(0xFFD95C5C);
+
+  static const Color success = Color(0xFF9FBF9A);
+
+  static const Color warning = Color(0xFFD8B36A);
 }

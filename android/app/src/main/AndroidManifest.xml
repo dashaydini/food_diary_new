@@ -2,7 +2,7 @@
     <application
         android:label="BITE THE WAY"
         android:name="${applicationName}"
-        android:icon="@mipmap/launch_background">
+        android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"
             android:exported="true"
