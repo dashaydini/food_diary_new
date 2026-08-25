@@ -928,7 +928,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
             child: Text(
               title,
               style: TextStyle(
-                color: AppColors.card,
+                color: AppColors.textPrimary,
                 fontSize: 16,
               ),
             ),

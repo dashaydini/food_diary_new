@@ -24,11 +24,13 @@ class PlaceCard extends StatelessWidget {
       'photo_url'
     ];
     for (final field in fields) {
-      if (place[field] != null && place[field].toString().isNotEmpty)
-        return place[field].toString();
+      if (place[field] != null && place[field].toString().isNotEmpty) {
+          return place[field].toString();
+      }
     }
-    if (place['images'] is List && (place['images'] as List).isNotEmpty)
-      return place['images'][0].toString();
+    if (place['images'] is List && (place['images'] as List).isNotEmpty) {
+        return place['images'][0].toString();
+    }
     return null;
   }
 
@@ -125,9 +127,10 @@ class PlaceCard extends StatelessWidget {
                     onTap: () async {
                       Navigator.pop(ctx);
                       final uri = app['uri'] as Uri;
-                      if (await canLaunchUrl(uri))
+                      if (await canLaunchUrl(uri)) {
                         await launchUrl(uri,
                             mode: LaunchMode.externalApplication);
+                      }
                     },
                   ),
               ],
