@@ -25,11 +25,11 @@ class PlaceCard extends StatelessWidget {
     ];
     for (final field in fields) {
       if (place[field] != null && place[field].toString().isNotEmpty) {
-        return place[field].toString();
+          return place[field].toString();
       }
     }
     if (place['images'] is List && (place['images'] as List).isNotEmpty) {
-      return place['images'][0].toString();
+        return place['images'][0].toString();
     }
     return null;
   }
@@ -110,7 +110,7 @@ class PlaceCard extends StatelessWidget {
                     height: 4,
                     margin: const EdgeInsets.only(bottom: 16),
                     decoration: BoxDecoration(
-                        color: AppColors.cardBorder,
+                        color: Colors.white24,
                         borderRadius: BorderRadius.circular(2))),
                 Text('נווט ל-$title',
                     style: const TextStyle(

@@ -110,8 +110,7 @@ class VisitCard extends StatelessWidget {
                     const Icon(
                       Icons.star,
                       size: 20,
-                      color: AppColors
-                          .champagne, // הותאם לצבע השמפניה/זהב של האפליקציה
+                      color: AppColors.champagne, // הותאם לצבע השמפניה/זהב של האפליקציה
                     ),
                     const SizedBox(width: 5),
                     Text(

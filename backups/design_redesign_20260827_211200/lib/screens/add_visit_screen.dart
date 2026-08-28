@@ -229,20 +229,20 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
             children: [
               if (widget.viewOnly && widget.visit != null) ...[
                 _buildVisitGalleryForViewOnly(),
-                SizedBox(height: 18),
+                const SizedBox(height: 18),
               ],
               if (!widget.viewOnly) ...[
                 ListTile(
-                  leading: Icon(Icons.camera_alt_outlined),
-                  title: Text('צילום מנה'),
+                  leading: const Icon(Icons.camera_alt_outlined),
+                  title: const Text('צילום מנה'),
                   onTap: () {
                     Navigator.pop(context);
                     _pickImageFromCamera();
                   },
                 ),
                 ListTile(
-                  leading: Icon(Icons.photo_library_outlined),
-                  title: Text('בחירת תמונות מהגלריה'),
+                  leading: const Icon(Icons.photo_library_outlined),
+                  title: const Text('בחירת תמונות מהגלריה'),
                   onTap: () {
                     Navigator.pop(context);
                     _pickImages();
@@ -313,26 +313,26 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: Text('שינויים שלא נשמרו'),
-          content: Text('האם לשמור את השינויים לפני היציאה?'),
+          title: const Text('שינויים שלא נשמרו'),
+          content: const Text('האם לשמור את השינויים לפני היציאה?'),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.of(dialogContext).pop('discard');
               },
-              child: Text('יציאה ללא שמירה'),
+              child: const Text('יציאה ללא שמירה'),
             ),
             TextButton(
               onPressed: () {
                 Navigator.of(dialogContext).pop('cancel');
               },
-              child: Text('ביטול'),
+              child: const Text('ביטול'),
             ),
             FilledButton(
               onPressed: () {
                 Navigator.of(dialogContext).pop('save');
               },
-              child: Text('שמור'),
+              child: const Text('שמור'),
             ),
           ],
         );
@@ -411,18 +411,18 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
       barrierDismissible: false,
       builder: (dialogContext) {
         return AlertDialog(
-          title: Text('מחיקת תמונה'),
-          content: Text(
+          title: const Text('מחיקת תמונה'),
+          content: const Text(
             'האם אתה בטוח שברצונך למחוק את התמונה?',
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text('ביטול'),
+              child: const Text('ביטול'),
             ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text('מחיקה'),
+              child: const Text('מחיקה'),
             ),
           ],
         );
@@ -552,7 +552,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: totalImages,
-        separatorBuilder: (_, __) => SizedBox(width: 10),
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
           if (index < existingImages.length) {
             final image = existingImages[index];
@@ -573,12 +573,12 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                   top: 6,
                   right: 6,
                   child: Material(
-                    color: AppColors.muted.withValues(alpha: 0.54),
+                    color: Colors.black54,
                     shape: const CircleBorder(),
                     child: InkWell(
                       customBorder: const CircleBorder(),
                       onTap: () => _deleteExistingImage(image),
-                      child: Padding(
+                      child: const Padding(
                         padding: EdgeInsets.all(6),
                         child: Icon(
                           Icons.delete_outline,
@@ -610,7 +610,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                 top: 6,
                 right: 6,
                 child: Material(
-                  color: AppColors.muted.withValues(alpha: 0.54),
+                  color: Colors.black54,
                   shape: const CircleBorder(),
                   child: InkWell(
                     customBorder: const CircleBorder(),
@@ -620,7 +620,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                         _hasChanges = true;
                       });
                     },
-                    child: Padding(
+                    child: const Padding(
                       padding: EdgeInsets.all(6),
                       child: Icon(
                         Icons.delete_outline,
@@ -827,16 +827,16 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: Text('מחיקת ביקור'),
-          content: Text('האם אתה בטוח שברצונך למחוק את הביקור?'),
+          title: const Text('מחיקת ביקור'),
+          content: const Text('האם אתה בטוח שברצונך למחוק את הביקור?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text('ביטול'),
+              child: const Text('ביטול'),
             ),
             FilledButton(
               onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text('מחיקה'),
+              child: const Text('מחיקה'),
             ),
           ],
         );
@@ -990,7 +990,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
         : _tags;
 
     if (widget.viewOnly && visibleTags.isEmpty) {
-      return Text(
+      return const Text(
         'לא נבחרו תגיות',
         style: TextStyle(
           color: AppColors.muted,
@@ -1022,7 +1022,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                   color: AppColors.textPrimary,
                 ),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -1034,9 +1034,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                     label: Text(
                       tag['name'] as String,
                       style: TextStyle(
-                        color: selected
-                            ? AppColors.background
-                            : AppColors.textPrimary,
+                        color: selected ? Colors.black : AppColors.textPrimary,
                       ),
                     ),
                     selected: selected,
@@ -1174,7 +1172,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
             widget.isEditing ? 'עריכת ביקור' : 'תיעוד ביקור חדש',
           ),
           leading: IconButton(
-            icon: Icon(Icons.arrow_back),
+            icon: const Icon(Icons.arrow_back),
             onPressed: _handleBack,
           ),
           actions: [
@@ -1183,7 +1181,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                   widget.visit?['user_id']?.toString(),
                 ))
               IconButton(
-                icon: Icon(Icons.delete_outline),
+                icon: const Icon(Icons.delete_outline),
                 onPressed: _deleteVisit,
               ),
             if (widget.isEditing)
@@ -1209,37 +1207,37 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                   color: AppColors.textPrimary,
                 ),
               ),
-              SizedBox(height: 6),
-              Text(
+              const SizedBox(height: 6),
+              const Text(
                 'תעד את הביקור שלך',
                 style: TextStyle(
                   fontSize: 15,
                   color: AppColors.muted,
                 ),
               ),
-              SizedBox(height: 24),
+              const SizedBox(height: 24),
               _textField(
                 _foodController,
                 'מה אכלתי?',
               ),
-              SizedBox(height: 14),
+              const SizedBox(height: 14),
               _textField(
                 _drinkController,
                 'מה שתיתי?',
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
               Row(
                 textDirection: TextDirection.rtl,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  Text(
+                  const Text(
                     'כמה שילמתי?',
                     style: TextStyle(
                       fontSize: 15,
                       color: AppColors.muted,
                     ),
                   ),
-                  SizedBox(width: 12),
+                  const SizedBox(width: 12),
                   SizedBox(
                     width: 110,
                     child: _textField(
@@ -1251,39 +1249,39 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                       suffixText: '₪',
                     ),
                   ),
-                  SizedBox(width: 14),
+                  const SizedBox(width: 14),
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       _priceLevelButton(1),
-                      SizedBox(width: 6),
+                      const SizedBox(width: 6),
                       _priceLevelButton(2),
-                      SizedBox(width: 6),
+                      const SizedBox(width: 6),
                       _priceLevelButton(3),
                     ],
                   ),
                 ],
               ),
-              SizedBox(height: 24),
+              const SizedBox(height: 24),
               OutlinedButton.icon(
                 onPressed: widget.viewOnly ? null : _showImageOptions,
-                icon: Icon(Icons.restaurant_outlined),
+                icon: const Icon(Icons.restaurant_outlined),
                 label: Text(
                   _imageBytes.isEmpty
                       ? 'הוספת תמונות של הביקור'
                       : 'הוספת תמונות נוספות',
                 ),
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               _buildImageGallery(),
-              SizedBox(height: 24),
+              const SizedBox(height: 24),
               _textField(
                 _notesController,
                 'הערות נוספות / חוויות',
                 maxLines: 3,
               ),
-              SizedBox(height: 24),
-              Text(
+              const SizedBox(height: 24),
+              const Text(
                 'דירוגים',
                 style: TextStyle(
                   fontSize: 18,
@@ -1291,7 +1289,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                   color: AppColors.textPrimary,
                 ),
               ),
-              SizedBox(height: 14),
+              const SizedBox(height: 14),
               _ratingRow('אוכל', _foodRating, (v) {
                 setState(() {
                   _foodRating = v;
@@ -1334,8 +1332,8 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                   _hasChanges = true;
                 });
               }),
-              SizedBox(height: 24),
-              Text(
+              const SizedBox(height: 24),
+              const Text(
                 'תגיות',
                 style: TextStyle(
                   fontSize: 18,
@@ -1343,24 +1341,24 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                   color: AppColors.textPrimary,
                 ),
               ),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
               _buildTags(),
               if (_error != null) ...[
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 Text(
                   _error!,
                   style: const TextStyle(color: Colors.red),
                 ),
               ],
               if (!widget.viewOnly) ...[
-                SizedBox(height: 30),
+                const SizedBox(height: 30),
                 FilledButton(
                   onPressed: _saving ? null : _saveVisit,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     child: _saving
                         ? const CircularProgressIndicator.adaptive()
-                        : Text(
+                        : const Text(
                             'שמור ביקור',
                             style: TextStyle(fontSize: 16),
                           ),

@@ -67,8 +67,7 @@ class WelcomeScreen extends StatelessWidget {
                     onPressed: onRegister,
                     child: const Text(
                       'הרשמה',
-                      style:
-                          TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),

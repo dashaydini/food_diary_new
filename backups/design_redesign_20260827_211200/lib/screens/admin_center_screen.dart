@@ -382,7 +382,7 @@ class _AdminImagePreview extends StatelessWidget {
             errorBuilder: (_, __, ___) {
               return const Icon(
                 Icons.broken_image_outlined,
-                color: AppColors.muted,
+                color: Colors.white54,
                 size: 48,
               );
             },

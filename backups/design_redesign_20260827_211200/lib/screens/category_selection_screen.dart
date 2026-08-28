@@ -38,7 +38,6 @@ class CategorySelectionScreen extends StatefulWidget {
 }
 
 class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
-  // ignore: prefer_final_fields
   bool _editingOrder = false;
   ContentFilter _contentFilter = ContentFilter.all;
   final GlobalKey _filterButtonKey = GlobalKey();
@@ -267,7 +266,6 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
     }
   }
 
-  // ignore: unused_element
   Future<void> _openFilter() async {
     final user = Supabase.instance.client.auth.currentUser;
 

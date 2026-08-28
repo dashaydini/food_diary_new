@@ -463,8 +463,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
 
     final canDelete = Permissions.canDeletePlace();
     final galleryImages = _buildPlaceGalleryImages();
-    final isUserLoggedIn =
-        !(Supabase.instance.client.auth.currentUser?.isAnonymous ?? false);
+    final isUserLoggedIn = !(Supabase.instance.client.auth.currentUser?.isAnonymous ?? false);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -505,8 +504,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(
-            24, 24, 24, 100), // מרווח תחתון למניעת הסתרת תוכן ע"י הכפתור הצף
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 100), // מרווח תחתון למניעת הסתרת תוכן ע"י הכפתור הצף
         children: [
           if (imageUrl.isNotEmpty)
             ClipRRect(

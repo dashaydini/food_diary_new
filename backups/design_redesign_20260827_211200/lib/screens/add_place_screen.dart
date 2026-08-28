@@ -21,8 +21,7 @@ class AddPlaceScreen extends StatefulWidget {
   final String categoryTitle;
   final Map<String, dynamic>? place;
 
-  // ignore: prefer_const_constructors_in_immutables
-  AddPlaceScreen({
+  const AddPlaceScreen({
     super.key,
     required this.categoryId,
     required this.categoryTitle,
@@ -75,26 +74,26 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: Text('שינויים שלא נשמרו'),
-          content: Text('יש שינויים שלא נשמרו. מה תרצה לעשות?'),
+          title: const Text('שינויים שלא נשמרו'),
+          content: const Text('יש שינויים שלא נשמרו. מה תרצה לעשות?'),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.of(dialogContext).pop('cancel');
               },
-              child: Text('ביטול'),
+              child: const Text('ביטול'),
             ),
             TextButton(
               onPressed: () {
                 Navigator.of(dialogContext).pop('discard');
               },
-              child: Text('יציאה ללא שמירה'),
+              child: const Text('יציאה ללא שמירה'),
             ),
             FilledButton(
               onPressed: () {
                 Navigator.of(dialogContext).pop('save');
               },
-              child: Text('שמירת שינויים'),
+              child: const Text('שמירת שינויים'),
             ),
           ],
         );
@@ -144,15 +143,15 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading: Icon(Icons.camera_alt_outlined),
-                title: Text('צילום במצלמה'),
+                leading: const Icon(Icons.camera_alt_outlined),
+                title: const Text('צילום במצלמה'),
                 onTap: () {
                   Navigator.pop(context, ImageSource.camera);
                 },
               ),
               ListTile(
-                leading: Icon(Icons.photo_library_outlined),
-                title: Text('בחירה מהגלריה'),
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('בחירה מהגלריה'),
                 onTap: () {
                   Navigator.pop(context, ImageSource.gallery);
                 },
@@ -289,7 +288,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
 
       final response = await http.get(
         uri,
-        headers: {
+        headers: const {
           'User-Agent': 'FoodDiary/1.0',
         },
       );
@@ -335,7 +334,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
 
   Widget _buildLocationMap() {
     if (_latitude == null || _longitude == null) {
-      return SizedBox.shrink();
+      return const SizedBox.shrink();
     }
 
     final point = LatLng(_latitude!, _longitude!);
@@ -360,7 +359,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                   point: point,
                   width: 50,
                   height: 50,
-                  child: Icon(
+                  child: const Icon(
                     Icons.location_pin,
                     size: 50,
                     color: Colors.red,
@@ -440,7 +439,8 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       }
 
       final isEditing = existingPlace != null;
-      final placeId = isEditing ? existingPlace['id'].toString() : Uuid().v4();
+      final placeId =
+          isEditing ? existingPlace['id'].toString() : const Uuid().v4();
 
       String? imageUrl = existingPlace?['image_url']?.toString();
 
@@ -453,7 +453,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
           await client.storage.from('place-images').uploadBinary(
                 filePath,
                 await _selectedImage!.readAsBytes(),
-                fileOptions: FileOptions(
+                fileOptions: const FileOptions(
                   upsert: true,
                 ),
               );
@@ -461,7 +461,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
           await client.storage.from('place-images').upload(
                 filePath,
                 File(_selectedImage!.path),
-                fileOptions: FileOptions(
+                fileOptions: const FileOptions(
                   upsert: true,
                 ),
               );
@@ -546,7 +546,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: AppColors.card,
-          title: Text(
+          title: const Text(
             'המקום כבר קיים',
             textAlign: TextAlign.right,
           ),
@@ -558,7 +558,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: Text('ביטול'),
+              child: const Text('ביטול'),
             ),
             FilledButton(
               onPressed: () {
@@ -572,7 +572,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                   ),
                 );
               },
-              child: Text('מעבר למקום'),
+              child: const Text('מעבר למקום'),
             ),
           ],
         );
@@ -593,7 +593,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
         appBar: AppBar(
           backgroundColor: AppColors.background,
           elevation: 0,
-          actions: [
+          actions: const [
             HomeButton(),
           ],
           title: Text(
@@ -604,20 +604,20 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
           child: Form(
             key: _formKey,
             child: ListView(
-              padding: EdgeInsets.all(24),
+              padding: const EdgeInsets.all(24),
               children: [
                 Text(
                   widget.categoryTitle,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 14,
-                    color: AppColors.muted.withValues(alpha: 0.54),
+                    color: Colors.black54,
                   ),
                 ),
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
                 TextFormField(
                   controller: _nameController,
                   textInputAction: TextInputAction.next,
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'שם המקום',
                     border: OutlineInputBorder(),
                   ),
@@ -628,7 +628,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                     return null;
                   },
                 ),
-                SizedBox(height: 20),
+                const SizedBox(height: 20),
                 InkWell(
                   borderRadius: BorderRadius.circular(18),
                   onTap: _chooseImage,
@@ -643,22 +643,20 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                             borderRadius: BorderRadius.circular(18),
                           ),
                           child: _selectedImage == null
-                              ? Column(
+                              ? const Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Icon(
                                       Icons.add_a_photo_outlined,
                                       size: 42,
-                                      color: AppColors.muted
-                                          .withValues(alpha: 0.45),
+                                      color: Colors.black45,
                                     ),
                                     SizedBox(height: 12),
                                     Text(
                                       'הוסף תמונה',
                                       style: TextStyle(
                                         fontSize: 16,
-                                        color: AppColors.muted
-                                            .withValues(alpha: 0.54),
+                                        color: Colors.black54,
                                       ),
                                     ),
                                     SizedBox(height: 6),
@@ -666,8 +664,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                                       'מצלמה או גלריה',
                                       style: TextStyle(
                                         fontSize: 13,
-                                        color: AppColors.muted
-                                            .withValues(alpha: 0.38),
+                                        color: Colors.black38,
                                       ),
                                     ),
                                   ],
@@ -695,33 +692,33 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                     ),
                   ),
                 ),
-                SizedBox(height: 24),
-                Text(
+                const SizedBox(height: 24),
+                const Text(
                   'מיקום',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                SizedBox(height: 12),
+                const SizedBox(height: 12),
                 OutlinedButton.icon(
                   onPressed: _loadingLocation ? null : _useCurrentLocation,
                   icon: _loadingLocation
-                      ? SizedBox(
+                      ? const SizedBox(
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
                           ),
                         )
-                      : Icon(Icons.my_location),
+                      : const Icon(Icons.my_location),
                   label: Text(
                     _usingCurrentLocation
                         ? 'המיקום הנוכחי נבחר'
                         : 'שימוש במיקום הנוכחי',
                   ),
                 ),
-                SizedBox(height: 10),
+                const SizedBox(height: 10),
                 TextFormField(
                   controller: _addressController,
                   onChanged: (_) {
@@ -735,49 +732,49 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                       });
                     }
                   },
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'חיפוש לפי כתובת',
                     hintText: 'לדוגמה: הרצל 10, תל אביב',
                     border: OutlineInputBorder(),
                   ),
                 ),
-                SizedBox(height: 10),
+                const SizedBox(height: 10),
                 OutlinedButton.icon(
                   onPressed: _loadingLocation ? null : _searchAddress,
                   icon: _loadingLocation
-                      ? SizedBox(
+                      ? const SizedBox(
                           width: 18,
                           height: 18,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
                           ),
                         )
-                      : Icon(Icons.search),
-                  label: Text('חיפוש כתובת'),
+                      : const Icon(Icons.search),
+                  label: const Text('חיפוש כתובת'),
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 _buildLocationMap(),
                 if (_error != null) ...[
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   Text(
                     _error!,
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: Colors.red,
                     ),
                   ),
                 ],
-                SizedBox(height: 24),
+                const SizedBox(height: 24),
                 SizedBox(
                   height: 52,
                   child: FilledButton(
                     onPressed: _saving ? null : _savePlace,
                     child: _saving
-                        ? SizedBox(
+                        ? const SizedBox(
                             width: 22,
                             height: 22,
                             child: CircularProgressIndicator(),
                           )
-                        : Text(
+                        : const Text(
                             'שמירת מקום',
                             style: TextStyle(fontSize: 16),
                           ),

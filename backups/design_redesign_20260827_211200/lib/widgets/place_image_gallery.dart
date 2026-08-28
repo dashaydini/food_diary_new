@@ -53,7 +53,7 @@ class _PlaceImageGalleryState extends State<PlaceImageGallery> {
         scrollDirection: Axis.horizontal,
         reverse: true,
         itemCount: _images.length,
-        separatorBuilder: (_, __) => SizedBox(width: 10),
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
           final image = _images[index];
 
@@ -71,7 +71,7 @@ class _PlaceImageGalleryState extends State<PlaceImageGallery> {
                     return Container(
                       color: AppColors.card,
                       alignment: Alignment.center,
-                      child: Icon(
+                      child: const Icon(
                         Icons.broken_image_outlined,
                         color: AppColors.muted,
                       ),
@@ -163,37 +163,37 @@ class _GalleryScreenState extends State<_GalleryScreen> {
         return Directionality(
           textDirection: TextDirection.rtl,
           child: AlertDialog(
-            title: Text('דיווח על תמונה'),
-            content: Text('בחר את הסיבה לדיווח:'),
+            title: const Text('דיווח על תמונה'),
+            content: const Text('בחר את הסיבה לדיווח:'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                child: Text('ביטול'),
+                child: const Text('ביטול'),
               ),
               ListTile(
-                leading: Icon(Icons.report_outlined),
-                title: Text('תוכן לא הולם'),
+                leading: const Icon(Icons.report_outlined),
+                title: const Text('תוכן לא הולם'),
                 onTap: () => Navigator.of(dialogContext).pop('תוכן לא הולם'),
               ),
               ListTile(
-                leading: Icon(Icons.place_outlined),
-                title: Text('התמונה אינה קשורה למקום'),
+                leading: const Icon(Icons.place_outlined),
+                title: const Text('התמונה אינה קשורה למקום'),
                 onTap: () =>
                     Navigator.of(dialogContext).pop('התמונה אינה קשורה למקום'),
               ),
               ListTile(
-                leading: Icon(Icons.warning_amber_outlined),
-                title: Text('תמונה פוגענית'),
+                leading: const Icon(Icons.warning_amber_outlined),
+                title: const Text('תמונה פוגענית'),
                 onTap: () => Navigator.of(dialogContext).pop('תמונה פוגענית'),
               ),
               ListTile(
-                leading: Icon(Icons.copyright_outlined),
-                title: Text('זכויות יוצרים'),
+                leading: const Icon(Icons.copyright_outlined),
+                title: const Text('זכויות יוצרים'),
                 onTap: () => Navigator.of(dialogContext).pop('זכויות יוצרים'),
               ),
               ListTile(
-                leading: Icon(Icons.more_horiz),
-                title: Text('אחר'),
+                leading: const Icon(Icons.more_horiz),
+                title: const Text('אחר'),
                 onTap: () => Navigator.of(dialogContext).pop('אחר'),
               ),
             ],
@@ -288,7 +288,7 @@ class _GalleryScreenState extends State<_GalleryScreen> {
                   borderRadius: BorderRadius.circular(12),
                   onTap: () =>
                       _reportImage(context, widget.images[_currentIndex]),
-                  child: Padding(
+                  child: const Padding(
                     padding: EdgeInsets.symmetric(
                       horizontal: 12,
                       vertical: 9,
@@ -321,7 +321,7 @@ class _GalleryScreenState extends State<_GalleryScreen> {
               right: 12,
               child: IconButton(
                 onPressed: () => Navigator.of(context).pop(),
-                icon: Icon(
+                icon: const Icon(
                   Icons.close,
                   color: Colors.white,
                   size: 28,
@@ -365,9 +365,9 @@ class _GalleryScreenState extends State<_GalleryScreen> {
                 bottom: 0,
                 child: Center(
                   child: CircleAvatar(
-                    backgroundColor: AppColors.muted.withValues(alpha: 0.38),
+                    backgroundColor: Colors.black38,
                     child: IconButton(
-                      icon: Icon(Icons.arrow_forward_ios,
+                      icon: const Icon(Icons.arrow_forward_ios,
                           color: Colors.white, size: 20),
                       onPressed: () {
                         _controller.previousPage(
@@ -385,9 +385,9 @@ class _GalleryScreenState extends State<_GalleryScreen> {
                 bottom: 0,
                 child: Center(
                   child: CircleAvatar(
-                    backgroundColor: AppColors.muted.withValues(alpha: 0.38),
+                    backgroundColor: Colors.black38,
                     child: IconButton(
-                      icon: Icon(Icons.arrow_back_ios_new,
+                      icon: const Icon(Icons.arrow_back_ios_new,
                           color: Colors.white, size: 20),
                       onPressed: () {
                         _controller.nextPage(
