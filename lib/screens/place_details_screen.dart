@@ -623,7 +623,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
               label: const Text(
                 'תיעוד ביקור חדש',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
                   fontWeight: FontWeight.w500,
                   fontSize: 14,
                 ),

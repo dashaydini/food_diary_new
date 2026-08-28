@@ -298,14 +298,14 @@ class _GalleryScreenState extends State<_GalleryScreen> {
                       children: [
                         Icon(
                           Icons.flag_outlined,
-                          color: Colors.white,
+                          color: AppColors.textPrimary,
                           size: 18,
                         ),
                         SizedBox(width: 7),
                         Text(
                           'דיווח',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: AppColors.textPrimary,
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
                           ),
@@ -323,7 +323,7 @@ class _GalleryScreenState extends State<_GalleryScreen> {
                 onPressed: () => Navigator.of(context).pop(),
                 icon: Icon(
                   Icons.close,
-                  color: Colors.white,
+                  color: AppColors.textPrimary,
                   size: 28,
                 ),
               ),
@@ -348,7 +348,7 @@ class _GalleryScreenState extends State<_GalleryScreen> {
                     '${_dateText(widget.images[_currentIndex].date).isNotEmpty ? ' בתאריך ${_dateText(widget.images[_currentIndex].date)}' : ''}',
                     textAlign: TextAlign.right,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: AppColors.textPrimary,
                       fontSize: 13,
                       fontWeight: FontWeight.w400,
                     ),
@@ -368,7 +368,7 @@ class _GalleryScreenState extends State<_GalleryScreen> {
                     backgroundColor: AppColors.muted.withValues(alpha: 0.38),
                     child: IconButton(
                       icon: Icon(Icons.arrow_forward_ios,
-                          color: Colors.white, size: 20),
+                          color: AppColors.textPrimary, size: 20),
                       onPressed: () {
                         _controller.previousPage(
                           duration: const Duration(milliseconds: 300),
@@ -388,7 +388,7 @@ class _GalleryScreenState extends State<_GalleryScreen> {
                     backgroundColor: AppColors.muted.withValues(alpha: 0.38),
                     child: IconButton(
                       icon: Icon(Icons.arrow_back_ios_new,
-                          color: Colors.white, size: 20),
+                          color: AppColors.textPrimary, size: 20),
                       onPressed: () {
                         _controller.nextPage(
                           duration: const Duration(milliseconds: 300),

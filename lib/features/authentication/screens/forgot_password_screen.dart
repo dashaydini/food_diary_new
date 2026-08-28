@@ -121,7 +121,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   _error!,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    color: Colors.red,
+                    color: AppColors.danger,
                   ),
                 ),
               ],

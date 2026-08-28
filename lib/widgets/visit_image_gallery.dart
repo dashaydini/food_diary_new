@@ -203,7 +203,7 @@ class _VisitGalleryScreenState extends State<_VisitGalleryScreen> {
                   child: Text(
                     '${_currentIndex + 1} / $_count',
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: AppColors.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                     ),
@@ -226,7 +226,7 @@ class _VisitGalleryScreenState extends State<_VisitGalleryScreen> {
                     padding: EdgeInsets.all(9),
                     child: Icon(
                       Icons.close,
-                      color: Colors.white,
+                      color: AppColors.textPrimary,
                       size: 25,
                     ),
                   ),
@@ -254,14 +254,14 @@ class _VisitGalleryScreenState extends State<_VisitGalleryScreen> {
                       children: [
                         Icon(
                           Icons.flag_outlined,
-                          color: Colors.white,
+                          color: AppColors.textPrimary,
                           size: 18,
                         ),
                         SizedBox(width: 7),
                         Text(
                           'דיווח',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: AppColors.textPrimary,
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
                           ),
@@ -294,7 +294,7 @@ class _VisitGalleryScreenState extends State<_VisitGalleryScreen> {
                     '${dateText.isNotEmpty ? ' בתאריך $dateText' : ''}',
                     textAlign: TextAlign.right,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: AppColors.textPrimary,
                       fontSize: 13,
                       fontWeight: FontWeight.w400,
                     ),
@@ -314,7 +314,7 @@ class _VisitGalleryScreenState extends State<_VisitGalleryScreen> {
                     backgroundColor: AppColors.muted.withValues(alpha: 0.38),
                     child: IconButton(
                       icon: Icon(Icons.arrow_forward_ios,
-                          color: Colors.white, size: 20),
+                          color: AppColors.textPrimary, size: 20),
                       onPressed: () {
                         _controller.previousPage(
                           duration: const Duration(milliseconds: 300),
@@ -334,7 +334,7 @@ class _VisitGalleryScreenState extends State<_VisitGalleryScreen> {
                     backgroundColor: AppColors.muted.withValues(alpha: 0.38),
                     child: IconButton(
                       icon: Icon(Icons.arrow_back_ios_new,
-                          color: Colors.white, size: 20),
+                          color: AppColors.textPrimary, size: 20),
                       onPressed: () {
                         _controller.nextPage(
                           duration: const Duration(milliseconds: 300),

@@ -180,7 +180,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   _error!,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    color: Colors.red,
+                    color: AppColors.danger,
                   ),
                 ),
               ],

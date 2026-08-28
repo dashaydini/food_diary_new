@@ -583,7 +583,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                         child: Icon(
                           Icons.delete_outline,
                           size: 20,
-                          color: Colors.white,
+                          color: AppColors.textPrimary,
                         ),
                       ),
                     ),
@@ -625,7 +625,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                       child: Icon(
                         Icons.delete_outline,
                         size: 20,
-                        color: Colors.white,
+                        color: AppColors.textPrimary,
                       ),
                     ),
                   ),

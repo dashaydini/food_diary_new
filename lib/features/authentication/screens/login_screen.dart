@@ -362,7 +362,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   _error!,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    color: Colors.red,
+                    color: AppColors.danger,
                   ),
                 ),
               ],
