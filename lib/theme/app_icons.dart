@@ -23,4 +23,53 @@ abstract final class AppIcons {
   static const star = Icons.star_outline;
   static const check = Icons.check;
   static const close = Icons.close;
+
+  static const Map<String, IconData> categoryIcons = {
+    'coffee_outlined': Icons.coffee_outlined,
+    'restaurant_outlined': Icons.restaurant_outlined,
+    'local_shipping_outlined': Icons.local_shipping_outlined,
+    'local_bar_outlined': Icons.local_bar_outlined,
+    'coffee_cart': Icons.storefront_outlined,
+    'icecream_outlined': Icons.icecream_outlined,
+    'bakery_dining_outlined': Icons.bakery_dining_outlined,
+    'fastfood_outlined': Icons.fastfood_outlined,
+  };
+
+  static const Map<String, IconData> categoryTitleIcons = {
+    'בתי קפה': Icons.coffee_outlined,
+    'עגלות קפה': Icons.storefront_outlined,
+    'מסעדות': Icons.restaurant_outlined,
+    'פוד טראק': Icons.local_shipping_outlined,
+    'פאבים': Icons.local_bar_outlined,
+    'גלידריות': Icons.icecream_outlined,
+    'מאפיות וקונדיטוריות': Icons.bakery_dining_outlined,
+    'אוכל רחוב': Icons.fastfood_outlined,
+  };
+
+  static IconData categoryIcon(
+    String? name, {
+    String? title,
+  }) {
+    final normalizedName = name?.trim();
+
+    if (normalizedName != null && normalizedName.isNotEmpty) {
+      final byName = categoryIcons[normalizedName];
+
+      if (byName != null) {
+        return byName;
+      }
+    }
+
+    final normalizedTitle = title?.trim();
+
+    if (normalizedTitle != null && normalizedTitle.isNotEmpty) {
+      final byTitle = categoryTitleIcons[normalizedTitle];
+
+      if (byTitle != null) {
+        return byTitle;
+      }
+    }
+
+    return Icons.place_outlined;
+  }
 }

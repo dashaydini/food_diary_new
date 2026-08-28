@@ -5,6 +5,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/colors.dart';
+import '../theme/app_icons.dart';
 import '../widgets/home_button.dart';
 import 'place_details_screen.dart';
 
@@ -104,6 +105,23 @@ class _MapScreenState extends State<MapScreen> {
     return '';
   }
 
+  IconData _categoryIcon(String? categoryId) {
+    if (categoryId == null) {
+      return Icons.place_outlined;
+    }
+
+    for (final category in _categories) {
+      if (category['id']?.toString() == categoryId) {
+        return AppIcons.categoryIcon(
+          category['icon']?.toString(),
+          title: category['title']?.toString(),
+        );
+      }
+    }
+
+    return Icons.place_outlined;
+  }
+
   LatLng? _placePoint(Map<String, dynamic> place) {
     final latitude = (place['latitude'] as num?)?.toDouble();
     final longitude = (place['longitude'] as num?)?.toDouble();
@@ -145,17 +163,42 @@ class _MapScreenState extends State<MapScreen> {
 
       if (point == null) continue;
 
+      final categoryId = place['category_id']?.toString();
+      final icon = _categoryIcon(categoryId);
+
       markers.add(
         Marker(
           point: point,
-          width: 46,
-          height: 54,
+          width: 42,
+          height: 42,
           child: GestureDetector(
             onTap: () => _openPlace(place),
-            child: const Icon(
-              Icons.location_pin,
-              size: 46,
-              color: AppColors.brass,
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.background.withValues(alpha: 0.94),
+                border: Border.all(
+                  color: AppColors.champagne.withValues(alpha: 0.46),
+                  width: 0.9,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.22),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                  BoxShadow(
+                    color: AppColors.champagne.withValues(alpha: 0.08),
+                    blurRadius: 14,
+                    spreadRadius: -3,
+                  ),
+                ],
+              ),
+              child: Icon(
+                icon,
+                size: 19,
+                color: AppColors.champagne,
+              ),
             ),
           ),
         ),
@@ -173,11 +216,11 @@ class _MapScreenState extends State<MapScreen> {
     const radii = <double>[1, 5, 10, 25, 50];
 
     return Positioned(
-      top: 68,
+      top: 66,
       left: 12,
       right: 12,
       child: SizedBox(
-        height: 44,
+        height: 40,
         child: ListView(
           scrollDirection: Axis.horizontal,
           reverse: true,
@@ -185,11 +228,9 @@ class _MapScreenState extends State<MapScreen> {
             final selected = _nearbyRadiusKm == radius;
 
             return Padding(
-              padding: const EdgeInsets.only(left: 8),
+              padding: const EdgeInsets.only(left: 7),
               child: Material(
-                color: selected ? AppColors.brass : AppColors.card,
-                elevation: 3,
-                borderRadius: BorderRadius.circular(22),
+                color: Colors.transparent,
                 child: InkWell(
                   onTap: () async {
                     final position = _currentPosition;
@@ -201,19 +242,34 @@ class _MapScreenState extends State<MapScreen> {
 
                     await _loadNearbyPlaces(position);
                   },
-                  borderRadius: BorderRadius.circular(22),
-                  child: Padding(
+                  borderRadius: BorderRadius.circular(20),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? AppColors.champagne.withValues(alpha: 0.10)
+                          : AppColors.background.withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: selected
+                            ? AppColors.champagne.withValues(alpha: 0.42)
+                            : AppColors.champagne.withValues(alpha: 0.15),
+                        width: 0.8,
+                      ),
                     ),
                     child: Text(
                       '${radius.toInt()} ק״מ',
                       style: TextStyle(
-                        color: selected ? Colors.white : AppColors.ink,
-                        fontSize: 13,
+                        color: selected
+                            ? AppColors.textPrimary
+                            : AppColors.textMuted,
+                        fontSize: 11,
                         fontWeight:
-                            selected ? FontWeight.w600 : FontWeight.w400,
+                            selected ? FontWeight.w500 : FontWeight.w400,
                       ),
                     ),
                   ),
@@ -279,25 +335,44 @@ class _MapScreenState extends State<MapScreen> {
     required VoidCallback onTap,
   }) {
     return Padding(
-      padding: const EdgeInsets.only(left: 8),
+      padding: const EdgeInsets.only(left: 7),
       child: Material(
-        color: selected ? AppColors.brass : AppColors.card,
-        elevation: 3,
-        borderRadius: BorderRadius.circular(24),
+        color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(24),
-          child: Padding(
+          borderRadius: BorderRadius.circular(22),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
             padding: const EdgeInsets.symmetric(
-              horizontal: 18,
-              vertical: 12,
+              horizontal: 14,
+              vertical: 9,
+            ),
+            decoration: BoxDecoration(
+              color: selected
+                  ? AppColors.champagne.withValues(alpha: 0.10)
+                  : AppColors.background.withValues(alpha: 0.92),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: selected
+                    ? AppColors.champagne.withValues(alpha: 0.42)
+                    : AppColors.champagne.withValues(alpha: 0.16),
+                width: 0.8,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.12),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Text(
               label,
               style: TextStyle(
-                color: selected ? Colors.white : AppColors.ink,
-                fontSize: 14,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                color:
+                    selected ? AppColors.textPrimary : AppColors.textSecondary,
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
               ),
             ),
           ),
@@ -430,36 +505,62 @@ class _MapScreenState extends State<MapScreen> {
         Positioned(
           bottom: 18,
           right: 18,
-          child: Material(
-            color: AppColors.card,
-            elevation: 4,
-            shape: const CircleBorder(),
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.background.withValues(alpha: 0.94),
+              border: Border.all(
+                color: AppColors.champagne.withValues(alpha: 0.30),
+                width: 0.8,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.20),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
             child: IconButton(
               tooltip: 'מיקום נוכחי',
-              icon: const Icon(Icons.my_location),
-              color: AppColors.brass,
               onPressed: _goToCurrentLocation,
+              icon: Icon(
+                Icons.my_location_outlined,
+                size: 19,
+                color: AppColors.champagne.withValues(alpha: 0.90),
+              ),
             ),
           ),
         ),
         Positioned(
           bottom: 18,
           left: 18,
-          child: Material(
-            color: AppColors.card,
-            elevation: 4,
-            borderRadius: BorderRadius.circular(20),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 9,
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 13,
+              vertical: 8,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.background.withValues(alpha: 0.94),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: AppColors.champagne.withValues(alpha: 0.20),
+                width: 0.75,
               ),
-              child: Text(
-                '${markers.length} מקומות',
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.16),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
+              ],
+            ),
+            child: Text(
+              '${markers.length} מקומות',
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
@@ -474,34 +575,43 @@ class _MapScreenState extends State<MapScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
-        title: const Text('מפה'),
+        centerTitle: true,
+        title: Text(
+          'מפה',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: AppColors.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w400,
+              ),
+        ),
         actions: const [
           HomeButton(),
         ],
       ),
       body: _loading
           ? const Center(
-              child: CircularProgressIndicator(),
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                color: AppColors.champagne,
+              ),
             )
           : _error != null
               ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('לא ניתן לטעון את המפה'),
-                      const SizedBox(height: 12),
-                      OutlinedButton(
-                        onPressed: () {
-                          setState(() {
-                            _loading = true;
-                            _error = null;
-                          });
-                          _loadMapData();
-                        },
-                        child: const Text('נסה שוב'),
-                      ),
-                    ],
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _loading = true;
+                        _error = null;
+                      });
+                      _loadMapData();
+                    },
+                    icon: const Icon(
+                      Icons.refresh_rounded,
+                      size: 18,
+                    ),
+                    label: const Text('נסה שוב'),
                   ),
                 )
               : _buildMap(),

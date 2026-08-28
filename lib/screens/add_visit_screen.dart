@@ -643,7 +643,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
 
     if (user == null) {
       setState(() {
-        _error = 'יש להתחבר כדי לשמור את הביקור';
+        _error = 'יש להתחבר כדי לשמור את החוויה';
       });
       return;
     }
@@ -653,7 +653,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
     if (existingVisit != null &&
         !Permissions.canEditVisit(existingVisit['user_id']?.toString())) {
       setState(() {
-        _error = 'אין לך הרשאה לערוך את הביקור הזה';
+        _error = 'אין לך הרשאה לערוך את החוויה הזו';
       });
       return;
     }
@@ -805,7 +805,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
 
       setState(() {
         _saving = false;
-        _error = 'לא ניתן לשמור את הביקור: $e';
+        _error = 'לא ניתן לשמור את החוויה: $e';
       });
     }
   }
@@ -818,7 +818,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
 
     if (!Permissions.canDeleteVisit(ownerId)) {
       setState(() {
-        _error = 'אין לך הרשאה למחוק את הביקור הזה';
+        _error = 'אין לך הרשאה למחוק את החוויה הזו';
       });
       return;
     }
@@ -827,8 +827,8 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: Text('מחיקת ביקור'),
-          content: Text('האם אתה בטוח שברצונך למחוק את הביקור?'),
+          title: Text('מחיקת חוויה'),
+          content: Text('האם אתה בטוח שברצונך למחוק את החוויה?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -858,7 +858,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
       if (!mounted) return;
 
       setState(() {
-        _error = 'לא ניתן למחוק את הביקור: $e';
+        _error = 'לא ניתן למחוק את החוויה: $e';
       });
     }
   }
@@ -898,41 +898,45 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
     ValueChanged<int> onChanged,
   ) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 11),
       child: Row(
+        textDirection: TextDirection.rtl,
         children: [
           Expanded(
             child: Text(
               title,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 16,
-              ),
+              textAlign: TextAlign.right,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textSecondary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                  ),
             ),
           ),
-          SizedBox(
-            width: 155,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: List.generate(5, (index) {
-                final rating = index + 1;
+          const SizedBox(width: 18),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            textDirection: TextDirection.ltr,
+            children: List.generate(5, (index) {
+              final rating = index + 1;
+              final selected = rating <= value;
 
-                return GestureDetector(
-                  onTap: widget.viewOnly ? null : () => onChanged(rating),
-                  child: SizedBox(
-                    width: 31,
-                    height: 36,
-                    child: Icon(
-                      rating <= value ? Icons.star : Icons.star_border,
-                      size: 24,
-                      color: rating <= value
-                          ? AppColors.champagne
-                          : AppColors.muted,
-                    ),
+              return InkWell(
+                onTap: widget.viewOnly ? null : () => onChanged(rating),
+                borderRadius: BorderRadius.circular(18),
+                child: SizedBox(
+                  width: 29,
+                  height: 32,
+                  child: Icon(
+                    selected ? Icons.star_rounded : Icons.star_border_rounded,
+                    size: 21,
+                    color: selected
+                        ? AppColors.champagne.withValues(alpha: 0.78)
+                        : AppColors.textMuted.withValues(alpha: 0.55),
                   ),
-                );
-              }),
-            ),
+                ),
+              );
+            }),
           ),
         ],
       ),
@@ -956,18 +960,51 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
             },
       keyboardType: keyboardType,
       maxLines: maxLines,
+      style: const TextStyle(
+        color: AppColors.textPrimary,
+        fontSize: 14,
+      ),
       decoration: InputDecoration(
         suffixText: suffixText,
+        suffixStyle: const TextStyle(
+          color: AppColors.champagneSoft,
+          fontSize: 14,
+        ),
         labelText: label,
+        labelStyle: TextStyle(
+          color: AppColors.textMuted.withValues(alpha: 0.90),
+          fontSize: 13,
+        ),
+        floatingLabelStyle: TextStyle(
+          color: AppColors.champagne.withValues(alpha: 0.78),
+          fontSize: 12,
+        ),
         filled: true,
-        fillColor: const Color(0xFF121212), // שחור פחם עמוק ויוקרתי
+        fillColor: AppColors.background,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 15,
+          vertical: 15,
+        ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.line), // קו מסגרת עדין
+          borderRadius: BorderRadius.circular(13),
+          borderSide: BorderSide(
+            color: AppColors.champagne.withValues(alpha: 0.13),
+            width: 0.75,
+          ),
+        ),
+        disabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(13),
+          borderSide: BorderSide(
+            color: AppColors.champagne.withValues(alpha: 0.10),
+            width: 0.7,
+          ),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: AppColors.champagne, width: 1.5),
+          borderRadius: BorderRadius.circular(13),
+          borderSide: BorderSide(
+            color: AppColors.champagne.withValues(alpha: 0.50),
+            width: 0.9,
+          ),
         ),
       ),
     );
@@ -978,7 +1015,9 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(20),
-          child: CircularProgressIndicator(),
+          child: CircularProgressIndicator(
+            strokeWidth: 1.5,
+          ),
         ),
       );
     }
@@ -990,11 +1029,90 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
         : _tags;
 
     if (widget.viewOnly && visibleTags.isEmpty) {
-      return Text(
-        'לא נבחרו תגיות',
-        style: TextStyle(
-          color: AppColors.muted,
-          fontSize: 15,
+      return const Align(
+        alignment: Alignment.centerRight,
+        child: Text(
+          'לא נבחרו תגיות',
+          textAlign: TextAlign.right,
+          style: TextStyle(
+            color: AppColors.textMuted,
+            fontSize: 13,
+          ),
+        ),
+      );
+    }
+
+    Widget buildTag(Map<String, dynamic> tag) {
+      final id = tag['id'] as String;
+      final selected = _selectedTags.contains(id);
+
+      return InkWell(
+        onTap: widget.viewOnly
+            ? null
+            : () {
+                setState(() {
+                  if (selected) {
+                    _selectedTags.remove(id);
+                  } else {
+                    _selectedTags.add(id);
+                  }
+
+                  _hasChanges = true;
+                });
+              },
+        borderRadius: BorderRadius.circular(20),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 13,
+            vertical: 7,
+          ),
+          decoration: BoxDecoration(
+            color: selected
+                ? AppColors.champagne.withValues(alpha: 0.075)
+                : AppColors.background,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: selected
+                  ? AppColors.champagne.withValues(alpha: 0.38)
+                  : AppColors.champagne.withValues(alpha: 0.12),
+              width: 0.75,
+            ),
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                      color: AppColors.champagne.withValues(alpha: 0.035),
+                      blurRadius: 14,
+                      spreadRadius: -3,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Text(
+            tag['name'] as String,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color:
+                  selected ? AppColors.champagneSoft : AppColors.textSecondary,
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (widget.viewOnly) {
+      return Directionality(
+        textDirection: TextDirection.rtl,
+        child: Align(
+          alignment: Alignment.centerRight,
+          child: Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 7,
+            runSpacing: 7,
+            children: visibleTags.map(buildTag).toList(),
+          ),
         ),
       );
     }
@@ -1006,65 +1124,44 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
       categories.putIfAbsent(category, () => []).add(tag);
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: categories.entries.map((entry) {
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                entry.key,
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: categories.entries.map((entry) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    entry.key,
+                    textAlign: TextAlign.right,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: AppColors.textMuted.withValues(alpha: 0.82),
+                          letterSpacing: 0.1,
+                        ),
+                  ),
                 ),
-              ),
-              SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: entry.value.map((tag) {
-                  final id = tag['id'] as String;
-                  final selected = _selectedTags.contains(id);
-
-                  return FilterChip(
-                    label: Text(
-                      tag['name'] as String,
-                      style: TextStyle(
-                        color: selected
-                            ? AppColors.background
-                            : AppColors.textPrimary,
-                      ),
-                    ),
-                    selected: selected,
-                    backgroundColor: const Color(0xFF121212), // שחור פחם
-                    selectedColor: AppColors.champagne,
-                    side: const BorderSide(
-                      color: AppColors.line, // מסגרת עדינה
-                      width: 1,
-                    ),
-                    onSelected: widget.viewOnly
-                        ? null
-                        : (value) {
-                            setState(() {
-                              if (value) {
-                                _selectedTags.add(id);
-                              } else {
-                                _selectedTags.remove(id);
-                              }
-                              _hasChanges = true;
-                            });
-                          },
-                  );
-                }).toList(),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: 7,
+                    runSpacing: 7,
+                    children: entry.value.map(buildTag).toList(),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 
@@ -1126,27 +1223,43 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
           : () {
               setState(() {
                 _priceLevel = level;
+                _hasChanges = true;
               });
             },
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 8,
-          vertical: 7,
-        ),
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 140),
+        height: 34,
+        padding: const EdgeInsets.symmetric(horizontal: 9),
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           color: selected
-              ? Colors.white.withValues(alpha: 0.12)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+              ? AppColors.champagne.withValues(alpha: 0.075)
+              : AppColors.background,
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: selected ? Colors.white : AppColors.line,
+            color: selected
+                ? AppColors.champagne.withValues(alpha: 0.38)
+                : AppColors.champagne.withValues(alpha: 0.12),
+            width: 0.75,
           ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: AppColors.champagne.withValues(alpha: 0.035),
+                    blurRadius: 12,
+                    spreadRadius: -3,
+                  ),
+                ]
+              : null,
         ),
         child: Text(
-          List.filled(level, '₪').join(' '),
-          style: const TextStyle(
-            color: AppColors.muted,
+          List.filled(level, '₪').join(),
+          style: TextStyle(
+            color: selected ? AppColors.champagneSoft : AppColors.textMuted,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.5,
           ),
         ),
       ),
@@ -1168,29 +1281,77 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFF121212), // שחור פחם עמוק ויוקרתי
+        backgroundColor: AppColors.background,
         appBar: AppBar(
           title: Text(
-            widget.isEditing ? 'עריכת ביקור' : 'תיעוד ביקור חדש',
+            widget.viewOnly
+                ? 'פרטי חוויה'
+                : widget.isEditing
+                    ? 'עריכת חוויה'
+                    : 'שיתוף חוויה',
           ),
           leading: IconButton(
-            icon: Icon(Icons.arrow_back),
+            tooltip: 'חזרה',
+            icon: const Icon(
+              Icons.arrow_forward_rounded,
+              textDirection: TextDirection.ltr,
+              color: AppColors.champagne,
+            ),
             onPressed: _handleBack,
           ),
           actions: [
-            if (widget.isEditing &&
+            if (widget.viewOnly &&
+                widget.isEditing &&
+                Permissions.canEditVisit(
+                  widget.visit?['user_id']?.toString(),
+                ))
+              IconButton(
+                tooltip: 'עריכת חוויה',
+                icon: const Icon(
+                  Icons.edit_outlined,
+                  color: AppColors.champagne,
+                ),
+                onPressed: () async {
+                  final changed = await Navigator.of(context).push<bool>(
+                    MaterialPageRoute(
+                      builder: (_) => AddVisitScreen(
+                        place: widget.place,
+                        visit: widget.visit,
+                        viewOnly: false,
+                      ),
+                    ),
+                  );
+
+                  if (changed == true && context.mounted) {
+                    Navigator.of(context).pop(true);
+                  }
+                },
+              ),
+            if (!widget.viewOnly &&
+                widget.isEditing &&
                 Permissions.canDeleteVisit(
                   widget.visit?['user_id']?.toString(),
                 ))
               IconButton(
-                icon: Icon(Icons.delete_outline),
+                tooltip: 'מחיקת חוויה',
+                icon: const Icon(
+                  Icons.delete_outline,
+                  color: AppColors.textMuted,
+                ),
                 onPressed: _deleteVisit,
               ),
             if (widget.isEditing)
               IconButton(
+                tooltip: _isFavoriteMemory
+                    ? 'הסרה מהזיכרונות המועדפים'
+                    : 'הוספה לזיכרונות המועדפים',
                 icon: Icon(
-                  _isFavoriteMemory ? Icons.favorite : Icons.favorite_border,
-                  color: _isFavoriteMemory ? Colors.red : null,
+                  _isFavoriteMemory
+                      ? Icons.favorite_rounded
+                      : Icons.favorite_border_rounded,
+                  color: _isFavoriteMemory
+                      ? AppColors.champagne
+                      : AppColors.textMuted,
                 ),
                 onPressed: _toggleFavoriteMemory,
               ),
@@ -1211,7 +1372,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
               ),
               SizedBox(height: 6),
               Text(
-                'תעד את הביקור שלך',
+                'תעד את החוויה שלך',
                 style: TextStyle(
                   fontSize: 15,
                   color: AppColors.muted,
@@ -1270,7 +1431,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                 icon: Icon(Icons.restaurant_outlined),
                 label: Text(
                   _imageBytes.isEmpty
-                      ? 'הוספת תמונות של הביקור'
+                      ? 'הוספת תמונות של החוויה'
                       : 'הוספת תמונות נוספות',
                 ),
               ),
@@ -1361,7 +1522,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                     child: _saving
                         ? const CircularProgressIndicator.adaptive()
                         : Text(
-                            'שמור ביקור',
+                            'שמור חוויה',
                             style: TextStyle(fontSize: 16),
                           ),
                   ),

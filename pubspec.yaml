@@ -48,6 +48,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/branding/bite_the_way_logo_master.png
     - assets/logo/bite_the_way_logo.svg
 
 # Configuration for automatic launcher icon generation.

@@ -34,6 +34,7 @@ class VisitCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final rating = visit['rating'];
 
     final profile = visit['profiles'] as Map<String, dynamic>?;
@@ -55,8 +56,7 @@ class VisitCard extends StatelessWidget {
     );
 
     final dateText = visitDate != null
-        ? ' בתאריך '
-            '${visitDate.day.toString().padLeft(2, '0')}.'
+        ? '${visitDate.day.toString().padLeft(2, '0')}.'
             '${visitDate.month.toString().padLeft(2, '0')}.'
             '${visitDate.year}'
         : '';
@@ -64,68 +64,124 @@ class VisitCard extends StatelessWidget {
     final isOwnVisit =
         ownerId != null && currentUserId != null && ownerId == currentUserId;
 
+    final visitTitle = isOwnVisit ? 'החוויה שלך' : 'חוויה של $author';
+
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: AppColors.line,
-          width: 0.7,
-        ),
-      ),
-      child: InkWell(
-        onTap: () => _open(context),
-        borderRadius: BorderRadius.circular(18),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 18,
-            vertical: 16,
+        borderRadius: BorderRadius.circular(17),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.champagne.withValues(alpha: 0.05),
+            blurRadius: 32,
+            spreadRadius: -5,
+            offset: const Offset(0, 2),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.person_outline,
-                    size: 22,
-                    color: AppColors.muted,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      isOwnVisit
-                          ? 'ביקרת כאן$dateText'
-                          : 'נוסף ביקור על ידי $author$dateText',
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.textPrimary, // תוקן לצבע הבהיר המוגדר
-                      ),
-                    ),
-                  ),
-                  if (rating != null) ...[
-                    const Icon(
-                      Icons.star,
-                      size: 20,
-                      color: AppColors
-                          .champagne, // הותאם לצבע השמפניה/זהב של האפליקציה
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      (rating as num).toStringAsFixed(1),
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary, // תוקן לצבע הבהיר המוגדר
-                      ),
-                    ),
-                  ],
-                ],
+          BoxShadow(
+            color: AppColors.champagne.withValues(alpha: 0.022),
+            blurRadius: 52,
+            spreadRadius: 0,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _open(context),
+          borderRadius: BorderRadius.circular(17),
+          child: Ink(
+            decoration: BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.circular(17),
+              border: Border.all(
+                color: AppColors.champagne.withValues(alpha: 0.16),
+                width: 0.75,
               ),
-            ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
+              child: Directionality(
+                textDirection: TextDirection.rtl,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: AppColors.champagne.withValues(alpha: 0.028),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppColors.champagne.withValues(alpha: 0.16),
+                          width: 0.7,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.person_outline_rounded,
+                        size: 19,
+                        color: AppColors.champagne,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            visitTitle,
+                            textAlign: TextAlign.right,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              color: AppColors.textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (dateText.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              dateText,
+                              textAlign: TextAlign.right,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: AppColors.textMuted,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    if (rating != null) ...[
+                      const SizedBox(width: 14),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.star_rounded,
+                            size: 17,
+                            color: AppColors.champagne,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            (rating as num).toStringAsFixed(1),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: AppColors.textPrimary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),

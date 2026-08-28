@@ -37,6 +37,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   bool _isGuest = false;
   bool _loggingIn = false;
+  bool _editing = false;
 
   @override
   void initState() {
@@ -265,7 +266,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (!mounted) return;
 
-      Navigator.of(context).pop(true);
+      setState(() {
+        _saving = false;
+        _editing = false;
+      });
+
+      FocusScope.of(context).unfocus();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('הפרופיל נשמר'),
+        ),
+      );
     } catch (_) {
       if (!mounted) return;
 
@@ -360,49 +372,78 @@ class _ProfileScreenState extends State<ProfileScreen> {
           alignment: Alignment.bottomRight,
           children: [
             Container(
-              width: 104,
-              height: 104,
-              decoration: const BoxDecoration(
+              width: 108,
+              height: 108,
+              decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.card,
+                color: AppColors.background,
+                border: Border.all(
+                  color: AppColors.champagne.withValues(alpha: 0.22),
+                  width: 0.9,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.champagne.withValues(alpha: 0.05),
+                    blurRadius: 28,
+                    spreadRadius: -5,
+                  ),
+                ],
               ),
-              clipBehavior: Clip.antiAlias,
-              child: _avatarUrl != null && _avatarUrl!.isNotEmpty
-                  ? Image.network(
-                      _avatarUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) {
-                        return const Icon(
-                          Icons.person_outline,
-                          size: 52,
-                          color: AppColors.muted,
-                        );
-                      },
-                    )
-                  : const Icon(
-                      Icons.person_outline,
-                      size: 52,
-                      color: AppColors.muted,
-                    ),
+              padding: const EdgeInsets.all(3),
+              child: ClipOval(
+                child: Container(
+                  color: AppColors.background,
+                  child: _avatarUrl != null && _avatarUrl!.isNotEmpty
+                      ? Image.network(
+                          _avatarUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) {
+                            return Icon(
+                              Icons.person_outline_rounded,
+                              size: 50,
+                              color:
+                                  AppColors.textMuted.withValues(alpha: 0.70),
+                            );
+                          },
+                        )
+                      : Icon(
+                          Icons.person_outline_rounded,
+                          size: 50,
+                          color: AppColors.textMuted.withValues(alpha: 0.70),
+                        ),
+                ),
+              ),
             ),
             if (editable)
               Container(
                 width: 34,
                 height: 34,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppColors.card,
+                  color: AppColors.background,
+                  border: Border.all(
+                    color: AppColors.champagne.withValues(alpha: 0.28),
+                    width: 0.8,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.champagne.withValues(alpha: 0.04),
+                      blurRadius: 12,
+                      spreadRadius: -3,
+                    ),
+                  ],
                 ),
                 child: _uploadingAvatar
                     ? const Padding(
                         padding: EdgeInsets.all(8),
                         child: CircularProgressIndicator(
-                          strokeWidth: 2,
+                          strokeWidth: 1.5,
                         ),
                       )
-                    : const Icon(
+                    : Icon(
                         Icons.camera_alt_outlined,
-                        size: 18,
+                        size: 17,
+                        color: AppColors.champagne.withValues(alpha: 0.82),
                       ),
               ),
           ],
@@ -413,57 +454,89 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildPointsCard() {
     return Container(
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 20,
+        vertical: 18,
+      ),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: AppColors.background,
         borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: AppColors.champagne.withValues(alpha: 0.16),
+          width: 0.8,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.champagne.withValues(alpha: 0.035),
+            blurRadius: 26,
+            spreadRadius: -6,
+          ),
+        ],
       ),
       child: Row(
+        textDirection: TextDirection.rtl,
         children: [
-          const Icon(
-            Icons.star_rounded,
-            size: 34,
-            color: AppColors.brass,
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.champagne.withValues(alpha: 0.06),
+              border: Border.all(
+                color: AppColors.champagne.withValues(alpha: 0.18),
+                width: 0.8,
+              ),
+            ),
+            child: Icon(
+              Icons.star_rounded,
+              size: 22,
+              color: AppColors.champagne.withValues(alpha: 0.82),
+            ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 const Text(
                   'נקודות',
+                  textAlign: TextAlign.right,
                   style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.muted,
+                    fontSize: 12,
+                    color: AppColors.textMuted,
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 2),
                 Text(
                   '$_points',
+                  textAlign: TextAlign.right,
                   style: const TextStyle(
-                    fontSize: 28,
+                    fontSize: 24,
                     fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
                   ),
                 ),
               ],
             ),
           ),
+          const SizedBox(width: 14),
           Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 _levelName,
                 style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textPrimary,
                 ),
               ),
-              const SizedBox(height: 3),
+              const SizedBox(height: 2),
               Text(
                 'רמה $_level',
                 style: const TextStyle(
-                  fontSize: 13,
-                  color: AppColors.muted,
+                  fontSize: 12,
+                  color: AppColors.textMuted,
                 ),
               ),
             ],
@@ -477,229 +550,340 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final code = _referralCode;
 
     return Container(
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: AppColors.background,
         borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: AppColors.champagne.withValues(alpha: 0.16),
+          width: 0.8,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.champagne.withValues(alpha: 0.03),
+            blurRadius: 26,
+            spreadRadius: -6,
+          ),
+        ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(
-                Icons.group_outlined,
-                size: 28,
-              ),
-              SizedBox(width: 12),
-              Text(
-                'חבר מביא חבר',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'הזמן חברים להצטרף לאפליקציה וצבור נקודות.',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppColors.muted,
-            ),
-          ),
-          const SizedBox(height: 20),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 18,
-              vertical: 16,
-            ),
-            decoration: BoxDecoration(
-              color: AppColors.background,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Row(
+      child: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'קוד ההזמנה שלי',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppColors.muted,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        code ?? 'אין קוד',
-                        style: const TextStyle(
-                          fontSize: 23,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 2,
-                        ),
-                      ),
-                    ],
-                  ),
+                Icon(
+                  Icons.group_outlined,
+                  size: 21,
+                  color: AppColors.champagne.withValues(alpha: 0.78),
                 ),
-                IconButton(
-                  onPressed: code == null ? null : _shareReferralCode,
-                  icon: const Icon(Icons.share_outlined),
-                  tooltip: 'שיתוף קוד ההזמנה',
+                const SizedBox(width: 9),
+                const Text(
+                  'חבר מביא חבר',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              const Icon(Icons.people_outline, size: 22),
-              const SizedBox(width: 10),
-              Text(
-                '$_referralCount ${_referralCount == 1 ? 'חבר הצטרף' : 'חברים הצטרפו'}',
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
+            const SizedBox(height: 8),
+            const Text(
+              'הזמן חברים להצטרף לאפליקציה וצבור נקודות.',
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.textMuted,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 15,
+                vertical: 13,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(13),
+                border: Border.all(
+                  color: AppColors.champagne.withValues(alpha: 0.11),
+                  width: 0.7,
                 ),
               ),
-            ],
-          ),
-        ],
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'קוד ההזמנה שלי',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          code ?? 'אין קוד',
+                          style: const TextStyle(
+                            fontSize: 19,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: code == null ? null : _shareReferralCode,
+                    tooltip: 'שיתוף קוד ההזמנה',
+                    icon: Icon(
+                      Icons.share_outlined,
+                      size: 19,
+                      color: AppColors.champagne.withValues(alpha: 0.76),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 13),
+            Row(
+              children: [
+                Icon(
+                  Icons.people_outline_rounded,
+                  size: 18,
+                  color: AppColors.textMuted.withValues(alpha: 0.80),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '$_referralCount ${_referralCount == 1 ? 'חבר הצטרף' : 'חברים הצטרפו'}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildGuestContent() {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 30),
-      children: [
-        _buildAvatar(editable: false),
-        const SizedBox(height: 30),
-        Container(
-          padding: const EdgeInsets.all(22),
-          decoration: BoxDecoration(
-            color: AppColors.card,
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: const Text(
-            'בעת חיבור כאורח, ניתן לצפות במקומות וביקורים קיימים. '
-            'אין אפשרות לערוך פרופיל.\n\n'
-            'נא להתחבר עם חשבון Google או Apple על מנת ליהנות '
-            'משאר האפשרויות של היישום.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 15,
-              height: 1.6,
-              color: AppColors.ink,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final mobile = constraints.maxWidth < 700;
+
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 640),
+            child: ListView(
+              padding: EdgeInsets.fromLTRB(
+                mobile ? 16 : 28,
+                mobile ? 18 : 24,
+                mobile ? 16 : 28,
+                32,
+              ),
+              children: [
+                _buildAvatar(editable: false),
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AppColors.background,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: AppColors.champagne.withValues(alpha: 0.14),
+                      width: 0.8,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.champagne.withValues(alpha: 0.025),
+                        blurRadius: 24,
+                        spreadRadius: -6,
+                      ),
+                    ],
+                  ),
+                  child: const Text(
+                    'בעת חיבור כאורח, ניתן לצפות במקומות וחוויות קיימים. '
+                    'אין אפשרות לערוך פרופיל.\n\n'
+                    'נא להתחבר עם חשבון Google או Apple על מנת ליהנות '
+                    'משאר האפשרויות של היישום.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 1.55,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  height: 50,
+                  child: FilledButton.icon(
+                    onPressed: _loggingIn ? null : _googleLogin,
+                    icon: const Icon(
+                      Icons.g_mobiledata,
+                      size: 28,
+                    ),
+                    label: const Text(
+                      'התחברות עם Google',
+                      style: TextStyle(fontSize: 15),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 50,
+                  child: OutlinedButton.icon(
+                    onPressed: _loggingIn ? null : _appleLogin,
+                    icon: const Icon(
+                      Icons.apple,
+                      size: 22,
+                    ),
+                    label: const Text(
+                      'התחברות עם Apple',
+                      style: TextStyle(fontSize: 15),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                _buildLogoutButton(),
+              ],
             ),
           ),
-        ),
-        const SizedBox(height: 24),
-        SizedBox(
-          height: 52,
-          child: FilledButton.icon(
-            onPressed: _loggingIn ? null : _googleLogin,
-            icon: const Icon(
-              Icons.g_mobiledata,
-              size: 30,
-            ),
-            label: const Text(
-              'התחברות עם Google',
-              style: TextStyle(fontSize: 16),
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 52,
-          child: OutlinedButton.icon(
-            onPressed: _loggingIn ? null : _appleLogin,
-            icon: const Icon(
-              Icons.apple,
-              size: 24,
-            ),
-            label: const Text(
-              'התחברות עם Apple',
-              style: TextStyle(fontSize: 16),
-            ),
-          ),
-        ),
-        const SizedBox(height: 28),
-        _buildLogoutButton(),
-      ],
+        );
+      },
     );
   }
 
   Widget _buildRegisteredContent() {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 30),
-      children: [
-        _buildAvatar(),
-        const SizedBox(height: 18),
-        TextField(
-          controller: _displayNameController,
-          textAlign: TextAlign.right,
-          decoration: InputDecoration(
-            labelText: 'שם משתמש',
-            filled: true,
-            fillColor: AppColors.card,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide.none,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final mobile = constraints.maxWidth < 700;
+
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: ListView(
+              padding: EdgeInsets.fromLTRB(
+                mobile ? 16 : 28,
+                mobile ? 18 : 24,
+                mobile ? 16 : 28,
+                32,
+              ),
+              children: [
+                _buildAvatar(editable: _editing),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _displayNameController,
+                  readOnly: !_editing,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 14,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'שם משתמש',
+                    filled: true,
+                    fillColor: AppColors.background,
+                    suffixIcon: _editing
+                        ? Icon(
+                            Icons.edit_outlined,
+                            size: 16,
+                            color: AppColors.champagne.withValues(alpha: 0.55),
+                          )
+                        : null,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 15,
+                      vertical: 15,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(13),
+                      borderSide: BorderSide(
+                        color: AppColors.champagne.withValues(alpha: 0.13),
+                        width: 0.75,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(13),
+                      borderSide: BorderSide(
+                        color: AppColors.champagne.withValues(alpha: 0.48),
+                        width: 0.9,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                _buildPointsCard(),
+                const SizedBox(height: 14),
+                _buildReferralCard(),
+                if (_error != null) ...[
+                  const SizedBox(height: 14),
+                  Text(
+                    _error!,
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      color: AppColors.danger.withValues(alpha: 0.88),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+                if (_editing) ...[
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    height: 50,
+                    child: FilledButton(
+                      onPressed: _saving ? null : _saveProfile,
+                      child: _saving
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.7,
+                              ),
+                            )
+                          : const Text(
+                              'שמירת פרופיל',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 18),
+                _buildLogoutButton(),
+              ],
             ),
           ),
-        ),
-        const SizedBox(height: 24),
-        _buildPointsCard(),
-        const SizedBox(height: 18),
-        _buildReferralCard(),
-        if (_error != null) ...[
-          const SizedBox(height: 16),
-          Text(
-            _error!,
-            textAlign: TextAlign.right,
-            style: const TextStyle(color: Colors.red),
-          ),
-        ],
-        const SizedBox(height: 20),
-        SizedBox(
-          height: 52,
-          child: FilledButton(
-            onPressed: _saving ? null : _saveProfile,
-            child: _saving
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text(
-                    'שמירת פרופיל',
-                    style: TextStyle(fontSize: 17),
-                  ),
-          ),
-        ),
-        const SizedBox(height: 28),
-        _buildLogoutButton(),
-      ],
+        );
+      },
     );
   }
 
   Widget _buildLogoutButton() {
-    return TextButton.icon(
-      onPressed: _logout,
-      icon: const Icon(
-        Icons.logout_outlined,
-        size: 19,
-      ),
-      label: const Text(
-        'התנתקות',
-        style: TextStyle(fontSize: 15),
-      ),
-      style: TextButton.styleFrom(
-        foregroundColor: AppColors.muted,
+    return Center(
+      child: TextButton.icon(
+        onPressed: _logout,
+        icon: Icon(
+          Icons.logout_outlined,
+          size: 17,
+          color: AppColors.textMuted.withValues(alpha: 0.78),
+        ),
+        label: Text(
+          'התנתקות',
+          style: TextStyle(
+            fontSize: 13,
+            color: AppColors.textMuted.withValues(alpha: 0.88),
+          ),
+        ),
       ),
     );
   }
@@ -745,17 +929,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
-        actions: const [
-          HomeButton(),
-        ],
-        centerTitle: false,
-        title: const Text(
+        centerTitle: true,
+        title: Text(
           'הפרופיל שלי',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-          ),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: AppColors.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w400,
+              ),
         ),
+        actions: [
+          const HomeButton(),
+          if (!_loading && !_isGuest && !_editing)
+            IconButton(
+              tooltip: 'עריכת פרופיל',
+              onPressed: () {
+                setState(() {
+                  _editing = true;
+                  _error = null;
+                });
+              },
+              icon: Icon(
+                Icons.edit_outlined,
+                size: 20,
+                color: AppColors.champagne.withValues(alpha: 0.85),
+              ),
+            ),
+        ],
       ),
       body: _buildContent(),
     );

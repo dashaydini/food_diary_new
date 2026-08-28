@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/colors.dart';
 import '../widgets/home_button.dart';
+import 'admin_notifications_screen.dart';
 
 class AdminCenterScreen extends StatefulWidget {
   const AdminCenterScreen({super.key});
@@ -69,14 +70,18 @@ class _AdminCenterScreenState extends State<AdminCenterScreen> {
         '${local.minute.toString().padLeft(2, '0')}';
   }
 
-  Future<void> _openImage(String imageUrl) async {
-    if (imageUrl.isEmpty) return;
-
+  Future<void> _openReport(Map<String, dynamic> report) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => _AdminImagePreview(imageUrl: imageUrl),
+        builder: (_) => AdminReportDetailsScreen(
+          report: report,
+        ),
       ),
     );
+
+    if (mounted) {
+      await _loadReports();
+    }
   }
 
   @override
@@ -85,12 +90,16 @@ class _AdminCenterScreenState extends State<AdminCenterScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
-        title: const Text(
+        centerTitle: true,
+        title: Text(
           'מרכז ניהול',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-          ),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: AppColors.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w400,
+              ),
         ),
         actions: const [
           HomeButton(),
@@ -98,9 +107,14 @@ class _AdminCenterScreenState extends State<AdminCenterScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: _loadReports,
-        color: AppColors.brass,
-        backgroundColor: AppColors.card,
-        child: _buildBody(),
+        color: AppColors.champagne,
+        backgroundColor: AppColors.background,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 900),
+            child: _buildBody(),
+          ),
+        ),
       ),
     );
   }
@@ -170,89 +184,123 @@ class _AdminCenterScreenState extends State<AdminCenterScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: AppColors.card,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: AppColors.line,
-          width: 0.7,
-        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.champagne.withValues(alpha: 0.035),
+            blurRadius: 26,
+            spreadRadius: -6,
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (imageUrl.isNotEmpty)
-              GestureDetector(
-                onTap: () => _openImage(imageUrl),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
-                  child: AspectRatio(
-                    aspectRatio: 1.35,
-                    child: Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) {
-                        return Container(
-                          color: AppColors.surface,
+      child: Material(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          onTap: () => _openReport(report),
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: AppColors.champagne.withValues(alpha: 0.15),
+                width: 0.75,
+              ),
+            ),
+            child: Row(
+              textDirection: TextDirection.rtl,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                if (imageUrl.isNotEmpty) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(13),
+                    child: SizedBox(
+                      width: 104,
+                      height: 82,
+                      child: Image.network(
+                        imageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: AppColors.background,
                           alignment: Alignment.center,
                           child: const Icon(
                             Icons.broken_image_outlined,
-                            color: AppColors.muted,
-                            size: 32,
+                            color: AppColors.textMuted,
+                            size: 25,
                           ),
-                        );
-                      },
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const Icon(
-                  Icons.flag_outlined,
-                  color: AppColors.brass,
-                  size: 20,
+                  const SizedBox(width: 14),
+                ],
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Icon(
+                            Icons.flag_outlined,
+                            color: AppColors.champagne.withValues(alpha: 0.82),
+                            size: 18,
+                          ),
+                          const SizedBox(width: 7),
+                          const Text(
+                            'דיווח על תמונה',
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (reason.isNotEmpty) ...[
+                        const SizedBox(height: 7),
+                        Text(
+                          reason,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12.5,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 6),
+                      Text(
+                        'מדווח: $reporterId',
+                        textAlign: TextAlign.right,
+                        style: const TextStyle(
+                          color: AppColors.textMuted,
+                          fontSize: 10,
+                        ),
+                      ),
+                      if (createdAt.isNotEmpty)
+                        Text(
+                          createdAt,
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 10,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
                 const SizedBox(width: 8),
-                const Text(
-                  'דיווח על תמונה',
-                  style: TextStyle(
-                    color: AppColors.ink,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+                Icon(
+                  Icons.chevron_left_rounded,
+                  color: AppColors.champagne.withValues(alpha: 0.55),
+                  size: 21,
                 ),
               ],
             ),
-            if (reason.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Text(
-                'סיבה: $reason',
-                style: const TextStyle(
-                  color: AppColors.muted,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-            const SizedBox(height: 8),
-            Text(
-              'מדווח: $reporterId',
-              style: const TextStyle(
-                color: AppColors.muted,
-                fontSize: 12,
-              ),
-            ),
-            if (createdAt.isNotEmpty)
-              Text(
-                createdAt,
-                style: const TextStyle(
-                  color: AppColors.muted,
-                  fontSize: 12,
-                ),
-              ),
-          ],
+          ),
         ),
       ),
     );
@@ -351,43 +399,6 @@ class _MessageCard extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _AdminImagePreview extends StatelessWidget {
-  final String imageUrl;
-
-  const _AdminImagePreview({
-    required this.imageUrl,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.white,
-        elevation: 0,
-      ),
-      body: Center(
-        child: InteractiveViewer(
-          minScale: 1,
-          maxScale: 4,
-          child: Image.network(
-            imageUrl,
-            fit: BoxFit.contain,
-            errorBuilder: (_, __, ___) {
-              return const Icon(
-                Icons.broken_image_outlined,
-                color: AppColors.muted,
-                size: 48,
-              );
-            },
-          ),
-        ),
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/services/premium_service.dart';
 import '../theme/colors.dart';
+import '../widgets/home_button.dart';
 import 'add_visit_screen.dart';
 
 class JournalScreen extends StatefulWidget {
@@ -235,19 +236,21 @@ class _JournalScreenState extends State<JournalScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        centerTitle: false,
-        titleSpacing: 24,
-        title: const Text(
+        centerTitle: true,
+        title: Text(
           'היומן שלי',
-          textDirection: TextDirection.rtl,
-          style: TextStyle(
-            color: AppColors.ink,
-            fontSize: 23,
-            fontWeight: FontWeight.w500,
-          ),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: AppColors.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w400,
+              ),
         ),
+        actions: const [
+          HomeButton(),
+        ],
       ),
       body: Directionality(
         textDirection: TextDirection.rtl,
@@ -258,16 +261,37 @@ class _JournalScreenState extends State<JournalScreen> {
 
   Widget _buildBody() {
     if (!PremiumService.isPremium) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(32),
-          child: Text(
-            'היומן שלי זמין למשתמשי Premium.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.muted,
-              fontSize: 16,
-              height: 1.5,
+      return Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Container(
+              padding: const EdgeInsets.all(22),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: AppColors.champagne.withValues(alpha: 0.15),
+                  width: 0.8,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.champagne.withValues(alpha: 0.03),
+                    blurRadius: 26,
+                    spreadRadius: -6,
+                  ),
+                ],
+              ),
+              child: const Text(
+                'היומן שלי זמין למשתמשי Premium.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14,
+                  height: 1.5,
+                ),
+              ),
             ),
           ),
         ),
@@ -278,14 +302,14 @@ class _JournalScreenState extends State<JournalScreen> {
       return const Center(
         child: CircularProgressIndicator(
           strokeWidth: 1.5,
-          color: AppColors.brass,
+          color: AppColors.champagne,
         ),
       );
     }
 
     if (_error != null) {
       return Center(
-        child: TextButton(
+        child: OutlinedButton.icon(
           onPressed: () {
             setState(() {
               _loading = true;
@@ -293,31 +317,74 @@ class _JournalScreenState extends State<JournalScreen> {
             });
             _loadVisits();
           },
-          child: const Text('לא ניתן לטעון את היומן — נסה שוב'),
+          icon: const Icon(
+            Icons.refresh_rounded,
+            size: 18,
+          ),
+          label: const Text('נסה שוב'),
         ),
       );
     }
 
-    return Column(
-      children: [
-        _buildHeader(),
-        const SizedBox(height: 4),
-        _buildSections(),
-        const SizedBox(height: 4),
-        Expanded(child: _buildSectionBody()),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final mobile = constraints.maxWidth < 700;
+
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 980),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                mobile ? 14 : 24,
+                mobile ? 8 : 14,
+                mobile ? 14 : 24,
+                0,
+              ),
+              child: Column(
+                children: [
+                  _buildHeader(),
+                  const SizedBox(height: 14),
+                  _buildSections(),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: _buildSectionBody(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 14,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: AppColors.champagne.withValues(alpha: 0.14),
+          width: 0.75,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.champagne.withValues(alpha: 0.028),
+            blurRadius: 24,
+            spreadRadius: -6,
+          ),
+        ],
+      ),
       child: Row(
         children: [
-          _stat('${_visits.length}', 'ביקורים'),
+          _stat('${_visits.length}', 'חוויות'),
           _stat('$_placeCount', 'מקומות'),
           _stat(_average?.toStringAsFixed(1) ?? '—', 'ממוצע'),
-          _stat(_categorySummary(), 'קטגוריה מובילה'),
+          _stat(_categorySummary(), 'מובילה'),
         ],
       ),
     );
@@ -326,23 +393,28 @@ class _JournalScreenState extends State<JournalScreen> {
   Widget _stat(String value, String label) {
     return Expanded(
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
             style: const TextStyle(
-              color: AppColors.ink,
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 3),
           Text(
             label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
             style: const TextStyle(
-              color: AppColors.muted,
-              fontSize: 11,
+              color: AppColors.textMuted,
+              fontSize: 10.5,
             ),
           ),
         ],
@@ -351,36 +423,76 @@ class _JournalScreenState extends State<JournalScreen> {
   }
 
   Widget _buildSections() {
-    const labels = ['ציר זמן', 'זיכרונות', 'סטטיסטיקות'];
+    const labels = [
+      ('ציר זמן', Icons.timeline_rounded),
+      ('זיכרונות', Icons.favorite_border_rounded),
+      ('סטטיסטיקות', Icons.bar_chart_rounded),
+    ];
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 18),
-      child: Row(
-        children: List.generate(labels.length, (i) {
-          final selected = _section == i;
+    return Align(
+      alignment: Alignment.centerRight,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: List.generate(labels.length, (i) {
+            final selected = _section == i;
 
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: ChoiceChip(
-              label: Text(labels[i]),
-              selected: selected,
-              onSelected: (_) => setState(() => _section = i),
-              selectedColor: AppColors.brass.withValues(alpha: 0.18),
-              backgroundColor: AppColors.card,
-              labelStyle: TextStyle(
-                color: selected ? AppColors.ink : AppColors.muted,
-                fontSize: 12,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            return Padding(
+              padding: const EdgeInsets.only(left: 7),
+              child: InkWell(
+                onTap: () {
+                  setState(() {
+                    _section = i;
+                  });
+                },
+                borderRadius: BorderRadius.circular(22),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 13,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: selected
+                        ? AppColors.champagne.withValues(alpha: 0.075)
+                        : AppColors.background,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(
+                      color: selected
+                          ? AppColors.champagne.withValues(alpha: 0.35)
+                          : AppColors.champagne.withValues(alpha: 0.11),
+                      width: 0.75,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        labels[i].$2,
+                        size: 15,
+                        color: selected
+                            ? AppColors.champagneSoft
+                            : AppColors.textMuted,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        labels[i].$1,
+                        style: TextStyle(
+                          color: selected
+                              ? AppColors.textPrimary
+                              : AppColors.textMuted,
+                          fontSize: 12,
+                          fontWeight:
+                              selected ? FontWeight.w500 : FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              side: BorderSide(
-                color: selected
-                    ? AppColors.brass.withValues(alpha: 0.4)
-                    : AppColors.muted.withValues(alpha: 0.12),
-              ),
-            ),
-          );
-        }),
+            );
+          }),
+        ),
       ),
     );
   }
@@ -398,21 +510,21 @@ class _JournalScreenState extends State<JournalScreen> {
 
   Widget _buildTimeline(List<Map<String, dynamic>> visits) {
     if (visits.isEmpty) {
-      return _empty('היומן שלך עדיין ריק', 'כל ביקור שתוסיף יופיע כאן.');
+      return _empty(
+        'היומן שלך עדיין ריק',
+        'כל חוויה שתוסיף תופיע כאן.',
+      );
     }
 
     return RefreshIndicator(
-      color: AppColors.brass,
-      backgroundColor: AppColors.card,
+      color: AppColors.champagne,
+      backgroundColor: AppColors.background,
       onRefresh: _loadVisits,
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
+        padding: const EdgeInsets.fromLTRB(2, 4, 2, 42),
         itemCount: visits.length,
-        separatorBuilder: (_, __) => Divider(
-          height: 1,
-          color: AppColors.muted.withValues(alpha: 0.12),
-        ),
+        separatorBuilder: (_, __) => const SizedBox(height: 11),
         itemBuilder: (_, i) => _entry(visits[i]),
       ),
     );
@@ -437,123 +549,145 @@ class _JournalScreenState extends State<JournalScreen> {
         (visit['journal_note'] ?? visit['notes'])?.toString().trim() ?? '';
     final withWhom = visit['with_whom']?.toString().trim() ?? '';
     final drink = visit['drink']?.toString().trim() ?? '';
+    final favorite = visit['favorite_memory'] == true;
 
-    return InkWell(
-      onTap: () => _openVisit(visit),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _thumbnail(image),
-            const SizedBox(width: 10),
-            IconButton(
-              tooltip: visit['favorite_memory'] == true
-                  ? 'הסר מזיכרונות'
-                  : 'שמור בזיכרונות',
-              onPressed: () => _toggleMemory(visit),
-              icon: Icon(
-                visit['favorite_memory'] == true
-                    ? Icons.favorite_rounded
-                    : Icons.favorite_border_rounded,
-                color: visit['favorite_memory'] == true
-                    ? AppColors.brass
-                    : AppColors.muted,
-                size: 21,
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.champagne.withValues(alpha: 0.045),
+            blurRadius: 28,
+            spreadRadius: -7,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          onTap: () => _openVisit(visit),
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            padding: const EdgeInsets.all(13),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: AppColors.champagne.withValues(alpha: 0.15),
+                width: 0.75,
               ),
             ),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _thumbnail(image),
+                const SizedBox(width: 13),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Expanded(
-                        child: Text(
-                          name,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  name,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: TextAlign.right,
+                                  style: const TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                if (address.isNotEmpty) ...[
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    address,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.right,
+                                    style: const TextStyle(
+                                      color: AppColors.textMuted,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            onPressed: () => _toggleMemory(visit),
+                            tooltip:
+                                favorite ? 'הסר מזיכרונות' : 'שמור בזיכרונות',
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 30,
+                              minHeight: 30,
+                            ),
+                            icon: Icon(
+                              favorite
+                                  ? Icons.favorite_rounded
+                                  : Icons.favorite_border_rounded,
+                              size: 18,
+                              color: favorite
+                                  ? AppColors.champagne.withValues(alpha: 0.82)
+                                  : AppColors.textMuted.withValues(alpha: 0.65),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        alignment: WrapAlignment.end,
+                        spacing: 10,
+                        runSpacing: 6,
+                        children: [
+                          if (date.isNotEmpty)
+                            _meta(Icons.event_outlined, date),
+                          if (rating != null)
+                            _meta(
+                              Icons.star_rounded,
+                              rating.toStringAsFixed(1),
+                            ),
+                          if (drink.isNotEmpty)
+                            _meta(Icons.local_cafe_outlined, drink),
+                          if (withWhom.isNotEmpty)
+                            _meta(
+                              Icons.people_outline_rounded,
+                              withWhom,
+                            ),
+                        ],
+                      ),
+                      if (note.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          note,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.right,
                           style: const TextStyle(
-                            color: AppColors.ink,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSecondary,
+                            fontSize: 11.5,
+                            height: 1.4,
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 4),
-                      IconButton(
-                        onPressed: () => _toggleMemory(visit),
-                        tooltip: visit['favorite_memory'] == true
-                            ? 'הסר מזיכרונות'
-                            : 'שמור בזיכרונות',
-                        visualDensity: VisualDensity.compact,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                          minWidth: 30,
-                          minHeight: 30,
-                        ),
-                        icon: Icon(
-                          visit['favorite_memory'] == true
-                              ? Icons.favorite_rounded
-                              : Icons.favorite_border_rounded,
-                          size: 20,
-                          color: visit['favorite_memory'] == true
-                              ? AppColors.brass
-                              : AppColors.muted,
-                        ),
-                      ),
+                      ],
+                      if (visit['visit_tag_links'] is List)
+                        _tags(visit['visit_tag_links']),
                     ],
                   ),
-                  if (address.isNotEmpty) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      address,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.muted,
-                        fontSize: 11.5,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 7),
-                  Wrap(
-                    alignment: WrapAlignment.end,
-                    spacing: 9,
-                    runSpacing: 4,
-                    children: [
-                      if (date.isNotEmpty) _meta(Icons.event_outlined, date),
-                      if (rating != null)
-                        _meta(Icons.star_rounded, rating.toStringAsFixed(1)),
-                      if (drink.isNotEmpty)
-                        _meta(Icons.local_cafe_outlined, drink),
-                      if (withWhom.isNotEmpty)
-                        _meta(Icons.people_outline_rounded, withWhom),
-                    ],
-                  ),
-                  if (note.isNotEmpty) ...[
-                    const SizedBox(height: 7),
-                    Text(
-                      note,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.right,
-                      style: const TextStyle(
-                        color: AppColors.muted,
-                        fontSize: 12,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                  if (visit['visit_tag_links'] is List)
-                    _tags(visit['visit_tag_links']),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -563,7 +697,8 @@ class _JournalScreenState extends State<JournalScreen> {
     if (_favorites.isEmpty) {
       return _empty(
         'אין עדיין זיכרונות מיוחדים',
-        'כל ביקור כבר נמצא ביומן.\nסמן ❤️ ליד ביקור כדי לשמור אותו גם בזיכרונות.',
+        'כל חוויה כבר מופיעה ביומן.\n'
+            'סמן את הלב ליד חוויה כדי לשמור אותה גם בזיכרונות.',
       );
     }
 
@@ -572,6 +707,7 @@ class _JournalScreenState extends State<JournalScreen> {
 
   Widget _buildStatistics() {
     final ratings = _visits.map(_rating).whereType<double>().toList();
+
     final totalImages = _visits.fold<int>(0, (sum, v) {
       final images = v['visit_images'];
       return sum + (images is List ? images.length : 0);
@@ -583,10 +719,18 @@ class _JournalScreenState extends State<JournalScreen> {
         .length;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 40),
+      padding: const EdgeInsets.fromLTRB(2, 4, 2, 42),
       children: [
-        _bigStat('מספר ביקורים', '${_visits.length}', Icons.menu_book_outlined),
-        _bigStat('מקומות שונים', '$_placeCount', Icons.place_outlined),
+        _bigStat(
+          'מספר חוויות',
+          '${_visits.length}',
+          Icons.menu_book_outlined,
+        ),
+        _bigStat(
+          'מקומות שונים',
+          '$_placeCount',
+          Icons.place_outlined,
+        ),
         _bigStat(
           'דירוג אישי ממוצע',
           ratings.isEmpty
@@ -595,74 +739,141 @@ class _JournalScreenState extends State<JournalScreen> {
                   .toStringAsFixed(1),
           Icons.star_outline_rounded,
         ),
-        _bigStat('תמונות ביומן', '$totalImages', Icons.photo_library_outlined),
-        _bigStat('ביקורים עם משקה', '$drinks', Icons.local_cafe_outlined),
-        _bigStat('קטגוריה מובילה', _categorySummary(), Icons.category_outlined),
+        _bigStat(
+          'תמונות ביומן',
+          '$totalImages',
+          Icons.photo_library_outlined,
+        ),
+        _bigStat(
+          'חוויות עם משקה',
+          '$drinks',
+          Icons.local_cafe_outlined,
+        ),
+        _bigStat(
+          'קטגוריה מובילה',
+          _categorySummary(),
+          Icons.category_outlined,
+        ),
       ],
     );
   }
 
   Widget _bigStat(String title, String value, IconData icon) {
-    return Card(
-      color: AppColors.card,
-      elevation: 0,
+    return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        leading: Icon(icon, color: AppColors.brass),
-        title: Text(
-          title,
-          style: const TextStyle(color: AppColors.muted, fontSize: 12),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 15,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.champagne.withValues(alpha: 0.14),
+          width: 0.75,
         ),
-        trailing: Text(
-          value,
-          style: const TextStyle(
-            color: AppColors.ink,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.champagne.withValues(alpha: 0.025),
+            blurRadius: 22,
+            spreadRadius: -6,
           ),
-        ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.champagne.withValues(alpha: 0.055),
+              border: Border.all(
+                color: AppColors.champagne.withValues(alpha: 0.13),
+                width: 0.7,
+              ),
+            ),
+            child: Icon(
+              icon,
+              size: 19,
+              color: AppColors.champagne.withValues(alpha: 0.76),
+            ),
+          ),
+          const SizedBox(width: 13),
+          Expanded(
+            child: Text(
+              title,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            value,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 17,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _tags(dynamic raw) {
-    if (raw is! List || raw.isEmpty) return const SizedBox.shrink();
+    if (raw is! List || raw.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     final labels = <String>[];
 
     for (final item in raw) {
       if (item is! Map) continue;
-      final tag = item['tags'];
+
+      final tag = item['visit_tags'] ?? item['tags'];
 
       if (tag is Map) {
         final value = tag['name']?.toString().trim();
-        if (value != null && value.isNotEmpty) labels.add(value);
+
+        if (value != null && value.isNotEmpty) {
+          labels.add(value);
+        }
       }
     }
 
-    if (labels.isEmpty) return const SizedBox.shrink();
+    if (labels.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return Padding(
-      padding: const EdgeInsets.only(top: 7),
+      padding: const EdgeInsets.only(top: 8),
       child: Wrap(
         alignment: WrapAlignment.end,
         spacing: 5,
         runSpacing: 5,
         children: labels.take(4).map((label) {
           return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: 4,
+            ),
             decoration: BoxDecoration(
-              color: AppColors.card,
-              borderRadius: BorderRadius.circular(20),
+              color: AppColors.champagne.withValues(alpha: 0.045),
+              borderRadius: BorderRadius.circular(18),
               border: Border.all(
-                color: AppColors.brass.withValues(alpha: 0.25),
+                color: AppColors.champagne.withValues(alpha: 0.16),
+                width: 0.7,
               ),
             ),
             child: Text(
               label,
               style: const TextStyle(
-                color: AppColors.muted,
-                fontSize: 10.5,
+                color: AppColors.textMuted,
+                fontSize: 10,
               ),
             ),
           );
@@ -675,15 +886,19 @@ class _JournalScreenState extends State<JournalScreen> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 13, color: AppColors.brass),
-        const SizedBox(width: 3),
+        Icon(
+          icon,
+          size: 12.5,
+          color: AppColors.champagne.withValues(alpha: 0.70),
+        ),
+        const SizedBox(width: 4),
         Text(
           text,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: const TextStyle(
-            color: AppColors.muted,
-            fontSize: 11,
+            color: AppColors.textMuted,
+            fontSize: 10.5,
           ),
         ),
       ],
@@ -691,76 +906,118 @@ class _JournalScreenState extends State<JournalScreen> {
   }
 
   Widget _thumbnail(String url) {
-    const size = 72.0;
+    const size = 76.0;
 
-    if (url.isEmpty) {
+    Widget fallback(IconData icon) {
       return Container(
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(13),
+          color: AppColors.background,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: AppColors.champagne.withValues(alpha: 0.12),
+            width: 0.7,
+          ),
         ),
-        child: const Icon(
-          Icons.restaurant_outlined,
-          size: 23,
-          color: AppColors.muted,
+        child: Icon(
+          icon,
+          size: 22,
+          color: AppColors.textMuted.withValues(alpha: 0.70),
         ),
       );
     }
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(13),
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: Image.network(
-          url,
-          fit: BoxFit.cover,
-          errorBuilder: (_, __, ___) => Container(
-            color: AppColors.card,
-            child: const Icon(
-              Icons.image_outlined,
-              size: 23,
-              color: AppColors.muted,
-            ),
-          ),
+    if (url.isEmpty) {
+      return fallback(Icons.restaurant_outlined);
+    }
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: AppColors.champagne.withValues(alpha: 0.13),
+          width: 0.7,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.champagne.withValues(alpha: 0.025),
+            blurRadius: 16,
+            spreadRadius: -5,
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Image.network(
+        url,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) {
+          return fallback(Icons.image_outlined);
+        },
       ),
     );
   }
 
   Widget _empty(String title, String subtitle) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.menu_book_outlined,
-              size: 40,
-              color: AppColors.brass,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(
+              horizontal: 22,
+              vertical: 28,
             ),
-            const SizedBox(height: 18),
-            Text(
-              title,
-              style: const TextStyle(
-                color: AppColors.ink,
-                fontSize: 21,
-                fontWeight: FontWeight.w500,
+            decoration: BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: AppColors.champagne.withValues(alpha: 0.13),
+                width: 0.75,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.champagne.withValues(alpha: 0.025),
+                  blurRadius: 24,
+                  spreadRadius: -6,
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppColors.muted,
-                fontSize: 14,
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.menu_book_outlined,
+                  size: 31,
+                  color: AppColors.champagne.withValues(alpha: 0.70),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 7),
+                Text(
+                  subtitle,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 12.5,
+                    height: 1.5,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

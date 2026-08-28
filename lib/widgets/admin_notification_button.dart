@@ -46,21 +46,28 @@ class _AdminNotificationButtonState extends State<AdminNotificationButton> {
         );
       },
       child: Container(
-        width: 42,
-        height: 42,
+        width: 40,
+        height: 40,
         decoration: BoxDecoration(
-          color: AppColors.card,
+          color: AppColors.background,
           shape: BoxShape.circle,
           border: Border.all(
-            color: AppColors.brass.withValues(alpha: 0.45),
-            width: 0.8,
+            color: AppColors.champagne.withValues(alpha: 0.22),
+            width: 0.75,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.champagne.withValues(alpha: 0.03),
+              blurRadius: 16,
+              spreadRadius: -4,
+            ),
+          ],
         ),
-        child: const Center(
+        child: Center(
           child: Icon(
             Icons.notifications_none_outlined,
-            color: AppColors.brass,
-            size: 23,
+            color: AppColors.champagne.withValues(alpha: 0.82),
+            size: 20,
           ),
         ),
       ),

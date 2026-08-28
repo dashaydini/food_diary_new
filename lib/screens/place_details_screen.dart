@@ -463,6 +463,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
 
     final canDelete = Permissions.canDeletePlace();
     final galleryImages = _buildPlaceGalleryImages();
+
     final isUserLoggedIn =
         !(Supabase.instance.client.auth.currentUser?.isAnonymous ?? false);
 
@@ -470,8 +471,19 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
-        title: Text(name),
+        centerTitle: true,
+        title: Text(
+          name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: AppColors.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w400,
+              ),
+        ),
         actions: [
           if (widget.place['latitude'] != null &&
               widget.place['longitude'] != null)
@@ -479,7 +491,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
               tooltip: 'ניווט',
               icon: const Icon(
                 Icons.navigation_outlined,
-                color: AppColors.muted,
+                color: AppColors.champagne,
               ),
               onPressed: _openNavigation,
             ),
@@ -488,7 +500,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
               tooltip: 'עריכה',
               icon: const Icon(
                 Icons.edit_outlined,
-                color: AppColors.muted,
+                color: AppColors.textMuted,
               ),
               onPressed: _editPlace,
             ),
@@ -497,135 +509,176 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
               tooltip: 'מחיקה',
               icon: const Icon(
                 Icons.delete_outline,
-                color: AppColors.muted,
+                color: AppColors.textMuted,
               ),
               onPressed: _deletePlace,
             ),
           const HomeButton(),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(
-            24, 24, 24, 100), // מרווח תחתון למניעת הסתרת תוכן ע"י הכפתור הצף
-        children: [
-          if (imageUrl.isNotEmpty)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: Container(
-                width: double.infinity,
-                height: 240,
-                color: Colors.transparent,
-                child: Image.network(
-                  imageUrl,
-                  fit: BoxFit.contain,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final mobile = constraints.maxWidth < 700;
+
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 980),
+              child: ListView(
+                padding: EdgeInsets.fromLTRB(
+                  mobile ? 16 : 28,
+                  mobile ? 14 : 20,
+                  mobile ? 16 : 28,
+                  110,
                 ),
-              ),
-            ),
-          if (imageUrl.isNotEmpty) const SizedBox(height: 20),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Text(
-                  name,
-                  style: const TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              if (!_loadingPreferences && isUserLoggedIn) ...[
-                _PreferenceButton(
-                  icon: Icons.star_rounded,
-                  selected: _isFavorite,
-                  loading: _savingFavorite,
-                  tooltip: 'מועדפים',
-                  onPressed: _toggleFavorite,
-                ),
-                const SizedBox(width: 6),
-                _PreferenceButton(
-                  icon: Icons.bookmark_rounded,
-                  selected: _isWishlist,
-                  loading: _savingWishlist,
-                  tooltip: 'Wishlist',
-                  onPressed: _toggleWishlist,
-                ),
-              ],
-            ],
-          ),
-          if (description.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(
-              description,
-              style: const TextStyle(
-                fontSize: 16,
-                color: AppColors.muted,
-              ),
-            ),
-          ],
-          if (address.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(
-                  Icons.location_on_outlined,
-                  size: 20,
-                  color: AppColors.muted,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    address,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      color: AppColors.muted,
+                children: [
+                  if (imageUrl.isNotEmpty)
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(19),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.champagne.withValues(alpha: 0.035),
+                            blurRadius: 34,
+                            spreadRadius: -7,
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(19),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: mobile ? 190 : 260,
+                          child: Image.network(
+                            imageUrl,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+                      ),
                     ),
+                  if (imageUrl.isNotEmpty) SizedBox(height: mobile ? 18 : 24),
+                  Row(
+                    textDirection: TextDirection.rtl,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          name,
+                          textAlign: TextAlign.right,
+                          style: Theme.of(context)
+                              .textTheme
+                              .headlineSmall
+                              ?.copyWith(
+                                color: AppColors.textPrimary,
+                                fontSize: mobile ? 24 : 28,
+                                fontWeight: FontWeight.w500,
+                              ),
+                        ),
+                      ),
+                      if (!_loadingPreferences && isUserLoggedIn) ...[
+                        _PreferenceButton(
+                          icon: Icons.star_rounded,
+                          selected: _isFavorite,
+                          loading: _savingFavorite,
+                          tooltip: 'מועדפים',
+                          onPressed: _toggleFavorite,
+                        ),
+                        const SizedBox(width: 4),
+                        _PreferenceButton(
+                          icon: Icons.bookmark_rounded,
+                          selected: _isWishlist,
+                          loading: _savingWishlist,
+                          tooltip: 'Wishlist',
+                          onPressed: _toggleWishlist,
+                        ),
+                      ],
+                    ],
                   ),
-                ),
-              ],
+                  if (description.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      description,
+                      textAlign: TextAlign.right,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: AppColors.textMuted,
+                            fontSize: mobile ? 13 : 14,
+                            height: 1.5,
+                          ),
+                    ),
+                  ],
+                  if (address.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      textDirection: TextDirection.rtl,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.location_on_outlined,
+                          size: 17,
+                          color: AppColors.champagne,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            address,
+                            textAlign: TextAlign.right,
+                            style:
+                                Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: AppColors.textSecondary,
+                                      fontSize: mobile ? 12 : 13,
+                                      height: 1.45,
+                                    ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  if (galleryImages.isNotEmpty) ...[
+                    SizedBox(height: mobile ? 18 : 24),
+                    PlaceImageGallery(
+                      images: galleryImages,
+                    ),
+                  ],
+                  SizedBox(height: mobile ? 26 : 34),
+                  Text(
+                    'חוויות',
+                    textAlign: TextAlign.right,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: AppColors.textPrimary,
+                          fontSize: mobile ? 20 : 22,
+                          fontWeight: FontWeight.w500,
+                        ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildVisits(),
+                ],
+              ),
             ),
-          ],
-          if (galleryImages.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            PlaceImageGallery(
-              images: galleryImages,
-            ),
-          ],
-          const SizedBox(height: 32),
-          const Text(
-            'ביקורים',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 14),
-          _buildVisits(),
-        ],
+          );
+        },
       ),
       floatingActionButton: isUserLoggedIn
           ? FloatingActionButton.extended(
               onPressed: _navigateToAddVisit,
-              backgroundColor: AppColors.card,
-              elevation: 4,
+              backgroundColor: AppColors.background,
+              foregroundColor: AppColors.champagne,
+              elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30),
-                side: const BorderSide(
-                  color: AppColors.brass,
-                  width: 1,
+                borderRadius: BorderRadius.circular(24),
+                side: BorderSide(
+                  color: AppColors.champagne.withValues(alpha: 0.28),
+                  width: 0.9,
                 ),
               ),
               icon: const Icon(
                 Icons.add_rounded,
-                color: AppColors.brass,
+                size: 20,
               ),
               label: const Text(
-                'תיעוד ביקור חדש',
+                'שיתוף חוויה',
                 style: TextStyle(
                   color: AppColors.textPrimary,
                   fontWeight: FontWeight.w500,
-                  fontSize: 14,
+                  fontSize: 13,
                 ),
               ),
             )
@@ -691,7 +744,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
     if (_visitsError != null) {
       return Column(
         children: [
-          const Text('לא ניתן לטעון את הביקורים'),
+          const Text('לא ניתן לטעון את החוויות'),
           const SizedBox(height: 10),
           OutlinedButton(
             onPressed: () {
@@ -711,7 +764,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 20),
         child: Text(
-          'אין עדיין ביקורים במקום הזה',
+          'אין עדיין חוויות במקום הזה',
           style: TextStyle(
             color: AppColors.muted,
           ),

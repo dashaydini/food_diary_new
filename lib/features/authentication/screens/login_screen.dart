@@ -5,6 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/services/auth_service.dart';
 import '../../../screens/category_selection_screen.dart';
 import '../../../theme/colors.dart';
+import '../widgets/auth_brand_hero.dart';
+import '../widgets/auth_brand_divider.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
 
@@ -218,178 +220,234 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        elevation: 0,
-        title: const Text('כניסה'),
-      ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 24),
-              const Text(
-                'ברוכים הבאים',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                'התחבר כדי להמשיך ל־Food Diary',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 15,
-                  color: AppColors.muted,
-                ),
-              ),
-              const SizedBox(height: 36),
-              SizedBox(
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: _loading ? null : _loginWithGoogle,
-                  child: const Text(
-                    'התחברות עם Google',
-                    style: TextStyle(fontSize: 17),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 52,
-                child: OutlinedButton(
-                  onPressed: _loading ? null : _loginWithApple,
-                  child: const Text(
-                    'התחברות עם Apple',
-                    style: TextStyle(fontSize: 17),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 28),
-              const Row(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Expanded(child: Divider()),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      'או עם מייל',
-                      style: TextStyle(
-                        color: AppColors.muted,
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: IconButton(
+                      tooltip: 'חזרה',
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(
+                        Icons.arrow_forward_rounded,
+                        textDirection: TextDirection.ltr,
+                        color: AppColors.champagne,
+                        size: 28,
                       ),
                     ),
                   ),
-                  Expanded(child: Divider()),
+                  const SizedBox(height: 10),
+                  const AuthBrandHero(),
+                  const SizedBox(height: 12),
+                  const AuthBrandDivider(),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'ברוכים הבאים',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 36,
+                      height: 1.15,
+                      fontWeight: FontWeight.w300,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'התחבר והמשך אל המקומות,\nהחוויות והחוויות שלך.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 1.6,
+                      fontWeight: FontWeight.w300,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 38),
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(22, 26, 22, 24),
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: AppColors.cardBorder,
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(
+                          height: 50,
+                          child: OutlinedButton(
+                            onPressed: _loading ? null : _loginWithGoogle,
+                            child: const Text(
+                              'התחברות עם Google',
+                              style: TextStyle(fontSize: 15),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 11),
+                        SizedBox(
+                          height: 50,
+                          child: OutlinedButton.icon(
+                            onPressed: _loading ? null : _loginWithApple,
+                            icon: const Icon(Icons.apple, size: 21),
+                            label: const Text(
+                              'התחברות עם Apple',
+                              style: TextStyle(fontSize: 15),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        const Row(
+                          children: [
+                            Expanded(child: Divider()),
+                            Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                              child: Text(
+                                'או עם מייל',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textMuted,
+                                ),
+                              ),
+                            ),
+                            Expanded(child: Divider()),
+                          ],
+                        ),
+                        const SizedBox(height: 22),
+                        TextField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          autocorrect: false,
+                          decoration: const InputDecoration(
+                            labelText: 'כתובת מייל',
+                            prefixIcon: Icon(Icons.email_outlined),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        TextField(
+                          controller: _passwordController,
+                          obscureText: _obscurePassword,
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: (_) {
+                            if (!_loading) _loginWithEmail();
+                          },
+                          decoration: InputDecoration(
+                            labelText: 'סיסמה',
+                            prefixIcon: const Icon(Icons.lock_outline),
+                            suffixIcon: IconButton(
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton(
+                            onPressed: _loading
+                                ? null
+                                : () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            const ForgotPasswordScreen(),
+                                      ),
+                                    );
+                                  },
+                            child: const Text(
+                              'שכחתי סיסמה',
+                              style: TextStyle(fontSize: 13),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        SizedBox(
+                          height: 52,
+                          child: FilledButton(
+                            onPressed: _loading ? null : _loginWithEmail,
+                            child: _loading
+                                ? const SizedBox(
+                                    width: 21,
+                                    height: 21,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text(
+                                    'כניסה',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                          ),
+                        ),
+                        if (_error != null) ...[
+                          const SizedBox(height: 16),
+                          Text(
+                            _error!,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.danger,
+                            ),
+                          ),
+                        ],
+                        if (_showRegisterButton) ...[
+                          const SizedBox(height: 12),
+                          OutlinedButton(
+                            onPressed: _loading ? null : _openRegister,
+                            child: const Text('יצירת חשבון'),
+                          ),
+                        ],
+                        const SizedBox(height: 13),
+                        TextButton(
+                          onPressed: _loading ? null : _openRegister,
+                          child: const Text(
+                            'עדיין אין לך חשבון?  הרשמה',
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: _loading ? null : _guestLogin,
+                          child: const Text(
+                            'המשך כאורח',
+                            style: TextStyle(
+                              color: AppColors.champagneSoft,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                  const Text(
+                    'DISCOVER  •  TASTE  •  REMEMBER',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 9,
+                      letterSpacing: 2.4,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 24),
-              TextField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                textInputAction: TextInputAction.next,
-                autocorrect: false,
-                decoration: const InputDecoration(
-                  labelText: 'כתובת מייל',
-                  hintText: 'name@example.com',
-                  prefixIcon: Icon(Icons.email_outlined),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _passwordController,
-                obscureText: _obscurePassword,
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) {
-                  if (!_loading) {
-                    _loginWithEmail();
-                  }
-                },
-                decoration: InputDecoration(
-                  labelText: 'סיסמה',
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  suffixIcon: IconButton(
-                    onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                    ),
-                  ),
-                ),
-              ),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton(
-                  onPressed: _loading
-                      ? null
-                      : () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const ForgotPasswordScreen(),
-                            ),
-                          );
-                        },
-                  child: const Text('שכחתי סיסמה'),
-                ),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                height: 52,
-                child: FilledButton(
-                  onPressed: _loading ? null : _loginWithEmail,
-                  child: _loading
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(),
-                        )
-                      : const Text(
-                          'כניסה',
-                          style: TextStyle(fontSize: 17),
-                        ),
-                ),
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 20),
-                Text(
-                  _error!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppColors.danger,
-                  ),
-                ),
-              ],
-              if (_showRegisterButton) ...[
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 48,
-                  child: OutlinedButton(
-                    onPressed: _loading ? null : _openRegister,
-                    child: const Text(
-                      'הרשמה',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 24),
-              TextButton(
-                onPressed: _loading ? null : _openRegister,
-                child: const Text('פעם ראשונה? הרשמה'),
-              ),
-              const SizedBox(height: 4),
-              TextButton(
-                onPressed: _loading ? null : _guestLogin,
-                child: const Text('כניסה כאורח'),
-              ),
-            ],
+            ),
           ),
         ),
       ),

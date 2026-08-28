@@ -75,14 +75,21 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
         backgroundColor: AppColors.background,
         appBar: AppBar(
           backgroundColor: AppColors.background,
-          foregroundColor: AppColors.ink,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          centerTitle: true,
           title: const Text('התראות'),
-          leading: const HomeButton(),
+          actions: const [
+            HomeButton(),
+          ],
         ),
         body: const Center(
           child: Text(
             'אין גישה',
-            style: TextStyle(color: AppColors.ink),
+            style: TextStyle(
+              color: AppColors.textMuted,
+              fontSize: 14,
+            ),
           ),
         ),
       );
@@ -92,36 +99,55 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
-        foregroundColor: AppColors.ink,
-        title: const Text('התראות'),
-        leading: const HomeButton(),
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        title: Text(
+          'התראות',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: AppColors.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w400,
+              ),
+        ),
+        actions: const [
+          HomeButton(),
+        ],
       ),
       body: _loading
           ? const Center(
-              child: CircularProgressIndicator(),
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                color: AppColors.champagne,
+              ),
             )
-          : ListView(
-              padding: const EdgeInsets.all(18),
-              children: [
-                _NotificationCategory(
-                  icon: Icons.flag_outlined,
-                  title: 'דיווחים',
-                  count: _reportsCount,
-                  onTap: _openReports,
+          : Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 760),
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 32),
+                  children: [
+                    _NotificationCategory(
+                      icon: Icons.flag_outlined,
+                      title: 'דיווחים',
+                      count: _reportsCount,
+                      onTap: _openReports,
+                    ),
+                    const SizedBox(height: 11),
+                    const _NotificationCategory(
+                      icon: Icons.inbox_outlined,
+                      title: 'פניות למנהל',
+                      count: 0,
+                    ),
+                    const SizedBox(height: 11),
+                    const _NotificationCategory(
+                      icon: Icons.more_horiz,
+                      title: 'עוד',
+                      count: 0,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                const _NotificationCategory(
-                  icon: Icons.inbox_outlined,
-                  title: 'פניות למנהל',
-                  count: 0,
-                ),
-                const SizedBox(height: 12),
-                const _NotificationCategory(
-                  icon: Icons.more_horiz,
-                  title: 'עוד',
-                  count: 0,
-                ),
-              ],
+              ),
             ),
     );
   }
@@ -142,55 +168,94 @@ class _NotificationCategory extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.card,
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 18,
-            vertical: 18,
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(17),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.champagne.withValues(alpha: 0.035),
+            blurRadius: 24,
+            spreadRadius: -6,
           ),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                color: AppColors.brass,
-                size: 28,
+        ],
+      ),
+      child: Material(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(17),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(17),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 17,
+              vertical: 15,
+            ),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(17),
+              border: Border.all(
+                color: AppColors.champagne.withValues(alpha: 0.15),
+                width: 0.75,
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    color: AppColors.ink,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              if (count > 0)
+            ),
+            child: Row(
+              textDirection: TextDirection.rtl,
+              children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 5,
-                  ),
+                  width: 40,
+                  height: 40,
                   decoration: BoxDecoration(
-                    color: AppColors.brass,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Text(
-                    '$count',
-                    style: const TextStyle(
-                      color: AppColors.background,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
+                    borderRadius: BorderRadius.circular(12),
+                    color: AppColors.champagne.withValues(alpha: 0.04),
+                    border: Border.all(
+                      color: AppColors.champagne.withValues(alpha: 0.14),
+                      width: 0.7,
                     ),
                   ),
-                )
-            ],
+                  child: Icon(
+                    icon,
+                    color: AppColors.champagne.withValues(alpha: 0.80),
+                    size: 19,
+                  ),
+                ),
+                const SizedBox(width: 13),
+                Expanded(
+                  child: Text(
+                    title,
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                if (count > 0)
+                  Container(
+                    constraints: const BoxConstraints(minWidth: 24),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.champagne.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.champagne.withValues(alpha: 0.28),
+                        width: 0.7,
+                      ),
+                    ),
+                    child: Text(
+                      '$count',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: AppColors.champagneSoft,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -261,7 +326,7 @@ class _AdminReportsScreenState extends State<_AdminReportsScreen> {
   Future<void> _openReport(Map<String, dynamic> report) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => _AdminReportDetailsScreen(
+        builder: (_) => AdminReportDetailsScreen(
           report: report,
           onHandled: () => _markHandled(report['id'].toString()),
         ),
@@ -279,109 +344,174 @@ class _AdminReportsScreenState extends State<_AdminReportsScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
-        foregroundColor: AppColors.ink,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
-        title: const Text('דיווחים'),
+        centerTitle: true,
+        title: const Text(
+          'דיווחים',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 20,
+            fontWeight: FontWeight.w400,
+          ),
+        ),
       ),
       body: _loading
           ? const Center(
               child: CircularProgressIndicator(
-                color: AppColors.brass,
+                strokeWidth: 1.5,
+                color: AppColors.champagne,
               ),
             )
           : RefreshIndicator(
               onRefresh: _loadReports,
-              color: AppColors.brass,
-              backgroundColor: AppColors.card,
+              color: AppColors.champagne,
+              backgroundColor: AppColors.background,
               child: _reports.isEmpty
                   ? ListView(
                       physics: const AlwaysScrollableScrollPhysics(),
                       children: const [
-                        SizedBox(height: 220),
+                        SizedBox(height: 180),
                         Center(
                           child: Text(
                             'אין דיווחים חדשים',
                             style: TextStyle(
-                              color: AppColors.muted,
-                              fontSize: 16,
+                              color: AppColors.textMuted,
+                              fontSize: 14,
                             ),
                           ),
                         ),
                       ],
                     )
-                  : GridView.builder(
-                      padding: const EdgeInsets.all(18),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 4,
-                        crossAxisSpacing: 5,
-                        mainAxisSpacing: 6,
-                        childAspectRatio: 1.12,
-                      ),
-                      itemCount: _reports.length,
-                      itemBuilder: (context, index) {
-                        final report = _reports[index];
+                  : LayoutBuilder(
+                      builder: (context, constraints) {
+                        final width = constraints.maxWidth;
 
-                        final imageData = report['visit_images'];
-                        final image = imageData is Map
-                            ? Map<String, dynamic>.from(imageData)
-                            : <String, dynamic>{};
+                        final columns = width >= 1100
+                            ? 4
+                            : width >= 760
+                                ? 3
+                                : width >= 520
+                                    ? 2
+                                    : 1;
 
-                        final imageUrl = image['image_url']?.toString() ?? '';
+                        return Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 1100),
+                            child: GridView.builder(
+                              padding: const EdgeInsets.all(16),
+                              gridDelegate:
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: columns,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                                childAspectRatio: columns == 1 ? 1.7 : 1.08,
+                              ),
+                              itemCount: _reports.length,
+                              itemBuilder: (context, index) {
+                                final report = _reports[index];
 
-                        final reason =
-                            report['reason']?.toString().trim() ?? '';
+                                final imageData = report['visit_images'];
 
-                        return Material(
-                          color: AppColors.card,
-                          borderRadius: BorderRadius.circular(18),
-                          clipBehavior: Clip.antiAlias,
-                          child: InkWell(
-                            onTap: () => _openReport(report),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Expanded(
-                                  child: imageUrl.isEmpty
-                                      ? const Center(
-                                          child: Icon(
-                                            Icons.image_not_supported_outlined,
-                                            color: AppColors.muted,
-                                            size: 36,
-                                          ),
-                                        )
-                                      : Image.network(
-                                          imageUrl,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) =>
-                                              const Center(
-                                            child: Icon(
-                                              Icons.broken_image_outlined,
-                                              color: AppColors.muted,
-                                              size: 36,
-                                            ),
+                                final image = imageData is Map
+                                    ? Map<String, dynamic>.from(imageData)
+                                    : <String, dynamic>{};
+
+                                final imageUrl =
+                                    image['image_url']?.toString() ?? '';
+
+                                final reason =
+                                    report['reason']?.toString().trim() ?? '';
+
+                                return Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(17),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: AppColors.champagne
+                                            .withValues(alpha: 0.035),
+                                        blurRadius: 24,
+                                        spreadRadius: -6,
+                                      ),
+                                    ],
+                                  ),
+                                  child: Material(
+                                    color: AppColors.background,
+                                    borderRadius: BorderRadius.circular(17),
+                                    clipBehavior: Clip.antiAlias,
+                                    child: InkWell(
+                                      onTap: () => _openReport(report),
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          borderRadius:
+                                              BorderRadius.circular(17),
+                                          border: Border.all(
+                                            color: AppColors.champagne
+                                                .withValues(alpha: 0.15),
+                                            width: 0.75,
                                           ),
                                         ),
-                                ),
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    12,
-                                    10,
-                                    12,
-                                    12,
-                                  ),
-                                  child: Text(
-                                    reason.isEmpty ? 'דיווח ללא סיבה' : reason,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: AppColors.ink,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.stretch,
+                                          children: [
+                                            Expanded(
+                                              child: imageUrl.isEmpty
+                                                  ? const Center(
+                                                      child: Icon(
+                                                        Icons
+                                                            .image_not_supported_outlined,
+                                                        color:
+                                                            AppColors.textMuted,
+                                                        size: 30,
+                                                      ),
+                                                    )
+                                                  : Image.network(
+                                                      imageUrl,
+                                                      fit: BoxFit.cover,
+                                                      errorBuilder:
+                                                          (_, __, ___) =>
+                                                              const Center(
+                                                        child: Icon(
+                                                          Icons
+                                                              .broken_image_outlined,
+                                                          color: AppColors
+                                                              .textMuted,
+                                                          size: 30,
+                                                        ),
+                                                      ),
+                                                    ),
+                                            ),
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsets.fromLTRB(
+                                                12,
+                                                9,
+                                                12,
+                                                11,
+                                              ),
+                                              child: Text(
+                                                reason.isEmpty
+                                                    ? 'דיווח ללא סיבה'
+                                                    : reason,
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                                textAlign: TextAlign.right,
+                                                style: const TextStyle(
+                                                  color:
+                                                      AppColors.textSecondary,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w400,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                );
+                              },
                             ),
                           ),
                         );
@@ -392,21 +522,22 @@ class _AdminReportsScreenState extends State<_AdminReportsScreen> {
   }
 }
 
-class _AdminReportDetailsScreen extends StatefulWidget {
+class AdminReportDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> report;
   final Future<void> Function()? onHandled;
 
-  const _AdminReportDetailsScreen({
+  const AdminReportDetailsScreen({
+    super.key,
     required this.report,
     this.onHandled,
   });
 
   @override
-  State<_AdminReportDetailsScreen> createState() =>
+  State<AdminReportDetailsScreen> createState() =>
       _AdminReportDetailsScreenState();
 }
 
-class _AdminReportDetailsScreenState extends State<_AdminReportDetailsScreen> {
+class _AdminReportDetailsScreenState extends State<AdminReportDetailsScreen> {
   bool _loading = false;
   bool _working = false;
   String? _error;
@@ -472,7 +603,7 @@ class _AdminReportDetailsScreenState extends State<_AdminReportDetailsScreen> {
         if (!mounted) return;
         setState(() {
           _loading = false;
-          _error = 'לא ניתן למצוא את הביקור.';
+          _error = 'לא ניתן למצוא את החוויה.';
         });
         return;
       }
@@ -505,7 +636,7 @@ class _AdminReportDetailsScreenState extends State<_AdminReportDetailsScreen> {
 
       setState(() {
         _loading = false;
-        _error = 'לא ניתן לטעון את הביקור: $e';
+        _error = 'לא ניתן לטעון את החוויה: $e';
       });
     }
   }
@@ -514,7 +645,7 @@ class _AdminReportDetailsScreenState extends State<_AdminReportDetailsScreen> {
     if (_visit == null || _place == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('לא ניתן לפתוח את הביקור כרגע'),
+          content: Text('לא ניתן לפתוח את החוויה כרגע'),
         ),
       );
       return;
@@ -685,142 +816,178 @@ class _AdminReportDetailsScreenState extends State<_AdminReportDetailsScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
-        foregroundColor: AppColors.ink,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
-        title: const Text('טיפול בדיווח'),
+        centerTitle: true,
+        title: const Text(
+          'טיפול בדיווח',
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 20,
+            fontWeight: FontWeight.w400,
+          ),
+        ),
       ),
       body: _loading
           ? const Center(
               child: CircularProgressIndicator(
-                color: AppColors.brass,
+                strokeWidth: 1.5,
+                color: AppColors.champagne,
               ),
             )
-          : ListView(
-              padding: const EdgeInsets.all(18),
-              children: [
-                if (_imageUrl.isNotEmpty)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(18),
-                    child: AspectRatio(
-                      aspectRatio: 1,
-                      child: Image.network(
-                        _imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const Center(
-                          child: Icon(
-                            Icons.broken_image_outlined,
-                            color: AppColors.muted,
-                            size: 48,
+          : Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 720),
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                  children: [
+                    if (_imageUrl.isNotEmpty)
+                      Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 480),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(17),
+                            child: AspectRatio(
+                              aspectRatio: 4 / 3,
+                              child: Image.network(
+                                _imageUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const Center(
+                                  child: Icon(
+                                    Icons.broken_image_outlined,
+                                    color: AppColors.textMuted,
+                                    size: 42,
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: AppColors.card,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: AppColors.line),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'מהות הדיווח',
-                        style: TextStyle(
-                          color: AppColors.muted,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(17),
+                      decoration: BoxDecoration(
+                        color: AppColors.background,
+                        borderRadius: BorderRadius.circular(17),
+                        border: Border.all(
+                          color: AppColors.champagne.withValues(alpha: 0.15),
+                          width: 0.75,
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.champagne.withValues(alpha: 0.03),
+                            blurRadius: 24,
+                            spreadRadius: -6,
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          const Text(
+                            'מהות הדיווח',
+                            textAlign: TextAlign.right,
+                            style: TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 11,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            reason,
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (_error != null) ...[
+                      const SizedBox(height: 14),
                       Text(
-                        reason,
-                        style: const TextStyle(
-                          color: AppColors.ink,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
+                        _error!,
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          color: AppColors.danger.withValues(alpha: 0.88),
+                          fontSize: 12,
                         ),
                       ),
                     ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                if (_error != null)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: AppColors.card,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Text(
-                      _error!,
-                      style: const TextStyle(
-                        color: AppColors.ink,
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      height: 46,
+                      child: OutlinedButton.icon(
+                        onPressed: _working ? null : _openVisit,
+                        icon: const Icon(
+                          Icons.open_in_new_rounded,
+                          size: 18,
+                        ),
+                        label: const Text('עבור לחוויה'),
                       ),
                     ),
-                  ),
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: OutlinedButton.icon(
-                    onPressed: _working ? null : _openVisit,
-                    icon: const Icon(Icons.open_in_new),
-                    label: const Text('עבור לביקור'),
-                  ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 46,
+                      child: FilledButton.icon(
+                        onPressed: _working ? null : _deleteImage,
+                        icon: const Icon(
+                          Icons.delete_outline,
+                          size: 18,
+                        ),
+                        label: const Text('מחיקת התמונה'),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 46,
+                      child: OutlinedButton.icon(
+                        onPressed: _working ? null : _deleteReport,
+                        icon: const Icon(
+                          Icons.flag_outlined,
+                          size: 18,
+                        ),
+                        label: const Text('מחיקת הדיווח בלבד'),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 46,
+                      child: OutlinedButton.icon(
+                        onPressed: _working
+                            ? null
+                            : () => _showMessage(
+                                  'מערכת ההודעות עדיין לא קיימת באפליקציה.',
+                                ),
+                        icon: const Icon(
+                          Icons.mail_outline,
+                          size: 18,
+                        ),
+                        label: const Text('שליחת הודעה לבעל התמונה'),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 46,
+                      child: OutlinedButton.icon(
+                        onPressed: _working
+                            ? null
+                            : () => _showMessage(
+                                  'מערכת חסימת המשתמשים עדיין לא קיימת באפליקציה.',
+                                ),
+                        icon: const Icon(
+                          Icons.block_outlined,
+                          size: 18,
+                        ),
+                        label: const Text('חסימת משתמש'),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: FilledButton.icon(
-                    onPressed: _working ? null : _deleteImage,
-                    icon: const Icon(Icons.delete_outline),
-                    label: const Text('מחק תמונה'),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: OutlinedButton.icon(
-                    onPressed: _working ? null : _deleteReport,
-                    icon: const Icon(Icons.flag_outlined),
-                    label: const Text('מחק דיווח'),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: OutlinedButton.icon(
-                    onPressed: _working
-                        ? null
-                        : () => _showMessage(
-                              'מערכת ההודעות עדיין לא קיימת באפליקציה.',
-                            ),
-                    icon: const Icon(Icons.mail_outline),
-                    label: const Text('שלח הודעה לבעל התמונה'),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: OutlinedButton.icon(
-                    onPressed: _working
-                        ? null
-                        : () => _showMessage(
-                              'מערכת חסימת המשתמשים עדיין לא קיימת באפליקציה.',
-                            ),
-                    icon: const Icon(Icons.block_outlined),
-                    label: const Text('חסום משתמש'),
-                  ),
-                ),
-              ],
+              ),
             ),
     );
   }

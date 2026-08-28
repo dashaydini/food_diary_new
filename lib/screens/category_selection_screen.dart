@@ -7,11 +7,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/content_filter.dart';
 import '../core/services/premium_service.dart';
 import '../theme/colors.dart';
+import '../theme/app_icons.dart';
+import '../utils/permissions.dart';
 
 import 'places_screen.dart';
 import 'map_screen.dart';
 import 'profile_screen.dart';
 import 'journal_screen.dart';
+import 'admin_center_screen.dart';
 
 class PlaceCategory {
   final String id;
@@ -48,23 +51,27 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
   String _greetingName = 'אורח';
   StreamSubscription<AuthState>? _authSubscription;
 
-  static const Map<String, IconData> _icons = {
-    'coffee_outlined': Icons.coffee_outlined,
-    'restaurant_outlined': Icons.restaurant_outlined,
-    'local_shipping_outlined': Icons.local_shipping_outlined,
-    'local_bar_outlined': Icons.local_bar_outlined,
-  };
-
   @override
   void initState() {
     super.initState();
+
+    _loadPermissions();
     _loadCategories();
     _loadGreeting();
 
     _authSubscription =
         Supabase.instance.client.auth.onAuthStateChange.listen((_) {
+      _loadPermissions();
       _loadGreeting();
     });
+  }
+
+  Future<void> _loadPermissions() async {
+    await Permissions.load();
+
+    if (!mounted) return;
+
+    setState(() {});
   }
 
   @override
@@ -127,7 +134,10 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
               id: row['id'] as String,
               title: row['title'] as String,
               subtitle: row['subtitle'] as String,
-              icon: _icons[row['icon']] ?? Icons.place_outlined,
+              icon: AppIcons.categoryIcon(
+                row['icon']?.toString(),
+                title: row['title']?.toString(),
+              ),
               iconName: row['icon'] as String? ?? '',
             ),
           )
@@ -500,48 +510,60 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
       body: Directionality(
         textDirection: TextDirection.rtl,
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
-            child: Column(
-              children: [
-                _buildHeader(),
-                const SizedBox(height: 62),
-                _buildTitle(),
-                const SizedBox(height: 52),
-                Expanded(
-                  child: _buildCategories(),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final mobile = constraints.maxWidth < 700;
+
+              return Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 980),
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      mobile ? 16 : 32,
+                      mobile ? 12 : 20,
+                      mobile ? 16 : 32,
+                      mobile ? 16 : 26,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildHeader(mobile: mobile),
+                        SizedBox(height: mobile ? 22 : 30),
+                        _buildTitle(mobile: mobile),
+                        SizedBox(height: mobile ? 14 : 22),
+                        Expanded(
+                          child: _buildCategories(),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ],
-            ),
+              );
+            },
           ),
         ),
       ),
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader({required bool mobile}) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.start,
       textDirection: TextDirection.rtl,
       children: [
         PopupMenuButton<String>(
           color: AppColors.card,
-          icon: Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: AppColors.card,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: AppColors.brass.withValues(alpha: 0.45),
-                width: 0.8,
-              ),
+          surfaceTintColor: Colors.transparent,
+          tooltip: 'תפריט',
+          offset: const Offset(0, 50),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+            side: BorderSide(
+              color: AppColors.cardBorder.withValues(alpha: 0.85),
             ),
-            child: const Icon(
-              Icons.menu,
-              size: 21,
-              color: AppColors.brass,
-            ),
+          ),
+          icon: _headerActionIcon(
+            Icons.menu_rounded,
+            mobile: mobile,
           ),
           onSelected: (value) {
             switch (value) {
@@ -555,6 +577,13 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
               case 'profile':
                 _openProfile();
                 break;
+              case 'admin':
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const AdminCenterScreen(),
+                  ),
+                );
+                break;
               case 'settings':
                 break;
             }
@@ -563,10 +592,9 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
             const PopupMenuItem(
               value: 'favorites',
               child: Row(
-                textDirection: TextDirection.rtl,
                 children: [
-                  Icon(Icons.favorite_outline, color: AppColors.brass),
-                  SizedBox(width: 8),
+                  Icon(Icons.favorite_outline),
+                  SizedBox(width: 10),
                   Text('מועדפים'),
                 ],
               ),
@@ -574,10 +602,9 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
             const PopupMenuItem(
               value: 'wishlist',
               child: Row(
-                textDirection: TextDirection.rtl,
                 children: [
-                  Icon(Icons.bookmark_outline, color: AppColors.brass),
-                  SizedBox(width: 8),
+                  Icon(Icons.bookmark_outline),
+                  SizedBox(width: 10),
                   Text('רשימת משאלות'),
                 ],
               ),
@@ -585,10 +612,9 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
             const PopupMenuItem(
               value: 'journal',
               child: Row(
-                textDirection: TextDirection.rtl,
                 children: [
-                  Icon(Icons.menu_book_outlined, color: AppColors.brass),
-                  SizedBox(width: 8),
+                  Icon(Icons.menu_book_outlined),
+                  SizedBox(width: 10),
                   Text('יומן אישי'),
                 ],
               ),
@@ -596,45 +622,68 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
             const PopupMenuItem(
               value: 'profile',
               child: Row(
-                textDirection: TextDirection.rtl,
                 children: [
-                  Icon(Icons.person_outline, color: AppColors.brass),
-                  SizedBox(width: 8),
+                  Icon(Icons.person_outline),
+                  SizedBox(width: 10),
                   Text('ניהול פרופיל'),
                 ],
               ),
             ),
+            if (Permissions.isAdmin) ...[
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'admin',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.admin_panel_settings_outlined,
+                      color: AppColors.champagne,
+                    ),
+                    SizedBox(width: 10),
+                    Text(
+                      'מרכז ניהול',
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+            ],
             const PopupMenuItem(
               value: 'settings',
               child: Row(
-                textDirection: TextDirection.rtl,
                 children: [
-                  Icon(Icons.settings_outlined, color: AppColors.brass),
-                  SizedBox(width: 8),
+                  Icon(Icons.settings_outlined),
+                  SizedBox(width: 10),
                   Text('הגדרות אפליקציה'),
                 ],
               ),
             ),
           ],
         ),
-        const SizedBox(width: 12),
-        GestureDetector(
+        SizedBox(width: mobile ? 7 : 10),
+        InkWell(
+          borderRadius: BorderRadius.circular(13),
           onTap: _openMap,
-          child: Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: AppColors.card,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: AppColors.brass.withValues(alpha: 0.45),
-                width: 0.8,
-              ),
-            ),
-            child: const Icon(
-              Icons.map_outlined,
-              size: 21,
-              color: AppColors.brass,
+          child: _headerActionIcon(
+            Icons.map_outlined,
+            mobile: mobile,
+          ),
+        ),
+        SizedBox(width: mobile ? 12 : 18),
+        Flexible(
+          child: Text(
+            'שלום $_greetingName',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: mobile ? 16 : 18,
+              fontWeight: FontWeight.w400,
             ),
           ),
         ),
@@ -642,69 +691,43 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
     );
   }
 
-  Widget _buildTitle() {
+  Widget _headerActionIcon(
+    IconData icon, {
+    required bool mobile,
+  }) {
+    final size = mobile ? 40.0 : 44.0;
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(
+          color: AppColors.champagne.withValues(alpha: 0.16),
+          width: 0.8,
+        ),
+      ),
+      child: Icon(
+        icon,
+        size: mobile ? 19 : 20,
+        color: AppColors.champagne,
+      ),
+    );
+  }
+
+  Widget _buildTitle({required bool mobile}) {
     return Align(
       alignment: Alignment.centerRight,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Text(
-            'שלום $_greetingName',
-            textAlign: TextAlign.right,
-            textDirection: TextDirection.rtl,
-            style: TextStyle(
-              color: AppColors.ink,
-              fontSize: 24,
-              fontWeight: FontWeight.w500,
+      child: Text(
+        'קטגוריות',
+        textAlign: TextAlign.right,
+        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              color: AppColors.textPrimary,
+              fontSize: mobile ? 23 : 27,
+              height: 1.1,
+              fontWeight: FontWeight.w300,
             ),
-          ),
-          const SizedBox(height: 18),
-          const Text(
-            'DISCOVER',
-            textAlign: TextAlign.right,
-            textDirection: TextDirection.rtl,
-            style: TextStyle(
-              color: AppColors.brass,
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 3.5,
-            ),
-          ),
-          const SizedBox(height: 13),
-          const Text(
-            'לאן הולכים?',
-            textAlign: TextAlign.right,
-            textDirection: TextDirection.rtl,
-            style: TextStyle(
-              color: AppColors.ink,
-              fontSize: 38,
-              fontWeight: FontWeight.w400,
-              height: 1.05,
-              letterSpacing: -0.8,
-            ),
-          ),
-          const SizedBox(height: 13),
-          const Text(
-            'בחר מקום, גלה משהו חדש.',
-            textAlign: TextAlign.right,
-            textDirection: TextDirection.rtl,
-            style: TextStyle(
-              color: AppColors.muted,
-              fontSize: 15,
-              height: 1.5,
-            ),
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: 36,
-            child: Divider(
-              color: AppColors.brass,
-              thickness: 1,
-              height: 1,
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -754,6 +777,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
       return ReorderableListView.builder(
         padding: EdgeInsets.zero,
         itemCount: _categories.length,
+        buildDefaultDragHandles: false,
         onReorderItem: (oldIndex, newIndex) {
           setState(() {
             final category = _categories.removeAt(oldIndex);
@@ -763,34 +787,80 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
         itemBuilder: (context, index) {
           final category = _categories[index];
 
-          return _buildCategory(
-            category,
+          return Padding(
             key: ValueKey(category.id),
-            showDragHandle: true,
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _buildCategory(
+              category,
+              index: index,
+              showDragHandle: true,
+            ),
           );
         },
       );
     }
 
-    return ListView.separated(
-      padding: EdgeInsets.zero,
-      itemCount: _categories.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        final cat = _categories[index];
-        return CategoryCard(
-          title: cat.title,
-          subtitle: cat.subtitle,
-          icon: cat.iconName == 'coffee_cart'
-              ? Icons.storefront_outlined
-              : cat.icon,
-          onTap: () {
-            // ניווט למסך הקטגוריות / סינון המקומות
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) =>
-                    PlacesScreen(categoryId: cat.id, categoryTitle: cat.title),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final desktop = constraints.maxWidth >= 720;
+
+        if (desktop) {
+          return GridView.builder(
+            padding: EdgeInsets.zero,
+            itemCount: _categories.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 14,
+              mainAxisSpacing: 14,
+              mainAxisExtent: 78,
+            ),
+            itemBuilder: (context, index) {
+              final cat = _categories[index];
+
+              return CategoryCard(
+                title: cat.title,
+                subtitle: cat.subtitle,
+                icon: cat.icon,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => PlacesScreen(
+                        categoryId: cat.id,
+                        categoryTitle: cat.title,
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          );
+        }
+
+        return ListView.separated(
+          padding: EdgeInsets.zero,
+          itemCount: _categories.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
+          itemBuilder: (context, index) {
+            final cat = _categories[index];
+
+            return SizedBox(
+              height: 76,
+              child: CategoryCard(
+                title: cat.title,
+                subtitle: cat.subtitle,
+                icon: cat.icon,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => PlacesScreen(
+                        categoryId: cat.id,
+                        categoryTitle: cat.title,
+                      ),
+                    ),
+                  );
+                },
               ),
             );
           },
@@ -802,6 +872,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
   Widget _buildCategory(
     PlaceCategory category, {
     Key? key,
+    int index = 0,
     bool showDragHandle = false,
   }) {
     return Container(
@@ -838,9 +909,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                     border: Border.all(color: AppColors.line, width: 1),
                   ),
                   child: Icon(
-                    category.iconName == 'coffee_cart'
-                        ? Icons.storefront_outlined
-                        : category.icon,
+                    category.icon,
                     color: AppColors.ink,
                     size: 20,
                   ),
