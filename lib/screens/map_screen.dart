@@ -216,67 +216,40 @@ class _MapScreenState extends State<MapScreen> {
     const radii = <double>[1, 5, 10, 25, 50];
 
     return Positioned(
-      top: 66,
-      left: 12,
+      top: 62,
       right: 12,
-      child: SizedBox(
-        height: 40,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          reverse: true,
-          children: radii.map((radius) {
-            final selected = _nearbyRadiusKm == radius;
+      child: PopupMenuButton<double>(
+        tooltip: 'בחירת טווח',
+        color: AppColors.surfaceRaised,
+        surfaceTintColor: Colors.transparent,
+        position: PopupMenuPosition.under,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+          side: BorderSide(
+            color: AppColors.champagne.withValues(alpha: 0.18),
+          ),
+        ),
+        onSelected: (radius) async {
+          final position = _currentPosition;
+          if (position == null) return;
 
-            return Padding(
-              padding: const EdgeInsets.only(left: 7),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () async {
-                    final position = _currentPosition;
-                    if (position == null) return;
+          setState(() {
+            _nearbyRadiusKm = radius;
+          });
 
-                    setState(() {
-                      _nearbyRadiusKm = radius;
-                    });
-
-                    await _loadNearbyPlaces(position);
-                  },
-                  borderRadius: BorderRadius.circular(20),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? AppColors.champagne.withValues(alpha: 0.10)
-                          : AppColors.background.withValues(alpha: 0.92),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: selected
-                            ? AppColors.champagne.withValues(alpha: 0.42)
-                            : AppColors.champagne.withValues(alpha: 0.15),
-                        width: 0.8,
-                      ),
-                    ),
-                    child: Text(
-                      '${radius.toInt()} ק״מ',
-                      style: TextStyle(
-                        color: selected
-                            ? AppColors.textPrimary
-                            : AppColors.textMuted,
-                        fontSize: 11,
-                        fontWeight:
-                            selected ? FontWeight.w500 : FontWeight.w400,
-                      ),
-                    ),
-                  ),
-                ),
+          await _loadNearbyPlaces(position);
+        },
+        itemBuilder: (_) => radii
+            .map(
+              (radius) => PopupMenuItem<double>(
+                value: radius,
+                child: Text('${radius.toInt()} ק״מ'),
               ),
-            );
-          }).toList(),
+            )
+            .toList(),
+        child: _buildCompactFilterButton(
+          icon: Icons.radar_rounded,
+          label: '${_nearbyRadiusKm.toInt()} ק״מ',
         ),
       ),
     );
@@ -285,98 +258,104 @@ class _MapScreenState extends State<MapScreen> {
   Widget _buildCategoryFilter() {
     return Positioned(
       top: 12,
-      left: 12,
       right: 12,
-      child: SizedBox(
-        height: 48,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          reverse: true,
-          children: [
-            _buildFilterChip(
-              label: _nearbyOnly ? 'כל המקומות' : 'הכול',
-              selected: _selectedCategoryId == null && !_nearbyOnly,
-              onTap: () async {
-                if (_nearbyOnly) {
-                  await _loadMapData();
-                  return;
-                }
+      child: PopupMenuButton<String>(
+        tooltip: 'סינון לפי קטגוריה',
+        color: AppColors.surfaceRaised,
+        surfaceTintColor: Colors.transparent,
+        position: PopupMenuPosition.under,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+          side: BorderSide(
+            color: AppColors.champagne.withValues(alpha: 0.18),
+          ),
+        ),
+        onSelected: (categoryId) async {
+          if (categoryId == '__all__') {
+            if (_nearbyOnly) {
+              await _loadMapData();
+              return;
+            }
 
-                setState(() {
-                  _selectedCategoryId = null;
-                });
-              },
-            ),
-            ..._categories.map(
-              (category) {
-                final id = category['id']?.toString();
-                final title = category['title']?.toString() ?? '';
+            setState(() {
+              _selectedCategoryId = null;
+            });
+            return;
+          }
 
-                return _buildFilterChip(
-                  label: title,
-                  selected: _selectedCategoryId == id,
-                  onTap: () {
-                    setState(() {
-                      _selectedCategoryId = id;
-                    });
-                  },
-                );
-              },
+          setState(() {
+            _selectedCategoryId = categoryId;
+          });
+        },
+        itemBuilder: (_) => [
+          PopupMenuItem<String>(
+            value: '__all__',
+            child: Text(_nearbyOnly ? 'כל המקומות' : 'כל הקטגוריות'),
+          ),
+          ..._categories.map(
+            (category) => PopupMenuItem<String>(
+              value: category['id']?.toString() ?? '',
+              child: Text(category['title']?.toString() ?? ''),
             ),
-          ],
+          ),
+        ],
+        child: _buildCompactFilterButton(
+          icon: Icons.tune_rounded,
+          label: _selectedCategoryId == null
+              ? (_nearbyOnly ? 'מקומות בסביבה' : 'כל הקטגוריות')
+              : _categoryTitle(_selectedCategoryId),
         ),
       ),
     );
   }
 
-  Widget _buildFilterChip({
+  Widget _buildCompactFilterButton({
+    required IconData icon,
     required String label,
-    required bool selected,
-    required VoidCallback onTap,
   }) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 7),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(22),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 9,
-            ),
-            decoration: BoxDecoration(
-              color: selected
-                  ? AppColors.champagne.withValues(alpha: 0.10)
-                  : AppColors.background.withValues(alpha: 0.92),
-              borderRadius: BorderRadius.circular(22),
-              border: Border.all(
-                color: selected
-                    ? AppColors.champagne.withValues(alpha: 0.42)
-                    : AppColors.champagne.withValues(alpha: 0.16),
-                width: 0.8,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.12),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Text(
-              label,
-              style: TextStyle(
-                color:
-                    selected ? AppColors.textPrimary : AppColors.textSecondary,
-                fontSize: 12,
-                fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
-              ),
+    return Container(
+      height: 42,
+      padding: const EdgeInsets.symmetric(horizontal: 13),
+      decoration: BoxDecoration(
+        color: AppColors.background.withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: AppColors.champagne.withValues(alpha: 0.22),
+          width: 0.8,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.16),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        textDirection: TextDirection.rtl,
+        children: [
+          Icon(
+            icon,
+            size: 17,
+            color: AppColors.champagne,
+          ),
+          const SizedBox(width: 7),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
           ),
-        ),
+          const SizedBox(width: 3),
+          const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            size: 16,
+            color: AppColors.textMuted,
+          ),
+        ],
       ),
     );
   }

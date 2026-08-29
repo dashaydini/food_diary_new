@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/colors.dart';
+import 'compact_gallery_preview.dart';
 
 class VisitImageGalleryImage {
   final String id;
@@ -44,42 +45,12 @@ class _VisitImageGalleryState extends State<VisitImageGallery> {
       return const SizedBox.shrink();
     }
 
-    return SizedBox(
-      height: 96,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        reverse: true,
-        itemCount: _images.length,
-        separatorBuilder: (_, __) => SizedBox(width: 10),
-        itemBuilder: (context, index) {
-          final image = _images[index];
-
-          return GestureDetector(
-            onTap: () => _openGallery(context, index),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: SizedBox(
-                width: 118,
-                height: 96,
-                child: Image.network(
-                  image.imageUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) {
-                    return Container(
-                      color: AppColors.background,
-                      alignment: Alignment.center,
-                      child: Icon(
-                        Icons.broken_image_outlined,
-                        color: AppColors.muted,
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-          );
-        },
-      ),
+    return CompactGalleryPreview(
+      imageUrl: _images.first.imageUrl,
+      title: 'תמונות מהחוויה',
+      subtitle: 'לצפייה בגלריה',
+      imageCount: _images.length,
+      onTap: () => _openGallery(context, 0),
     );
   }
 
@@ -150,7 +121,7 @@ class _VisitGalleryScreenState extends State<_VisitGalleryScreen> {
     final dateText = _dateText(image.date);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Stack(
           children: [
@@ -197,7 +168,7 @@ class _VisitGalleryScreenState extends State<_VisitGalleryScreen> {
                     vertical: 7,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.55),
+                    color: AppColors.background.withValues(alpha: 0.88),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -217,7 +188,7 @@ class _VisitGalleryScreenState extends State<_VisitGalleryScreen> {
               top: 10,
               right: 10,
               child: Material(
-                color: Colors.white.withValues(alpha: 0.55),
+                color: AppColors.background.withValues(alpha: 0.88),
                 borderRadius: BorderRadius.circular(12),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(12),
@@ -226,7 +197,7 @@ class _VisitGalleryScreenState extends State<_VisitGalleryScreen> {
                     padding: EdgeInsets.all(9),
                     child: Icon(
                       Icons.close,
-                      color: AppColors.textPrimary,
+                      color: AppColors.champagne,
                       size: 25,
                     ),
                   ),
@@ -239,7 +210,7 @@ class _VisitGalleryScreenState extends State<_VisitGalleryScreen> {
               top: 10,
               left: 10,
               child: Material(
-                color: Colors.white.withValues(alpha: 0.55),
+                color: AppColors.background.withValues(alpha: 0.88),
                 borderRadius: BorderRadius.circular(12),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(12),
@@ -254,14 +225,14 @@ class _VisitGalleryScreenState extends State<_VisitGalleryScreen> {
                       children: [
                         Icon(
                           Icons.flag_outlined,
-                          color: AppColors.textPrimary,
+                          color: AppColors.champagne,
                           size: 18,
                         ),
                         SizedBox(width: 7),
                         Text(
                           'דיווח',
                           style: TextStyle(
-                            color: AppColors.textPrimary,
+                            color: AppColors.textSecondary,
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
                           ),
@@ -284,8 +255,19 @@ class _VisitGalleryScreenState extends State<_VisitGalleryScreen> {
                   vertical: 12,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.62),
+                  color: AppColors.background.withValues(alpha: 0.92),
                   borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: AppColors.champagne.withValues(alpha: 0.18),
+                    width: 0.75,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.20),
+                      blurRadius: 16,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
                 child: Directionality(
                   textDirection: TextDirection.rtl,
@@ -311,10 +293,11 @@ class _VisitGalleryScreenState extends State<_VisitGalleryScreen> {
                 bottom: 0,
                 child: Center(
                   child: CircleAvatar(
-                    backgroundColor: AppColors.muted.withValues(alpha: 0.38),
+                    backgroundColor:
+                        AppColors.background.withValues(alpha: 0.86),
                     child: IconButton(
                       icon: Icon(Icons.arrow_forward_ios,
-                          color: AppColors.textPrimary, size: 20),
+                          color: AppColors.champagne, size: 20),
                       onPressed: () {
                         _controller.previousPage(
                           duration: const Duration(milliseconds: 300),
@@ -331,10 +314,11 @@ class _VisitGalleryScreenState extends State<_VisitGalleryScreen> {
                 bottom: 0,
                 child: Center(
                   child: CircleAvatar(
-                    backgroundColor: AppColors.muted.withValues(alpha: 0.38),
+                    backgroundColor:
+                        AppColors.background.withValues(alpha: 0.86),
                     child: IconButton(
                       icon: Icon(Icons.arrow_back_ios_new,
-                          color: AppColors.textPrimary, size: 20),
+                          color: AppColors.champagne, size: 20),
                       onPressed: () {
                         _controller.nextPage(
                           duration: const Duration(milliseconds: 300),
@@ -375,9 +359,27 @@ class _VisitGalleryScreenState extends State<_VisitGalleryScreen> {
         return Directionality(
           textDirection: TextDirection.rtl,
           child: AlertDialog(
-            title: Text('דיווח על תמונה'),
-            content: Text(
+            backgroundColor: AppColors.surfaceRaised,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+              side: BorderSide(
+                color: AppColors.champagne.withValues(alpha: 0.18),
+                width: 0.8,
+              ),
+            ),
+            title: const Text(
+              'דיווח על תמונה',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            content: const Text(
               'בחר את הסיבה לדיווח:',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+              ),
             ),
             actions: [
               TextButton(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../screens/add_visit_screen.dart';
+import '../screens/public_profile_screen.dart';
 import '../theme/colors.dart';
 
 class VisitCard extends StatelessWidget {
@@ -32,6 +33,19 @@ class VisitCard extends StatelessWidget {
     }
   }
 
+  Future<void> _openProfile(
+    BuildContext context,
+    String userId,
+  ) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PublicProfileScreen(
+          userId: userId,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -40,6 +54,7 @@ class VisitCard extends StatelessWidget {
     final profile = visit['profiles'] as Map<String, dynamic>?;
     final displayName = profile?['display_name'] as String?;
     final email = profile?['email'] as String?;
+    final avatarUrl = profile?['avatar_url']?.toString();
 
     final ownerId = visit['user_id']?.toString();
 
@@ -109,24 +124,53 @@ class VisitCard extends StatelessWidget {
                 textDirection: TextDirection.rtl,
                 child: Row(
                   children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: AppColors.champagne.withValues(alpha: 0.028),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: AppColors.champagne.withValues(alpha: 0.16),
-                          width: 0.7,
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.person_outline_rounded,
-                        size: 19,
-                        color: AppColors.champagne,
+                    GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: ownerId == null
+                          ? null
+                          : () => _openProfile(
+                                context,
+                                ownerId,
+                              ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        textDirection: TextDirection.rtl,
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color:
+                                  AppColors.champagne.withValues(alpha: 0.028),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color:
+                                    AppColors.champagne.withValues(alpha: 0.16),
+                                width: 0.7,
+                              ),
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: avatarUrl != null &&
+                                    avatarUrl.trim().isNotEmpty
+                                ? Image.network(
+                                    avatarUrl,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => const Icon(
+                                      Icons.person_outline_rounded,
+                                      size: 19,
+                                      color: AppColors.champagne,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.person_outline_rounded,
+                                    size: 19,
+                                    color: AppColors.champagne,
+                                  ),
+                          ),
+                          const SizedBox(width: 12),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.end,

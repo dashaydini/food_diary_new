@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/colors.dart';
+import 'compact_gallery_preview.dart';
 
 class PlaceGalleryImage {
   final String id;
@@ -47,42 +48,12 @@ class _PlaceImageGalleryState extends State<PlaceImageGallery> {
       return const SizedBox.shrink();
     }
 
-    return SizedBox(
-      height: 92,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        reverse: true,
-        itemCount: _images.length,
-        separatorBuilder: (_, __) => SizedBox(width: 10),
-        itemBuilder: (context, index) {
-          final image = _images[index];
-
-          return GestureDetector(
-            onTap: () => _openGallery(context, index),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: SizedBox(
-                width: 110,
-                height: 92,
-                child: Image.network(
-                  image.imageUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) {
-                    return Container(
-                      color: AppColors.card,
-                      alignment: Alignment.center,
-                      child: Icon(
-                        Icons.broken_image_outlined,
-                        color: AppColors.muted,
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
-          );
-        },
-      ),
+    return CompactGalleryPreview(
+      imageUrl: _images.first.imageUrl,
+      title: 'גלריית המקום',
+      subtitle: 'מתוך חוויות במקום',
+      imageCount: _images.length,
+      onTap: () => _openGallery(context, 0),
     );
   }
 
@@ -163,8 +134,28 @@ class _GalleryScreenState extends State<_GalleryScreen> {
         return Directionality(
           textDirection: TextDirection.rtl,
           child: AlertDialog(
-            title: Text('דיווח על תמונה'),
-            content: Text('בחר את הסיבה לדיווח:'),
+            backgroundColor: AppColors.surfaceRaised,
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(18),
+              side: BorderSide(
+                color: AppColors.champagne.withValues(alpha: 0.18),
+                width: 0.8,
+              ),
+            ),
+            title: const Text(
+              'דיווח על תמונה',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            content: const Text(
+              'בחר את הסיבה לדיווח:',
+              style: TextStyle(
+                color: AppColors.textSecondary,
+              ),
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
@@ -251,7 +242,7 @@ class _GalleryScreenState extends State<_GalleryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Stack(
           children: [
@@ -278,11 +269,42 @@ class _GalleryScreenState extends State<_GalleryScreen> {
                 );
               },
             ),
+            // מספר תמונה
+            Positioned(
+              top: 14,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 13,
+                    vertical: 7,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.background.withValues(alpha: 0.88),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: AppColors.champagne.withValues(alpha: 0.18),
+                      width: 0.75,
+                    ),
+                  ),
+                  child: Text(
+                    '${_currentIndex + 1} / ${widget.images.length}',
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
             Positioned(
               top: 10,
               left: 10,
               child: Material(
-                color: Colors.white.withValues(alpha: 0.55),
+                color: AppColors.background.withValues(alpha: 0.88),
                 borderRadius: BorderRadius.circular(12),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(12),
@@ -298,14 +320,14 @@ class _GalleryScreenState extends State<_GalleryScreen> {
                       children: [
                         Icon(
                           Icons.flag_outlined,
-                          color: AppColors.textPrimary,
+                          color: AppColors.champagne,
                           size: 18,
                         ),
                         SizedBox(width: 7),
                         Text(
                           'דיווח',
                           style: TextStyle(
-                            color: AppColors.textPrimary,
+                            color: AppColors.textSecondary,
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
                           ),
@@ -338,8 +360,19 @@ class _GalleryScreenState extends State<_GalleryScreen> {
                   vertical: 12,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.62),
+                  color: AppColors.background.withValues(alpha: 0.92),
                   borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: AppColors.champagne.withValues(alpha: 0.18),
+                    width: 0.75,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.20),
+                      blurRadius: 16,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
                 child: Directionality(
                   textDirection: TextDirection.rtl,
@@ -365,10 +398,11 @@ class _GalleryScreenState extends State<_GalleryScreen> {
                 bottom: 0,
                 child: Center(
                   child: CircleAvatar(
-                    backgroundColor: AppColors.muted.withValues(alpha: 0.38),
+                    backgroundColor:
+                        AppColors.background.withValues(alpha: 0.86),
                     child: IconButton(
                       icon: Icon(Icons.arrow_forward_ios,
-                          color: AppColors.textPrimary, size: 20),
+                          color: AppColors.champagne, size: 20),
                       onPressed: () {
                         _controller.previousPage(
                           duration: const Duration(milliseconds: 300),
@@ -385,10 +419,11 @@ class _GalleryScreenState extends State<_GalleryScreen> {
                 bottom: 0,
                 child: Center(
                   child: CircleAvatar(
-                    backgroundColor: AppColors.muted.withValues(alpha: 0.38),
+                    backgroundColor:
+                        AppColors.background.withValues(alpha: 0.86),
                     child: IconButton(
                       icon: Icon(Icons.arrow_back_ios_new,
-                          color: AppColors.textPrimary, size: 20),
+                          color: AppColors.champagne, size: 20),
                       onPressed: () {
                         _controller.nextPage(
                           duration: const Duration(milliseconds: 300),

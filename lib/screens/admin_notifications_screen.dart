@@ -25,7 +25,7 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
   }
 
   Future<void> _loadCounts() async {
-    if (!Permissions.isAdmin) {
+    if (!Permissions.canManageContent) {
       if (mounted) {
         setState(() {
           _loading = false;
@@ -70,7 +70,7 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (!Permissions.isAdmin) {
+    if (!Permissions.canManageContent) {
       return Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(

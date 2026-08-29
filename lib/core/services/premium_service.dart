@@ -7,10 +7,12 @@ class PremiumService {
 
   static bool _isPremium = false;
   static bool _isAdmin = false;
+  static String? _adminRole;
   static bool _loaded = false;
 
   static bool get isPremium => _isPremium || _isAdmin;
   static bool get isAdmin => _isAdmin;
+  static String? get adminRole => _adminRole;
   static bool get isLoaded => _loaded;
 
   static Future<void> load() async {
@@ -18,6 +20,7 @@ class PremiumService {
 
     _isPremium = false;
     _isAdmin = false;
+    _adminRole = null;
     _loaded = true;
 
     if (user == null || user.isAnonymous) {
@@ -27,11 +30,12 @@ class PremiumService {
     try {
       final profile = await _supabase
           .from('profiles')
-          .select('is_admin')
+          .select('is_admin, admin_role')
           .eq('id', user.id)
           .maybeSingle();
 
       _isAdmin = profile?['is_admin'] == true;
+      _adminRole = profile?['admin_role']?.toString();
 
       if (_isAdmin) {
         _isPremium = true;
@@ -72,6 +76,7 @@ class PremiumService {
   static void clear() {
     _isPremium = false;
     _isAdmin = false;
+    _adminRole = null;
     _loaded = false;
   }
 

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme/colors.dart';
+import 'public_profile_screen.dart';
 import '../utils/permissions.dart';
 import '../widgets/visit_image_gallery.dart';
 
@@ -38,6 +39,9 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
   List<Map<String, dynamic>> _tags = [];
   final Set<String> _selectedTags = {};
 
+  final Map<String, Map<String, dynamic>> _selectedParticipants = {};
+  bool _loadingParticipants = false;
+
   final List<Uint8List> _imageBytes = [];
   final List<String> _imageNames = [];
 
@@ -61,6 +65,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
   void initState() {
     super.initState();
     _loadExistingVisit();
+    _loadExistingParticipants();
     _loadTags();
   }
 
@@ -125,6 +130,349 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
     _totalPriceController.dispose();
     _notesController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadExistingParticipants() async {
+    final visitId = widget.visit?['id']?.toString();
+
+    if (visitId == null || visitId.isEmpty) return;
+
+    if (mounted) {
+      setState(() {
+        _loadingParticipants = true;
+      });
+    }
+
+    try {
+      final links = await Supabase.instance.client
+          .from('visit_user_tags')
+          .select('user_id')
+          .eq('visit_id', visitId);
+
+      final userIds = (links as List)
+          .map((row) => row['user_id']?.toString())
+          .whereType<String>()
+          .where((id) => id.isNotEmpty)
+          .toList();
+
+      if (userIds.isEmpty) {
+        if (!mounted) return;
+
+        setState(() {
+          _selectedParticipants.clear();
+          _loadingParticipants = false;
+        });
+        return;
+      }
+
+      final profiles = await Supabase.instance.client
+          .from('profiles')
+          .select('id, display_name, email, avatar_url')
+          .inFilter('id', userIds);
+
+      final loaded = <String, Map<String, dynamic>>{};
+
+      for (final raw in profiles as List) {
+        if (raw is! Map) continue;
+
+        final profile = Map<String, dynamic>.from(raw);
+        final id = profile['id']?.toString();
+
+        if (id != null && id.isNotEmpty) {
+          loaded[id] = profile;
+        }
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _selectedParticipants
+          ..clear()
+          ..addAll(loaded);
+        _loadingParticipants = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _loadingParticipants = false;
+        _error = 'לא ניתן לטעון את המשתתפים בחוויה';
+      });
+    }
+  }
+
+  Future<void> _showParticipantPicker() async {
+    if (widget.viewOnly) return;
+
+    final result =
+        await showModalBottomSheet<Map<String, Map<String, dynamic>>>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.background,
+      barrierColor: Colors.black.withValues(alpha: 0.68),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(22),
+        ),
+      ),
+      builder: (_) => _ParticipantPickerSheet(
+        currentUserId: Supabase.instance.client.auth.currentUser?.id,
+        initialSelected: _selectedParticipants,
+      ),
+    );
+
+    if (result == null || !mounted) return;
+
+    setState(() {
+      _selectedParticipants
+        ..clear()
+        ..addAll(result);
+      _hasChanges = true;
+    });
+  }
+
+  Future<void> _openParticipantProfile(String userId) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PublicProfileScreen(
+          userId: userId,
+        ),
+      ),
+    );
+  }
+
+  String _participantName(Map<String, dynamic> profile) {
+    final displayName = profile['display_name']?.toString().trim();
+
+    if (displayName != null && displayName.isNotEmpty) {
+      return displayName;
+    }
+
+    final email = profile['email']?.toString().trim();
+
+    if (email != null && email.isNotEmpty) {
+      return email.split('@').first;
+    }
+
+    return 'משתמש';
+  }
+
+  Widget _participantAvatar(
+    Map<String, dynamic> profile, {
+    double size = 30,
+  }) {
+    final avatarUrl = profile['avatar_url']?.toString().trim();
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppColors.surfaceRaised,
+        border: Border.all(
+          color: AppColors.champagne.withValues(alpha: 0.20),
+          width: 0.7,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: avatarUrl != null && avatarUrl.isNotEmpty
+          ? Image.network(
+              avatarUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Icon(
+                Icons.person_outline_rounded,
+                size: size * 0.55,
+                color: AppColors.champagne,
+              ),
+            )
+          : Icon(
+              Icons.person_outline_rounded,
+              size: size * 0.55,
+              color: AppColors.champagne,
+            ),
+    );
+  }
+
+  Widget _buildParticipants() {
+    if (_loadingParticipants) {
+      return const Align(
+        alignment: Alignment.centerRight,
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 8),
+          child: SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 1.3,
+              color: AppColors.champagne,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (widget.viewOnly && _selectedParticipants.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final participants = _selectedParticipants.values.toList();
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Align(
+            alignment: Alignment.centerRight,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              textDirection: TextDirection.rtl,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Text(
+                  'השתתפו בחוויה',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                if (!widget.viewOnly) ...[
+                  const SizedBox(width: 10),
+                  InkWell(
+                    onTap: _showParticipantPicker,
+                    borderRadius: BorderRadius.circular(16),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 5,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.person_add_alt_1_outlined,
+                            size: 15,
+                            color: AppColors.champagne,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            participants.isEmpty ? 'הוספה' : 'עריכה',
+                            style: const TextStyle(
+                              color: AppColors.champagne,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (participants.isEmpty && !widget.viewOnly) ...[
+            const SizedBox(height: 6),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                'אפשר להוסיף משתמשים שהיו איתך בחוויה',
+                textAlign: TextAlign.right,
+                style: TextStyle(
+                  color: AppColors.textMuted.withValues(alpha: 0.78),
+                  fontSize: 11.5,
+                ),
+              ),
+            ),
+          ],
+          if (participants.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Wrap(
+                alignment: WrapAlignment.start,
+                spacing: 8,
+                runSpacing: 8,
+                children: participants.map((profile) {
+                  final id = profile['id']?.toString() ?? '';
+                  final name = _participantName(profile);
+
+                  return Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap:
+                          id.isEmpty ? null : () => _openParticipantProfile(id),
+                      borderRadius: BorderRadius.circular(19),
+                      child: Container(
+                        height: 38,
+                        padding: EdgeInsets.only(
+                          right: 4,
+                          left: widget.viewOnly ? 11 : 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.champagne.withValues(alpha: 0.035),
+                          borderRadius: BorderRadius.circular(19),
+                          border: Border.all(
+                            color: AppColors.champagne.withValues(alpha: 0.16),
+                            width: 0.7,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          textDirection: TextDirection.rtl,
+                          children: [
+                            _participantAvatar(
+                              profile,
+                              size: 30,
+                            ),
+                            const SizedBox(width: 7),
+                            ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 145),
+                              child: Text(
+                                name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            if (!widget.viewOnly) ...[
+                              const SizedBox(width: 3),
+                              InkWell(
+                                onTap: () {
+                                  setState(() {
+                                    _selectedParticipants.remove(id);
+                                    _hasChanges = true;
+                                  });
+                                },
+                                customBorder: const CircleBorder(),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(5),
+                                  child: Icon(
+                                    Icons.close_rounded,
+                                    size: 14,
+                                    color: AppColors.textMuted
+                                        .withValues(alpha: 0.75),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
   Future<void> _loadTags() async {
@@ -726,6 +1074,19 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                     .toList(),
               );
         }
+
+        if (_selectedParticipants.isNotEmpty) {
+          await Supabase.instance.client.from('visit_user_tags').insert(
+                _selectedParticipants.keys
+                    .map(
+                      (participantId) => {
+                        'visit_id': visitId,
+                        'user_id': participantId,
+                      },
+                    )
+                    .toList(),
+              );
+        }
       } else {
         final visitId = existingVisit['id'].toString();
 
@@ -760,6 +1121,24 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                       (tagId) => {
                         'visit_id': visitId,
                         'tag_id': tagId,
+                      },
+                    )
+                    .toList(),
+              );
+        }
+
+        await Supabase.instance.client
+            .from('visit_user_tags')
+            .delete()
+            .eq('visit_id', visitId);
+
+        if (_selectedParticipants.isNotEmpty) {
+          await Supabase.instance.client.from('visit_user_tags').insert(
+                _selectedParticipants.keys
+                    .map(
+                      (participantId) => {
+                        'visit_id': visitId,
+                        'user_id': participantId,
                       },
                     )
                     .toList(),
@@ -808,6 +1187,20 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
         _error = 'לא ניתן לשמור את החוויה: $e';
       });
     }
+  }
+
+  Future<void> _openExperienceAuthorProfile() async {
+    final ownerId = widget.visit?['user_id']?.toString();
+
+    if (ownerId == null || ownerId.isEmpty) return;
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PublicProfileScreen(
+          userId: ownerId,
+        ),
+      ),
+    );
   }
 
   Future<void> _deleteVisit() async {
@@ -893,52 +1286,82 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
   }
 
   Widget _ratingRow(
-    String title,
+    String label,
     int value,
     ValueChanged<int> onChanged,
   ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 11),
-      child: Row(
-        textDirection: TextDirection.rtl,
-        children: [
-          Expanded(
-            child: Text(
-              title,
-              textAlign: TextAlign.right,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                  ),
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        child: Align(
+          alignment: Alignment.centerRight,
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 9,
             ),
-          ),
-          const SizedBox(width: 18),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            textDirection: TextDirection.ltr,
-            children: List.generate(5, (index) {
-              final rating = index + 1;
-              final selected = rating <= value;
-
-              return InkWell(
-                onTap: widget.viewOnly ? null : () => onChanged(rating),
-                borderRadius: BorderRadius.circular(18),
-                child: SizedBox(
-                  width: 29,
-                  height: 32,
-                  child: Icon(
-                    selected ? Icons.star_rounded : Icons.star_border_rounded,
-                    size: 21,
-                    color: selected
-                        ? AppColors.champagne.withValues(alpha: 0.78)
-                        : AppColors.textMuted.withValues(alpha: 0.55),
+            decoration: BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.circular(13),
+              border: Border.all(
+                color: AppColors.champagne.withValues(alpha: 0.08),
+                width: 0.7,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              textDirection: TextDirection.rtl,
+              children: [
+                SizedBox(
+                  width: 108,
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w400,
+                    ),
                   ),
                 ),
-              );
-            }),
+                const SizedBox(width: 14),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  textDirection: TextDirection.rtl,
+                  children: List.generate(5, (index) {
+                    final starValue = index + 1;
+                    final selected = value >= starValue;
+
+                    return InkWell(
+                      onTap: widget.viewOnly
+                          ? null
+                          : () {
+                              onChanged(starValue);
+                            },
+                      customBorder: const CircleBorder(),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 2,
+                        ),
+                        child: Icon(
+                          selected
+                              ? Icons.star_rounded
+                              : Icons.star_border_rounded,
+                          size: 22,
+                          color: selected
+                              ? AppColors.champagne
+                              : AppColors.textMuted.withValues(alpha: 0.52),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ],
+            ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -1300,6 +1723,16 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
             onPressed: _handleBack,
           ),
           actions: [
+            if (widget.viewOnly && widget.visit?['user_id'] != null)
+              IconButton(
+                tooltip: 'הפרופיל של משתף החוויה',
+                onPressed: _openExperienceAuthorProfile,
+                icon: const Icon(
+                  Icons.person_outline_rounded,
+                  size: 20,
+                  color: AppColors.champagne,
+                ),
+              ),
             if (widget.viewOnly &&
                 widget.isEditing &&
                 Permissions.canEditVisit(
@@ -1357,177 +1790,569 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
               ),
           ],
         ),
-        body: SizedBox(
-          width: double.infinity,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 30),
-            children: [
-              Text(
-                placeName,
-                style: const TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              SizedBox(height: 6),
-              Text(
-                'תעד את החוויה שלך',
-                style: TextStyle(
-                  fontSize: 15,
-                  color: AppColors.muted,
-                ),
-              ),
-              SizedBox(height: 24),
-              _textField(
-                _foodController,
-                'מה אכלתי?',
-              ),
-              SizedBox(height: 14),
-              _textField(
-                _drinkController,
-                'מה שתיתי?',
-              ),
-              SizedBox(height: 20),
-              Row(
-                textDirection: TextDirection.rtl,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text(
-                    'כמה שילמתי?',
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: AppColors.muted,
-                    ),
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            final mobile = constraints.maxWidth < 700;
+
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 980),
+                child: ListView(
+                  padding: EdgeInsets.fromLTRB(
+                    mobile ? 24 : 32,
+                    20,
+                    mobile ? 24 : 32,
+                    30,
                   ),
-                  SizedBox(width: 12),
-                  SizedBox(
-                    width: 110,
-                    child: _textField(
-                      _totalPriceController,
-                      '',
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
+                  children: [
+                    Text(
+                      placeName,
+                      style: const TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
                       ),
-                      suffixText: '₪',
+                    ),
+                    SizedBox(height: 6),
+                    Text(
+                      'תעד את החוויה שלך',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: AppColors.muted,
+                      ),
+                    ),
+                    SizedBox(height: 24),
+                    _textField(
+                      _foodController,
+                      'מה אכלתי?',
+                    ),
+                    SizedBox(height: 14),
+                    _textField(
+                      _drinkController,
+                      'מה שתיתי?',
+                    ),
+                    SizedBox(height: 20),
+                    Row(
+                      textDirection: TextDirection.rtl,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Text(
+                          'כמה שילמתי?',
+                          style: TextStyle(
+                            fontSize: 15,
+                            color: AppColors.muted,
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                        SizedBox(
+                          width: 110,
+                          child: _textField(
+                            _totalPriceController,
+                            '',
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            suffixText: '₪',
+                          ),
+                        ),
+                        SizedBox(width: 14),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _priceLevelButton(1),
+                            SizedBox(width: 6),
+                            _priceLevelButton(2),
+                            SizedBox(width: 6),
+                            _priceLevelButton(3),
+                          ],
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 24),
+                    OutlinedButton.icon(
+                      onPressed: widget.viewOnly ? null : _showImageOptions,
+                      icon: Icon(Icons.restaurant_outlined),
+                      label: Text(
+                        _imageBytes.isEmpty
+                            ? 'הוספת תמונות של החוויה'
+                            : 'הוספת תמונות נוספות',
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    _buildImageGallery(),
+                    SizedBox(height: 24),
+                    _textField(
+                      _notesController,
+                      'הערות נוספות / חוויות',
+                      maxLines: 3,
+                    ),
+                    SizedBox(height: 24),
+                    _buildParticipants(),
+                    if (!widget.viewOnly || _selectedParticipants.isNotEmpty)
+                      SizedBox(height: 24),
+                    Text(
+                      'דירוגים',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    SizedBox(height: 14),
+                    _ratingRow('אוכל', _foodRating, (v) {
+                      setState(() {
+                        _foodRating = v;
+                        _hasChanges = true;
+                      });
+                    }),
+                    _ratingRow('שתייה', _drinkRating, (v) {
+                      setState(() {
+                        _drinkRating = v;
+                        _hasChanges = true;
+                      });
+                    }),
+                    _ratingRow('אווירה', _atmosphereRating, (v) {
+                      setState(() {
+                        _atmosphereRating = v;
+                        _hasChanges = true;
+                      });
+                    }),
+                    _ratingRow('שירות', _serviceRating, (v) {
+                      setState(() {
+                        _serviceRating = v;
+                        _hasChanges = true;
+                      });
+                    }),
+                    _ratingRow('ניקיון', _cleanlinessRating, (v) {
+                      setState(() {
+                        _cleanlinessRating = v;
+                        _hasChanges = true;
+                      });
+                    }),
+                    _ratingRow('מבחר', _varietyRating, (v) {
+                      setState(() {
+                        _varietyRating = v;
+                        _hasChanges = true;
+                      });
+                    }),
+                    _ratingRow('תמורה למחיר', _valueRating, (v) {
+                      setState(() {
+                        _valueRating = v;
+                        _hasChanges = true;
+                      });
+                    }),
+                    SizedBox(height: 24),
+                    Text(
+                      'תגיות',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    SizedBox(height: 12),
+                    _buildTags(),
+                    if (_error != null) ...[
+                      SizedBox(height: 16),
+                      Text(
+                        _error!,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ],
+                    if (!widget.viewOnly) ...[
+                      SizedBox(height: 30),
+                      FilledButton(
+                        onPressed: _saving ? null : _saveVisit,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: _saving
+                              ? const CircularProgressIndicator.adaptive()
+                              : Text(
+                                  'שמור חוויה',
+                                  style: TextStyle(fontSize: 16),
+                                ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _ParticipantPickerSheet extends StatefulWidget {
+  final String? currentUserId;
+  final Map<String, Map<String, dynamic>> initialSelected;
+
+  const _ParticipantPickerSheet({
+    required this.currentUserId,
+    required this.initialSelected,
+  });
+
+  @override
+  State<_ParticipantPickerSheet> createState() =>
+      _ParticipantPickerSheetState();
+}
+
+class _ParticipantPickerSheetState extends State<_ParticipantPickerSheet> {
+  final _searchController = TextEditingController();
+
+  late final Map<String, Map<String, dynamic>> _selected;
+
+  List<Map<String, dynamic>> _results = [];
+  bool _loading = true;
+  int _searchGeneration = 0;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _selected = {
+      for (final entry in widget.initialSelected.entries)
+        entry.key: Map<String, dynamic>.from(entry.value),
+    };
+
+    _search('');
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _search(String rawQuery) async {
+    final generation = ++_searchGeneration;
+    final query = rawQuery.trim();
+
+    if (mounted) {
+      setState(() {
+        _loading = true;
+      });
+    }
+
+    await Future<void>.delayed(
+      const Duration(milliseconds: 220),
+    );
+
+    if (!mounted ||
+        generation != _searchGeneration ||
+        query != _searchController.text.trim()) {
+      return;
+    }
+
+    try {
+      dynamic rows;
+
+      if (query.isEmpty) {
+        rows = await Supabase.instance.client
+            .from('profiles')
+            .select('id, display_name, email, avatar_url')
+            .order('display_name')
+            .limit(40);
+      } else {
+        rows = await Supabase.instance.client
+            .from('profiles')
+            .select('id, display_name, email, avatar_url')
+            .ilike('display_name', '%$query%')
+            .order('display_name')
+            .limit(40);
+      }
+
+      if (!mounted || generation != _searchGeneration) return;
+
+      final results = List<Map<String, dynamic>>.from(
+        rows as List,
+      );
+
+      results.removeWhere(
+        (profile) => profile['id']?.toString() == widget.currentUserId,
+      );
+
+      setState(() {
+        _results = results;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted || generation != _searchGeneration) return;
+
+      setState(() {
+        _results = [];
+        _loading = false;
+      });
+    }
+  }
+
+  String _name(Map<String, dynamic> profile) {
+    final displayName = profile['display_name']?.toString().trim();
+
+    if (displayName != null && displayName.isNotEmpty) {
+      return displayName;
+    }
+
+    final email = profile['email']?.toString().trim();
+
+    if (email != null && email.isNotEmpty) {
+      return email.split('@').first;
+    }
+
+    return 'משתמש';
+  }
+
+  Widget _avatar(Map<String, dynamic> profile) {
+    final avatarUrl = profile['avatar_url']?.toString().trim();
+
+    return Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: AppColors.surfaceRaised,
+        border: Border.all(
+          color: AppColors.champagne.withValues(alpha: 0.20),
+          width: 0.7,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: avatarUrl != null && avatarUrl.isNotEmpty
+          ? Image.network(
+              avatarUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => const Icon(
+                Icons.person_outline_rounded,
+                color: AppColors.champagne,
+                size: 21,
+              ),
+            )
+          : const Icon(
+              Icons.person_outline_rounded,
+              color: AppColors.champagne,
+              size: 21,
+            ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * 0.72,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            18,
+            14,
+            18,
+            12 + MediaQuery.viewInsetsOf(context).bottom,
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: 38,
+                height: 3,
+                decoration: BoxDecoration(
+                  color: AppColors.textMuted.withValues(alpha: 0.34),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Align(
+                alignment: Alignment.centerRight,
+                child: Text(
+                  'השתתפו בחוויה',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: _searchController,
+                autofocus: true,
+                textAlign: TextAlign.right,
+                onChanged: _search,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'חיפוש לפי שם משתמש',
+                  hintStyle: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 13,
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    size: 19,
+                    color: AppColors.textMuted,
+                  ),
+                  filled: true,
+                  fillColor: AppColors.surfaceRaised,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(
+                      color: AppColors.champagne.withValues(alpha: 0.12),
                     ),
                   ),
-                  SizedBox(width: 14),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _priceLevelButton(1),
-                      SizedBox(width: 6),
-                      _priceLevelButton(2),
-                      SizedBox(width: 6),
-                      _priceLevelButton(3),
-                    ],
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(
+                      color: AppColors.champagne.withValues(alpha: 0.12),
+                      width: 0.7,
+                    ),
                   ),
-                ],
-              ),
-              SizedBox(height: 24),
-              OutlinedButton.icon(
-                onPressed: widget.viewOnly ? null : _showImageOptions,
-                icon: Icon(Icons.restaurant_outlined),
-                label: Text(
-                  _imageBytes.isEmpty
-                      ? 'הוספת תמונות של החוויה'
-                      : 'הוספת תמונות נוספות',
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(
+                      color: AppColors.champagne.withValues(alpha: 0.38),
+                      width: 0.8,
+                    ),
+                  ),
                 ),
               ),
-              SizedBox(height: 16),
-              _buildImageGallery(),
-              SizedBox(height: 24),
-              _textField(
-                _notesController,
-                'הערות נוספות / חוויות',
-                maxLines: 3,
-              ),
-              SizedBox(height: 24),
-              Text(
-                'דירוגים',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              SizedBox(height: 14),
-              _ratingRow('אוכל', _foodRating, (v) {
-                setState(() {
-                  _foodRating = v;
-                  _hasChanges = true;
-                });
-              }),
-              _ratingRow('שתייה', _drinkRating, (v) {
-                setState(() {
-                  _drinkRating = v;
-                  _hasChanges = true;
-                });
-              }),
-              _ratingRow('אווירה', _atmosphereRating, (v) {
-                setState(() {
-                  _atmosphereRating = v;
-                  _hasChanges = true;
-                });
-              }),
-              _ratingRow('שירות', _serviceRating, (v) {
-                setState(() {
-                  _serviceRating = v;
-                  _hasChanges = true;
-                });
-              }),
-              _ratingRow('ניקיון', _cleanlinessRating, (v) {
-                setState(() {
-                  _cleanlinessRating = v;
-                  _hasChanges = true;
-                });
-              }),
-              _ratingRow('מבחר', _varietyRating, (v) {
-                setState(() {
-                  _varietyRating = v;
-                  _hasChanges = true;
-                });
-              }),
-              _ratingRow('תמורה למחיר', _valueRating, (v) {
-                setState(() {
-                  _valueRating = v;
-                  _hasChanges = true;
-                });
-              }),
-              SizedBox(height: 24),
-              Text(
-                'תגיות',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              SizedBox(height: 12),
-              _buildTags(),
-              if (_error != null) ...[
-                SizedBox(height: 16),
-                Text(
-                  _error!,
-                  style: const TextStyle(color: Colors.red),
-                ),
-              ],
-              if (!widget.viewOnly) ...[
-                SizedBox(height: 30),
-                FilledButton(
-                  onPressed: _saving ? null : _saveVisit,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: _saving
-                        ? const CircularProgressIndicator.adaptive()
-                        : Text(
-                            'שמור חוויה',
-                            style: TextStyle(fontSize: 16),
+              const SizedBox(height: 12),
+              Expanded(
+                child: _loading
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.4,
+                          color: AppColors.champagne,
+                        ),
+                      )
+                    : _results.isEmpty
+                        ? const Center(
+                            child: Text(
+                              'לא נמצאו משתמשים',
+                              style: TextStyle(
+                                color: AppColors.textMuted,
+                                fontSize: 13,
+                              ),
+                            ),
+                          )
+                        : ListView.separated(
+                            itemCount: _results.length,
+                            separatorBuilder: (_, __) => Divider(
+                              height: 1,
+                              color: AppColors.lineSoft.withValues(alpha: 0.65),
+                            ),
+                            itemBuilder: (context, index) {
+                              final profile = _results[index];
+                              final id = profile['id']?.toString() ?? '';
+
+                              final selected = _selected.containsKey(id);
+
+                              return InkWell(
+                                onTap: id.isEmpty
+                                    ? null
+                                    : () {
+                                        setState(() {
+                                          if (selected) {
+                                            _selected.remove(id);
+                                          } else {
+                                            _selected[id] =
+                                                Map<String, dynamic>.from(
+                                                    profile);
+                                          }
+                                        });
+                                      },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                    horizontal: 2,
+                                  ),
+                                  child: Row(
+                                    textDirection: TextDirection.rtl,
+                                    children: [
+                                      _avatar(profile),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          _name(profile),
+                                          textAlign: TextAlign.right,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: selected
+                                                ? AppColors.champagne
+                                                : AppColors.textPrimary,
+                                            fontSize: 14,
+                                            fontWeight: selected
+                                                ? FontWeight.w600
+                                                : FontWeight.w400,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      AnimatedContainer(
+                                        duration: const Duration(
+                                          milliseconds: 130,
+                                        ),
+                                        width: 23,
+                                        height: 23,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: selected
+                                              ? AppColors.champagne
+                                                  .withValues(alpha: 0.12)
+                                              : Colors.transparent,
+                                          border: Border.all(
+                                            color: selected
+                                                ? AppColors.champagne
+                                                : AppColors.textMuted
+                                                    .withValues(
+                                                    alpha: 0.35,
+                                                  ),
+                                            width: 0.8,
+                                          ),
+                                        ),
+                                        child: selected
+                                            ? const Icon(
+                                                Icons.check_rounded,
+                                                size: 15,
+                                                color: AppColors.champagne,
+                                              )
+                                            : null,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
                           ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                height: 46,
+                child: FilledButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(
+                      Map<String, Map<String, dynamic>>.from(
+                        _selected,
+                      ),
+                    );
+                  },
+                  child: Text(
+                    _selected.isEmpty ? 'סיום' : 'אישור (${_selected.length})',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ],
+              ),
             ],
           ),
         ),

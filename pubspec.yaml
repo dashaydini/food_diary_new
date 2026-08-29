@@ -55,7 +55,7 @@ flutter:
 
 flutter_launcher_icons:
   image_path: "assets/images/app_1icon.png"
-  android: "launch_background"
+  android: "ic_launcher"
   ios: true
   min_sdk_android: 21
   web:
@@ -64,4 +64,3 @@ flutter_launcher_icons:
   macos:
     generate: true
     image_path: "assets/images/app_1icon.png"
-

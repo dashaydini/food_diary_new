@@ -77,11 +77,14 @@ class CategoryCard extends StatelessWidget {
                       color: AppColors.champagne,
                     ),
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
+                  const SizedBox(width: 11),
+                  Flexible(
+                    fit: FlexFit.loose,
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      textDirection: TextDirection.rtl,
                       children: [
                         Text(
                           title,
