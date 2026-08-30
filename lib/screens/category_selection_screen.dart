@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/content_filter.dart';
-import '../core/services/premium_service.dart';
 import '../theme/colors.dart';
 import '../theme/app_icons.dart';
 import '../utils/permissions.dart';
@@ -15,6 +14,9 @@ import 'map_screen.dart';
 import 'profile_screen.dart';
 import 'journal_screen.dart';
 import 'admin_center_screen.dart';
+import 'recommendations_screen.dart';
+import 'places_on_route_screen.dart';
+import 'settings_screen.dart';
 
 class PlaceCategory {
   final String id;
@@ -445,35 +447,6 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
       return;
     }
 
-    if (!PremiumService.isPremium) {
-      if (!mounted) return;
-
-      await showDialog<void>(
-        context: context,
-        builder: (context) {
-          return AlertDialog(
-            title: const Text(
-              'היומן שלי',
-              textAlign: TextAlign.right,
-            ),
-            content: const Text(
-              'היומן האישי זמין למשתמשי Premium.',
-              textAlign: TextAlign.right,
-              textDirection: TextDirection.rtl,
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('סגור'),
-              ),
-            ],
-          );
-        },
-      );
-
-      return;
-    }
-
     if (!mounted) return;
 
     await Navigator.of(context).push(
@@ -549,21 +522,26 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
   Widget _buildHeader({required bool mobile}) {
     return Row(
       textDirection: TextDirection.rtl,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         PopupMenuButton<String>(
           color: AppColors.card,
           surfaceTintColor: Colors.transparent,
-          tooltip: 'תפריט',
-          offset: const Offset(0, 50),
+          tooltip: '',
+          offset: const Offset(0, 64),
+          padding: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
             side: BorderSide(
               color: AppColors.cardBorder.withValues(alpha: 0.85),
             ),
           ),
-          icon: _headerActionIcon(
-            Icons.menu_rounded,
-            mobile: mobile,
+          child: _labeledHeaderAction(
+            label: 'תפריט',
+            child: _headerActionIcon(
+              Icons.menu_rounded,
+              mobile: mobile,
+            ),
           ),
           onSelected: (value) {
             switch (value) {
@@ -585,6 +563,11 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                 );
                 break;
               case 'settings':
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const SettingsScreen(),
+                  ),
+                );
                 break;
             }
           },
@@ -668,23 +651,88 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
         InkWell(
           borderRadius: BorderRadius.circular(13),
           onTap: _openMap,
-          child: _headerActionIcon(
-            Icons.map_outlined,
-            mobile: mobile,
+          child: _labeledHeaderAction(
+            label: 'מפת מקומות',
+            child: _headerActionIcon(
+              Icons.map_outlined,
+              mobile: mobile,
+            ),
+          ),
+        ),
+        SizedBox(width: mobile ? 7 : 10),
+        InkWell(
+          borderRadius: BorderRadius.circular(13),
+          onTap: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const PlacesOnRouteScreen(),
+              ),
+            );
+          },
+          child: _labeledHeaderAction(
+            label: 'בדרך',
+            child: _headerActionIcon(
+              Icons.route_outlined,
+              mobile: mobile,
+            ),
           ),
         ),
         SizedBox(width: mobile ? 12 : 18),
-        Flexible(
-          child: Text(
-            'שלום $_greetingName',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.right,
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: mobile ? 16 : 18,
-              fontWeight: FontWeight.w400,
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: Text(
+              'שלום $_greetingName',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: mobile ? 16 : 18,
+                fontWeight: FontWeight.w400,
+              ),
             ),
+          ),
+        ),
+        if (Supabase.instance.client.auth.currentUser != null &&
+            !(Supabase.instance.client.auth.currentUser?.isAnonymous ??
+                true)) ...[
+          SizedBox(width: mobile ? 12 : 18),
+          InkWell(
+            borderRadius: BorderRadius.circular(13),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const RecommendationsScreen(),
+                ),
+              );
+            },
+            child: _labeledHeaderAction(
+              label: 'AI',
+              child: _aiHeaderActionIcon(mobile: mobile),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _labeledHeaderAction({
+    required String label,
+    required Widget child,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        child,
+        const SizedBox(height: 4),
+        Text(
+          label,
+          maxLines: 1,
+          style: const TextStyle(
+            color: AppColors.textMuted,
+            fontSize: 9.5,
+            fontWeight: FontWeight.w400,
           ),
         ),
       ],
@@ -712,6 +760,42 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
         icon,
         size: mobile ? 19 : 20,
         color: AppColors.champagne,
+      ),
+    );
+  }
+
+  Widget _aiHeaderActionIcon({required bool mobile}) {
+    final size = mobile ? 40.0 : 44.0;
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
+          colors: [
+            Color(0xFF7C5CFC),
+            Color(0xFF3D8BFF),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(13),
+        border: Border.all(
+          color: const Color(0xFF9E91FF).withValues(alpha: 0.72),
+          width: 0.8,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF6B63FF).withValues(alpha: 0.22),
+            blurRadius: 18,
+            spreadRadius: -4,
+          ),
+        ],
+      ),
+      child: Icon(
+        Icons.auto_awesome_rounded,
+        size: mobile ? 19 : 20,
+        color: Colors.white,
       ),
     );
   }

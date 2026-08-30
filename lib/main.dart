@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/services/premium_service.dart';
+import 'core/services/auth_service.dart';
 import 'features/authentication/screens/login_screen.dart';
 import 'features/authentication/screens/register_screen.dart';
 import 'features/authentication/screens/reset_password_screen.dart';
@@ -24,6 +25,7 @@ Future<void> main() async {
     ),
   );
 
+  await AuthService.initializeGuestMode();
   await Permissions.load();
   await PremiumService.load();
 
@@ -68,6 +70,7 @@ class _AuthGateState extends State<AuthGate> {
   String? _permissionsUserId;
   bool _isPasswordRecovery = false;
   bool _checkingWebAuthCallback = false;
+  bool _isLocalGuest = AuthService.isLocalGuest;
 
   @override
   void initState() {
@@ -206,6 +209,11 @@ class _AuthGateState extends State<AuthGate> {
       _session = session;
 
       if (session != null && !session.user.isAnonymous) {
+        _isLocalGuest = false;
+        unawaited(AuthService.clearLocalGuestMode());
+      }
+
+      if (session != null && !session.user.isAnonymous) {
         _applyPendingReferralCode();
         PremiumService.load();
       } else {
@@ -257,7 +265,7 @@ class _AuthGateState extends State<AuthGate> {
       );
     }
 
-    if (session == null) {
+    if (session == null && !_isLocalGuest) {
       return WelcomeScreen(
         onLogin: () {
           Navigator.of(context).push(
@@ -285,7 +293,14 @@ class _AuthGateState extends State<AuthGate> {
         },
         onGuest: () async {
           try {
-            await Supabase.instance.client.auth.signInAnonymously();
+            await AuthService().signInAsGuest();
+
+            if (!mounted) return;
+
+            setState(() {
+              _session = null;
+              _isLocalGuest = true;
+            });
           } catch (_) {
             if (!context.mounted) return;
 
@@ -299,7 +314,7 @@ class _AuthGateState extends State<AuthGate> {
       );
     }
 
-    if (session.user.isAnonymous) {
+    if (session == null || session.user.isAnonymous) {
       return const CategorySelectionScreen();
     }
 

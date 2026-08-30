@@ -322,67 +322,51 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Align(
-            alignment: Alignment.centerRight,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              textDirection: TextDirection.rtl,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const Text(
+          Row(
+            textDirection: TextDirection.rtl,
+            children: [
+              const Expanded(
+                child: Text(
                   'השתתפו בחוויה',
+                  textAlign: TextAlign.right,
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                     color: AppColors.textPrimary,
                   ),
                 ),
-                if (!widget.viewOnly) ...[
-                  const SizedBox(width: 10),
-                  InkWell(
-                    onTap: _showParticipantPicker,
-                    borderRadius: BorderRadius.circular(16),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 5,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.person_add_alt_1_outlined,
-                            size: 15,
-                            color: AppColors.champagne,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            participants.isEmpty ? 'הוספה' : 'עריכה',
-                            style: const TextStyle(
-                              color: AppColors.champagne,
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
+              ),
+              if (!widget.viewOnly)
+                TextButton.icon(
+                  onPressed: _showParticipantPicker,
+                  icon: const Icon(
+                    Icons.person_add_alt_1_outlined,
+                    size: 17,
+                  ),
+                  label: Text(
+                    participants.isEmpty ? 'הוספה' : 'עריכה',
+                    style: const TextStyle(
+                      fontSize: 12,
                     ),
                   ),
-                ],
-              ],
-            ),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.champagne,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 5,
+                    ),
+                  ),
+                ),
+            ],
           ),
           if (participants.isEmpty && !widget.viewOnly) ...[
-            const SizedBox(height: 6),
-            Align(
-              alignment: Alignment.centerRight,
-              child: Text(
-                'אפשר להוסיף משתמשים שהיו איתך בחוויה',
-                textAlign: TextAlign.right,
-                style: TextStyle(
-                  color: AppColors.textMuted.withValues(alpha: 0.78),
-                  fontSize: 11.5,
-                ),
+            const SizedBox(height: 4),
+            Text(
+              'אפשר להוסיף משתמשים שהיו איתך בחוויה',
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                color: AppColors.textMuted.withValues(alpha: 0.82),
+                fontSize: 11.5,
               ),
             ),
           ],
@@ -391,7 +375,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
             Align(
               alignment: Alignment.centerRight,
               child: Wrap(
-                alignment: WrapAlignment.start,
+                alignment: WrapAlignment.end,
                 spacing: 8,
                 runSpacing: 8,
                 children: participants.map((profile) {
@@ -411,10 +395,14 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                           left: widget.viewOnly ? 11 : 5,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.champagne.withValues(alpha: 0.035),
+                          color: AppColors.champagne.withValues(
+                            alpha: 0.035,
+                          ),
                           borderRadius: BorderRadius.circular(19),
                           border: Border.all(
-                            color: AppColors.champagne.withValues(alpha: 0.16),
+                            color: AppColors.champagne.withValues(
+                              alpha: 0.16,
+                            ),
                             width: 0.7,
                           ),
                         ),
@@ -428,7 +416,9 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                             ),
                             const SizedBox(width: 7),
                             ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 145),
+                              constraints: const BoxConstraints(
+                                maxWidth: 145,
+                              ),
                               child: Text(
                                 name,
                                 maxLines: 1,
@@ -1286,82 +1276,52 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
   }
 
   Widget _ratingRow(
-    String label,
+    String title,
     int value,
     ValueChanged<int> onChanged,
   ) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 5),
-        child: Align(
-          alignment: Alignment.centerRight,
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 9,
-            ),
-            decoration: BoxDecoration(
-              color: AppColors.background,
-              borderRadius: BorderRadius.circular(13),
-              border: Border.all(
-                color: AppColors.champagne.withValues(alpha: 0.08),
-                width: 0.7,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              textDirection: TextDirection.rtl,
-              children: [
-                SizedBox(
-                  width: 108,
-                  child: Text(
-                    label,
-                    textAlign: TextAlign.right,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w400,
-                    ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 11),
+      child: Row(
+        textDirection: TextDirection.rtl,
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              textAlign: TextAlign.right,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textSecondary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
                   ),
-                ),
-                const SizedBox(width: 14),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  textDirection: TextDirection.rtl,
-                  children: List.generate(5, (index) {
-                    final starValue = index + 1;
-                    final selected = value >= starValue;
-
-                    return InkWell(
-                      onTap: widget.viewOnly
-                          ? null
-                          : () {
-                              onChanged(starValue);
-                            },
-                      customBorder: const CircleBorder(),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 2,
-                        ),
-                        child: Icon(
-                          selected
-                              ? Icons.star_rounded
-                              : Icons.star_border_rounded,
-                          size: 22,
-                          color: selected
-                              ? AppColors.champagne
-                              : AppColors.textMuted.withValues(alpha: 0.52),
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-              ],
             ),
           ),
-        ),
+          const SizedBox(width: 18),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            textDirection: TextDirection.ltr,
+            children: List.generate(5, (index) {
+              final rating = index + 1;
+              final selected = rating <= value;
+
+              return InkWell(
+                onTap: widget.viewOnly ? null : () => onChanged(rating),
+                borderRadius: BorderRadius.circular(18),
+                child: SizedBox(
+                  width: 29,
+                  height: 32,
+                  child: Icon(
+                    selected ? Icons.star_rounded : Icons.star_border_rounded,
+                    size: 21,
+                    color: selected
+                        ? AppColors.champagne.withValues(alpha: 0.78)
+                        : AppColors.textMuted.withValues(alpha: 0.55),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ],
       ),
     );
   }
@@ -1790,198 +1750,182 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
               ),
           ],
         ),
-        body: LayoutBuilder(
-          builder: (context, constraints) {
-            final mobile = constraints.maxWidth < 700;
-
-            return Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 980),
-                child: ListView(
-                  padding: EdgeInsets.fromLTRB(
-                    mobile ? 24 : 32,
-                    20,
-                    mobile ? 24 : 32,
-                    30,
-                  ),
-                  children: [
-                    Text(
-                      placeName,
-                      style: const TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    SizedBox(height: 6),
-                    Text(
-                      'תעד את החוויה שלך',
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: AppColors.muted,
-                      ),
-                    ),
-                    SizedBox(height: 24),
-                    _textField(
-                      _foodController,
-                      'מה אכלתי?',
-                    ),
-                    SizedBox(height: 14),
-                    _textField(
-                      _drinkController,
-                      'מה שתיתי?',
-                    ),
-                    SizedBox(height: 20),
-                    Wrap(
-                      textDirection: TextDirection.rtl,
-                      alignment: WrapAlignment.start,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 12,
-                      runSpacing: 10,
-                      children: [
-                        Text(
-                          'כמה שילמתי?',
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: AppColors.muted,
-                          ),
-                        ),
-                        SizedBox(
-                          width: 110,
-                          child: _textField(
-                            _totalPriceController,
-                            '',
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            suffixText: '₪',
-                          ),
-                        ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _priceLevelButton(1),
-                            SizedBox(width: 6),
-                            _priceLevelButton(2),
-                            SizedBox(width: 6),
-                            _priceLevelButton(3),
-                            SizedBox(width: 6),
-                            _priceLevelButton(4),
-                          ],
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 24),
-                    OutlinedButton.icon(
-                      onPressed: widget.viewOnly ? null : _showImageOptions,
-                      icon: Icon(Icons.restaurant_outlined),
-                      label: Text(
-                        _imageBytes.isEmpty
-                            ? 'הוספת תמונות של החוויה'
-                            : 'הוספת תמונות נוספות',
-                      ),
-                    ),
-                    SizedBox(height: 16),
-                    _buildImageGallery(),
-                    SizedBox(height: 24),
-                    _textField(
-                      _notesController,
-                      'הערות נוספות / חוויות',
-                      maxLines: 3,
-                    ),
-                    SizedBox(height: 24),
-                    _buildParticipants(),
-                    if (!widget.viewOnly || _selectedParticipants.isNotEmpty)
-                      SizedBox(height: 24),
-                    Text(
-                      'דירוגים',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    SizedBox(height: 14),
-                    _ratingRow('אוכל', _foodRating, (v) {
-                      setState(() {
-                        _foodRating = v;
-                        _hasChanges = true;
-                      });
-                    }),
-                    _ratingRow('שתייה', _drinkRating, (v) {
-                      setState(() {
-                        _drinkRating = v;
-                        _hasChanges = true;
-                      });
-                    }),
-                    _ratingRow('אווירה', _atmosphereRating, (v) {
-                      setState(() {
-                        _atmosphereRating = v;
-                        _hasChanges = true;
-                      });
-                    }),
-                    _ratingRow('שירות', _serviceRating, (v) {
-                      setState(() {
-                        _serviceRating = v;
-                        _hasChanges = true;
-                      });
-                    }),
-                    _ratingRow('ניקיון', _cleanlinessRating, (v) {
-                      setState(() {
-                        _cleanlinessRating = v;
-                        _hasChanges = true;
-                      });
-                    }),
-                    _ratingRow('מבחר', _varietyRating, (v) {
-                      setState(() {
-                        _varietyRating = v;
-                        _hasChanges = true;
-                      });
-                    }),
-                    _ratingRow('תמורה למחיר', _valueRating, (v) {
-                      setState(() {
-                        _valueRating = v;
-                        _hasChanges = true;
-                      });
-                    }),
-                    SizedBox(height: 24),
-                    Text(
-                      'תגיות',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    SizedBox(height: 12),
-                    _buildTags(),
-                    if (_error != null) ...[
-                      SizedBox(height: 16),
-                      Text(
-                        _error!,
-                        style: const TextStyle(color: Colors.red),
-                      ),
-                    ],
-                    if (!widget.viewOnly) ...[
-                      SizedBox(height: 30),
-                      FilledButton(
-                        onPressed: _saving ? null : _saveVisit,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          child: _saving
-                              ? const CircularProgressIndicator.adaptive()
-                              : Text(
-                                  'שמור חוויה',
-                                  style: TextStyle(fontSize: 16),
-                                ),
-                        ),
-                      ),
-                    ],
-                  ],
+        body: SizedBox(
+          width: double.infinity,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 30),
+            children: [
+              Text(
+                placeName,
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
                 ),
               ),
-            );
-          },
+              SizedBox(height: 6),
+              Text(
+                'תעד את החוויה שלך',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: AppColors.muted,
+                ),
+              ),
+              SizedBox(height: 24),
+              _textField(
+                _foodController,
+                'מה אכלתי?',
+              ),
+              SizedBox(height: 14),
+              _textField(
+                _drinkController,
+                'מה שתיתי?',
+              ),
+              SizedBox(height: 20),
+              Row(
+                textDirection: TextDirection.rtl,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    'כמה שילמתי?',
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: AppColors.muted,
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  SizedBox(
+                    width: 110,
+                    child: _textField(
+                      _totalPriceController,
+                      '',
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      suffixText: '₪',
+                    ),
+                  ),
+                  SizedBox(width: 14),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _priceLevelButton(1),
+                      SizedBox(width: 6),
+                      _priceLevelButton(2),
+                      SizedBox(width: 6),
+                      _priceLevelButton(3),
+                    ],
+                  ),
+                ],
+              ),
+              SizedBox(height: 24),
+              OutlinedButton.icon(
+                onPressed: widget.viewOnly ? null : _showImageOptions,
+                icon: Icon(Icons.restaurant_outlined),
+                label: Text(
+                  _imageBytes.isEmpty
+                      ? 'הוספת תמונות של החוויה'
+                      : 'הוספת תמונות נוספות',
+                ),
+              ),
+              SizedBox(height: 16),
+              _buildImageGallery(),
+              SizedBox(height: 24),
+              _textField(
+                _notesController,
+                'הערות נוספות / חוויות',
+                maxLines: 3,
+              ),
+              SizedBox(height: 24),
+              _buildParticipants(),
+              if (!widget.viewOnly || _selectedParticipants.isNotEmpty)
+                SizedBox(height: 24),
+              Text(
+                'דירוגים',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              SizedBox(height: 14),
+              _ratingRow('אוכל', _foodRating, (v) {
+                setState(() {
+                  _foodRating = v;
+                  _hasChanges = true;
+                });
+              }),
+              _ratingRow('שתייה', _drinkRating, (v) {
+                setState(() {
+                  _drinkRating = v;
+                  _hasChanges = true;
+                });
+              }),
+              _ratingRow('אווירה', _atmosphereRating, (v) {
+                setState(() {
+                  _atmosphereRating = v;
+                  _hasChanges = true;
+                });
+              }),
+              _ratingRow('שירות', _serviceRating, (v) {
+                setState(() {
+                  _serviceRating = v;
+                  _hasChanges = true;
+                });
+              }),
+              _ratingRow('ניקיון', _cleanlinessRating, (v) {
+                setState(() {
+                  _cleanlinessRating = v;
+                  _hasChanges = true;
+                });
+              }),
+              _ratingRow('מבחר', _varietyRating, (v) {
+                setState(() {
+                  _varietyRating = v;
+                  _hasChanges = true;
+                });
+              }),
+              _ratingRow('תמורה למחיר', _valueRating, (v) {
+                setState(() {
+                  _valueRating = v;
+                  _hasChanges = true;
+                });
+              }),
+              SizedBox(height: 24),
+              Text(
+                'תגיות',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              SizedBox(height: 12),
+              _buildTags(),
+              if (_error != null) ...[
+                SizedBox(height: 16),
+                Text(
+                  _error!,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ],
+              if (!widget.viewOnly) ...[
+                SizedBox(height: 30),
+                FilledButton(
+                  onPressed: _saving ? null : _saveVisit,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: _saving
+                        ? const CircularProgressIndicator.adaptive()
+                        : Text(
+                            'שמור חוויה',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );

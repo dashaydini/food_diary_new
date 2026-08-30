@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/services/premium_service.dart';
 import '../theme/colors.dart';
 import '../widgets/home_button.dart';
 import 'add_visit_screen.dart';
@@ -34,7 +35,7 @@ class _JournalScreenState extends State<JournalScreen> {
   Future<void> _loadVisits() async {
     final user = _client.auth.currentUser;
 
-    if (user == null || user.isAnonymous) {
+    if (user == null || user.isAnonymous || !PremiumService.isPremium) {
       if (!mounted) return;
       setState(() {
         _visits = [];
@@ -50,9 +51,8 @@ class _JournalScreenState extends State<JournalScreen> {
             'id, place_id, created_at, visit_date, notes, journal_note, '
             'with_whom, favorite_memory, food_rating, drink_rating, '
             'atmosphere_rating, service_rating, cleanliness_rating, '
-            'variety_rating, value_rating, rating, food, food_price, '
-            'drink, drink_price, total_price, price_level, image_url, '
-            'places(id, name, address, image_url, latitude, longitude, categories(title)), '
+            'variety_rating, value_rating, rating, drink, drink_price, '
+            'image_url, places(id, name, address, image_url, latitude, longitude, categories(title)), '
             'visit_tag_links(*, visit_tags(*)), visit_images(id, image_url, sort_order)',
           )
           .eq('user_id', user.id)
@@ -77,7 +77,7 @@ class _JournalScreenState extends State<JournalScreen> {
 
   Future<void> _loadCollections() async {
     final user = _client.auth.currentUser;
-    if (user == null || user.isAnonymous) return;
+    if (user == null || user.isAnonymous || !PremiumService.isPremium) return;
 
     try {
       if (mounted) setState(() => _collectionsLoading = true);
@@ -230,26 +230,6 @@ class _JournalScreenState extends State<JournalScreen> {
     return sorted.first.key;
   }
 
-  double _expensesBetween(DateTime start, DateTime end) {
-    return _visits.fold<double>(0, (total, visit) {
-      final visitDate =
-          DateTime.tryParse(visit['visit_date']?.toString() ?? '')?.toLocal();
-      final price = (visit['total_price'] as num?)?.toDouble();
-
-      if (visitDate == null || price == null || price <= 0) return total;
-      if (visitDate.isBefore(start) || !visitDate.isBefore(end)) return total;
-
-      return total + price;
-    });
-  }
-
-  String _priceText(double value) {
-    final amount = value == value.roundToDouble()
-        ? value.toStringAsFixed(0)
-        : value.toStringAsFixed(2);
-    return '₪$amount';
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -280,6 +260,44 @@ class _JournalScreenState extends State<JournalScreen> {
   }
 
   Widget _buildBody() {
+    if (!PremiumService.isPremium) {
+      return Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Container(
+              padding: const EdgeInsets.all(22),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: AppColors.champagne.withValues(alpha: 0.15),
+                  width: 0.8,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.champagne.withValues(alpha: 0.03),
+                    blurRadius: 26,
+                    spreadRadius: -6,
+                  ),
+                ],
+              ),
+              child: const Text(
+                'היומן שלי זמין למשתמשי Premium.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14,
+                  height: 1.5,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     if (_loading) {
       return const Center(
         child: CircularProgressIndicator(
@@ -325,8 +343,6 @@ class _JournalScreenState extends State<JournalScreen> {
               child: Column(
                 children: [
                   _buildHeader(),
-                  const SizedBox(height: 12),
-                  _buildExpenseSummary(),
                   const SizedBox(height: 14),
                   _buildSections(),
                   const SizedBox(height: 12),
@@ -371,105 +387,6 @@ class _JournalScreenState extends State<JournalScreen> {
           _stat(_categorySummary(), 'מובילה'),
         ],
       ),
-    );
-  }
-
-  Widget _buildExpenseSummary() {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final weekStart = today.subtract(Duration(days: now.weekday % 7));
-    final weekEnd = weekStart.add(const Duration(days: 7));
-    final monthStart = DateTime(now.year, now.month);
-    final monthEnd = DateTime(now.year, now.month + 1);
-
-    final weeklyTotal = _expensesBetween(weekStart, weekEnd);
-    final monthlyTotal = _expensesBetween(monthStart, monthEnd);
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceRaised,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: AppColors.champagne.withValues(alpha: 0.16),
-          width: 0.75,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.champagne.withValues(alpha: 0.025),
-            blurRadius: 22,
-            spreadRadius: -7,
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _expenseStat(
-                  _priceText(weeklyTotal),
-                  'השבוע',
-                  Icons.date_range_outlined,
-                ),
-              ),
-              Container(
-                width: 0.7,
-                height: 38,
-                color: AppColors.lineSoft,
-              ),
-              Expanded(
-                child: _expenseStat(
-                  _priceText(monthlyTotal),
-                  'החודש',
-                  Icons.calendar_month_outlined,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 9),
-          const Text(
-            'סיכום הוצאות · רק מחוויות שהוספת',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.textMuted,
-              fontSize: 10.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _expenseStat(String value, String label, IconData icon) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 16, color: AppColors.champagne),
-        const SizedBox(width: 8),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              value,
-              textDirection: TextDirection.ltr,
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: 17,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            Text(
-              label,
-              style: const TextStyle(
-                color: AppColors.textMuted,
-                fontSize: 10.5,
-              ),
-            ),
-          ],
-        ),
-      ],
     );
   }
 

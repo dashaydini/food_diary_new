@@ -1,17 +1,61 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthService {
+  static const _localGuestKey = 'local_guest_mode';
+  static bool _localGuestMode = false;
+
   final SupabaseClient _supabase = Supabase.instance.client;
 
   User? get currentUser => _supabase.auth.currentUser;
 
-  bool get isGuest => currentUser?.isAnonymous ?? false;
+  bool get isGuest => currentUser?.isAnonymous ?? _localGuestMode;
+
+  static bool get isLocalGuest => _localGuestMode;
+
+  static Future<void> initializeGuestMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    final client = Supabase.instance.client;
+    final currentUser = client.auth.currentUser;
+
+    if (currentUser?.isAnonymous ?? false) {
+      _localGuestMode = true;
+
+      try {
+        await client.auth.signOut();
+      } catch (error) {
+        debugPrint('STALE ANONYMOUS SESSION CLEANUP ERROR: $error');
+      }
+
+      try {
+        await prefs.setBool(_localGuestKey, true);
+      } catch (error) {
+        debugPrint('LOCAL GUEST PERSISTENCE ERROR: $error');
+      }
+      return;
+    }
+
+    if (currentUser != null) {
+      _localGuestMode = false;
+      await prefs.remove(_localGuestKey);
+      return;
+    }
+
+    _localGuestMode = prefs.getBool(_localGuestKey) ?? false;
+  }
+
+  static Future<void> clearLocalGuestMode() async {
+    _localGuestMode = false;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_localGuestKey);
+  }
 
   Future<Session?> signUpWithEmail({
     required String email,
     required String password,
   }) async {
+    await clearLocalGuestMode();
     final response = await _supabase.auth.signUp(
       email: email.trim(),
       password: password,
@@ -83,6 +127,7 @@ class AuthService {
     required String email,
     required String password,
   }) async {
+    await clearLocalGuestMode();
     await _supabase.auth.signInWithPassword(
       email: email.trim(),
       password: password,
@@ -111,6 +156,7 @@ class AuthService {
   }
 
   Future<void> signInWithGoogle() async {
+    await clearLocalGuestMode();
     final redirectTo = kIsWeb
         ? '${Uri.base.origin}${Uri.base.path}'
         : 'fooddiary://login-callback';
@@ -127,6 +173,7 @@ class AuthService {
   }
 
   Future<void> signInWithApple() async {
+    await clearLocalGuestMode();
     final redirectTo = kIsWeb
         ? 'https://dashaydini.github.io/food_diary_new/'
         : 'fooddiary://login-callback';
@@ -140,10 +187,30 @@ class AuthService {
   }
 
   Future<void> signInAsGuest() async {
-    await _supabase.auth.signInAnonymously();
+    _localGuestMode = true;
+
+    if (_supabase.auth.currentSession != null) {
+      try {
+        await _supabase.auth.signOut();
+      } catch (error) {
+        // A deleted or expired legacy anonymous session must never block the
+        // local, serverless guest experience.
+        debugPrint('GUEST SESSION CLEANUP ERROR: $error');
+      }
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_localGuestKey, true);
+    } catch (error) {
+      // Persistence is convenient across restarts, but the current guest
+      // session can still work entirely in memory.
+      debugPrint('LOCAL GUEST PERSISTENCE ERROR: $error');
+    }
   }
 
   Future<void> signOut() async {
+    await clearLocalGuestMode();
     await _supabase.auth.signOut();
   }
 }

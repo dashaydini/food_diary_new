@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../models/content_filter.dart';
 
@@ -11,6 +10,7 @@ import '../utils/permissions.dart';
 import '../widgets/home_button.dart';
 import '../widgets/visit_card.dart';
 import '../widgets/place_image_gallery.dart';
+import '../widgets/navigation_app_picker.dart';
 
 class PlaceDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> place;
@@ -230,144 +230,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
   }
 
   Future<void> _openNavigation() async {
-    final lat = widget.place['latitude'] != null
-        ? double.tryParse(widget.place['latitude'].toString())
-        : null;
-    final lng = widget.place['longitude'] != null
-        ? double.tryParse(widget.place['longitude'].toString())
-        : null;
-    final addr = widget.place['address']?.toString() ?? '';
-
-    if (lat != null && lng != null) {
-      await _showNavigationOptions(lat, lng);
-    } else if (addr.isNotEmpty) {
-      final encodedAddress = Uri.encodeComponent(addr);
-      final url = Uri.parse(
-          'https://www.google.com/maps/search/?api=1&query=$encodedAddress');
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('לא ניתן לפתוח את הניווט')),
-          );
-        }
-      }
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('אין מיקום זמין לניווט עבור המקום הזה')),
-        );
-      }
-    }
-  }
-
-  Future<void> _showNavigationOptions(
-    double latitude,
-    double longitude,
-  ) async {
-    if (!mounted) return;
-
-    final googleMaps = Uri.parse(
-      'https://www.google.com/maps/dir/?api=1&destination=$latitude,$longitude',
-    );
-    final waze = Uri.parse(
-      'https://www.waze.com/ul?ll=$latitude%2C$longitude&navigate=yes',
-    );
-    final appleMaps = Uri.parse(
-      'https://maps.apple.com/?daddr=$latitude,$longitude',
-    );
-
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: AppColors.card,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(20),
-        ),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 42,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                const Text(
-                  'בחר אפליקציית ניווט',
-                  style: TextStyle(
-                    fontSize: 19,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.card,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ListTile(
-                  leading: const Icon(
-                    Icons.map_outlined,
-                    color: AppColors.muted,
-                  ),
-                  title: const Text(
-                    'Google Maps',
-                    style: TextStyle(color: AppColors.card),
-                  ),
-                  onTap: () async {
-                    Navigator.pop(context);
-                    await launchUrl(
-                      googleMaps,
-                      mode: LaunchMode.platformDefault,
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(
-                    Icons.navigation_outlined,
-                    color: AppColors.muted,
-                  ),
-                  title: const Text(
-                    'Waze',
-                    style: TextStyle(color: AppColors.card),
-                  ),
-                  onTap: () async {
-                    Navigator.pop(context);
-                    await launchUrl(
-                      waze,
-                      mode: LaunchMode.platformDefault,
-                    );
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(
-                    Icons.location_on_outlined,
-                    color: AppColors.muted,
-                  ),
-                  title: const Text(
-                    'Apple Maps',
-                    style: TextStyle(color: AppColors.card),
-                  ),
-                  onTap: () async {
-                    Navigator.pop(context);
-                    await launchUrl(
-                      appleMaps,
-                      mode: LaunchMode.platformDefault,
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+    await NavigationAppPicker.show(context, widget.place);
   }
 
   Future<void> _editPlace() async {
@@ -464,8 +327,8 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
     final canDelete = Permissions.canDeletePlace();
     final galleryImages = _buildPlaceGalleryImages();
 
-    final isUserLoggedIn =
-        !(Supabase.instance.client.auth.currentUser?.isAnonymous ?? false);
+    final currentUser = Supabase.instance.client.auth.currentUser;
+    final isUserLoggedIn = currentUser != null && !currentUser.isAnonymous;
 
     return Scaffold(
       backgroundColor: AppColors.background,

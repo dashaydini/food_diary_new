@@ -1,17 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+
 import '../theme/colors.dart';
+import 'navigation_app_picker.dart';
 
 class PlaceCard extends StatelessWidget {
   final Map<String, dynamic> place;
   final VoidCallback? onTap;
   final VoidCallback? onNavigate;
+  final String actionLabel;
+  final IconData actionIcon;
+  final bool actionSelected;
 
   const PlaceCard({
     super.key,
     required this.place,
     this.onTap,
     this.onNavigate,
+    this.actionLabel = 'ניווט',
+    this.actionIcon = Icons.near_me_outlined,
+    this.actionSelected = false,
   });
 
   static String? extractImageUrl(Map<String, dynamic> place) {
@@ -36,109 +43,7 @@ class PlaceCard extends StatelessWidget {
 
   static Future<void> showNavigationOptions(
       BuildContext context, Map<String, dynamic> place) async {
-    final title =
-        place['name']?.toString() ?? place['title']?.toString() ?? 'מיקום';
-    final address = place['address']?.toString() ?? '';
-    final lat = place['latitude'] != null
-        ? double.tryParse(place['latitude'].toString())
-        : null;
-    final lng = place['longitude'] != null
-        ? double.tryParse(place['longitude'].toString())
-        : null;
-
-    final query = (lat != null && lng != null)
-        ? '$lat,$lng'
-        : Uri.encodeComponent(address);
-    final googleMapsApp = Uri.parse('comgooglemaps://?q=$query');
-    final googleMapsWeb =
-        Uri.parse('https://www.google.com/maps/search/?api=1&query=$query');
-    final wazeApp = (lat != null && lng != null)
-        ? Uri.parse('waze://?ll=$lat,$lng&navigate=yes')
-        : Uri.parse('waze://?q=${Uri.encodeComponent(address)}&navigate=yes');
-    final appleMapsApp = Uri.parse('maps://?q=$query');
-
-    final List<Map<String, dynamic>> availableApps = [];
-    if (await canLaunchUrl(wazeApp)) {
-      availableApps.add({
-        'title': 'Waze',
-        'icon': Icons.navigation_rounded,
-        'color': Colors.cyan,
-        'uri': wazeApp
-      });
-    }
-    if (await canLaunchUrl(googleMapsApp)) {
-      availableApps.add({
-        'title': 'Google Maps',
-        'icon': Icons.map_rounded,
-        'color': Colors.blue,
-        'uri': googleMapsApp
-      });
-    } else {
-      availableApps.add({
-        'title': 'Google Maps (בדפדפן)',
-        'icon': Icons.language_rounded,
-        'color': Colors.blue,
-        'uri': googleMapsWeb
-      });
-    }
-    if (await canLaunchUrl(appleMapsApp)) {
-      availableApps.add({
-        'title': 'Apple Maps',
-        'icon': Icons.explore_rounded,
-        'color': Colors.white,
-        'uri': appleMapsApp
-      });
-    }
-
-    if (!context.mounted) return;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.cardBg,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (BuildContext ctx) {
-        return SafeArea(
-          child: Padding(
-            padding:
-                const EdgeInsets.symmetric(vertical: 16.0, horizontal: 20.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                    width: 36,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                        color: AppColors.cardBorder,
-                        borderRadius: BorderRadius.circular(2))),
-                Text('נווט ל-$title',
-                    style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold)),
-                const SizedBox(height: 10),
-                for (var app in availableApps)
-                  ListTile(
-                    leading: Icon(app['icon'] as IconData,
-                        color: app['color'] as Color),
-                    title: Text(app['title'] as String,
-                        style: const TextStyle(color: AppColors.textPrimary)),
-                    onTap: () async {
-                      Navigator.pop(ctx);
-                      final uri = app['uri'] as Uri;
-                      if (await canLaunchUrl(uri)) {
-                        await launchUrl(uri,
-                            mode: LaunchMode.externalApplication);
-                      }
-                    },
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+    await NavigationAppPicker.show(context, place);
   }
 
   @override
@@ -149,13 +54,20 @@ class PlaceCard extends StatelessWidget {
 
     final address = place['address']?.toString() ?? '';
     final description = place['description']?.toString() ?? '';
+    final recommendationReason =
+        place['recommendation_reason']?.toString().trim() ?? '';
     final imageUrl = extractImageUrl(place);
 
-    final rating = place['rating'] != null
-        ? double.tryParse(place['rating'].toString())
-        : null;
+    final ratingValue = place['weighted_rating'] ?? place['rating'];
+    final rating =
+        ratingValue == null ? null : double.tryParse(ratingValue.toString());
 
-    final ratingCount = place['rating_count'] ?? place['reviews_count'] ?? 128;
+    final ratingCount = place['rating_count'] ?? place['reviews_count'] ?? 0;
+    final averagePriceLevel =
+        (place['average_price_level'] as num?)?.toDouble();
+    final priceRatingCount =
+        (place['price_rating_count'] as num?)?.toInt() ?? 0;
+    final distanceMeters = (place['distance_meters'] as num?)?.toDouble();
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -253,6 +165,22 @@ class PlaceCard extends StatelessWidget {
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
+                                  if (recommendationReason.isNotEmpty) ...[
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      recommendationReason,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.right,
+                                      style:
+                                          theme.textTheme.bodySmall?.copyWith(
+                                        color: AppColors.champagneSoft,
+                                        fontSize: mobile ? 10.5 : 11.5,
+                                        height: 1.35,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
                                   if (address.isNotEmpty) ...[
                                     const SizedBox(height: 7),
                                     Row(
@@ -314,59 +242,116 @@ class PlaceCard extends StatelessWidget {
                             onTap: onNavigate ??
                                 () => showNavigationOptions(context, place),
                             borderRadius: BorderRadius.circular(10),
-                            child: const Padding(
-                              padding: EdgeInsets.symmetric(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
                                 horizontal: 5,
                                 vertical: 4,
                               ),
                               child: Row(
                                 children: [
                                   Icon(
-                                    Icons.near_me_outlined,
+                                    actionIcon,
                                     size: 17,
-                                    color: AppColors.champagne,
+                                    color: actionSelected
+                                        ? AppColors.success
+                                        : AppColors.champagne,
                                   ),
-                                  SizedBox(width: 6),
+                                  const SizedBox(width: 6),
                                   Text(
-                                    'ניווט',
+                                    actionLabel,
                                     style: TextStyle(
-                                      color: AppColors.champagne,
+                                      color: actionSelected
+                                          ? AppColors.success
+                                          : AppColors.champagne,
                                       fontSize: 13,
-                                      fontWeight: FontWeight.w500,
+                                      fontWeight: actionSelected
+                                          ? FontWeight.w600
+                                          : FontWeight.w500,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
                           ),
-                          const Spacer(),
-                          Row(
-                            textDirection: TextDirection.rtl,
-                            children: [
-                              const Icon(
-                                Icons.star_rounded,
-                                size: 18,
-                                color: AppColors.champagne,
-                              ),
-                              const SizedBox(width: 5),
-                              Text(
-                                (rating ?? 4.6).toStringAsFixed(1),
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: AppColors.textPrimary,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '($ratingCount)',
-                                style: theme.textTheme.bodySmall?.copyWith(
+                          if (distanceMeters != null) ...[
+                            const SizedBox(width: 14),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.near_me_outlined,
+                                  size: 16,
                                   color: AppColors.textMuted,
-                                  fontSize: 11,
                                 ),
-                              ),
-                            ],
-                          ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  distanceMeters < 1000
+                                      ? '${distanceMeters.round()} מ׳ ממך'
+                                      : '${(distanceMeters / 1000).toStringAsFixed(1)} ק״מ ממך',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                          const Spacer(),
+                          if (averagePriceLevel != null) ...[
+                            Row(
+                              textDirection: TextDirection.rtl,
+                              children: [
+                                Text(
+                                  List.filled(
+                                    averagePriceLevel.round().clamp(1, 4),
+                                    '₪',
+                                  ).join(),
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: AppColors.champagne,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.4,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '($priceRatingCount)',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: AppColors.textMuted,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(width: 14),
+                          ],
+                          if (rating != null)
+                            Row(
+                              textDirection: TextDirection.rtl,
+                              children: [
+                                const Icon(
+                                  Icons.star_rounded,
+                                  size: 18,
+                                  color: AppColors.champagne,
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  rating.toStringAsFixed(1),
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: AppColors.textPrimary,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '($ratingCount)',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: AppColors.textMuted,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
                         ],
                       ),
                     ],

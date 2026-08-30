@@ -7,7 +7,6 @@ import 'package:share_plus/share_plus.dart';
 
 import '../core/services/auth_service.dart';
 import '../features/authentication/screens/login_screen.dart';
-import 'followers_list_screen.dart';
 import '../theme/colors.dart';
 import '../widgets/home_button.dart';
 
@@ -36,9 +35,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _referralCode;
   int _referralCount = 0;
 
-  int _followersCount = 0;
-  int _followingCount = 0;
-
   bool _isGuest = false;
   bool _loggingIn = false;
   bool _editing = false;
@@ -62,9 +58,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
 
       setState(() {
-        _isGuest = true;
         _loading = false;
-        _error = null;
+        _error = 'יש להתחבר כדי לצפות בפרופיל';
       });
       return;
     }
@@ -99,20 +94,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         params: {'p_user_id': user.id},
       );
 
-      final followResults = await Future.wait([
-        Supabase.instance.client
-            .from('user_follows')
-            .select('follower_id')
-            .eq('following_id', user.id),
-        Supabase.instance.client
-            .from('user_follows')
-            .select('following_id')
-            .eq('follower_id', user.id),
-      ]);
-
-      final followersCount = (followResults[0] as List).length;
-      final followingCount = (followResults[1] as List).length;
-
       String levelName = 'מתחיל';
 
       final points = (profile?['points'] as num?)?.toInt() ?? 0;
@@ -146,9 +127,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _levelName = levelName;
         _referralCode = profile?['referral_code'] as String?;
         _referralCount = (referralCount as num?)?.toInt() ?? 0;
-
-        _followersCount = followersCount;
-        _followingCount = followingCount;
 
         _loading = false;
         _error = null;
@@ -803,126 +781,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Future<void> _openFollowList({
-    required bool followers,
-  }) async {
-    final user = Supabase.instance.client.auth.currentUser;
-
-    if (user == null || user.isAnonymous) return;
-
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => FollowersListScreen(
-          userId: user.id,
-          showFollowers: followers,
-        ),
-      ),
-    );
-
-    if (mounted) {
-      await _loadProfile();
-    }
-  }
-
-  Widget _buildCommunityCard() {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 14,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.background,
-        borderRadius: BorderRadius.circular(17),
-        border: Border.all(
-          color: AppColors.champagne.withValues(alpha: 0.14),
-          width: 0.75,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.champagne.withValues(alpha: 0.03),
-            blurRadius: 24,
-            spreadRadius: -6,
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: InkWell(
-              onTap: () => _openFollowList(
-                followers: false,
-              ),
-              borderRadius: BorderRadius.circular(13),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 8,
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      '$_followingCount',
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    const Text(
-                      'נעקבים',
-                      style: TextStyle(
-                        color: AppColors.textMuted,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Container(
-            width: 1,
-            height: 34,
-            color: AppColors.champagne.withValues(alpha: 0.12),
-          ),
-          Expanded(
-            child: InkWell(
-              onTap: () => _openFollowList(
-                followers: true,
-              ),
-              borderRadius: BorderRadius.circular(13),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 8,
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      '$_followersCount',
-                      style: const TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    const Text(
-                      'עוקבים',
-                      style: TextStyle(
-                        color: AppColors.textMuted,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildRegisteredContent() {
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -982,8 +840,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 const SizedBox(height: 18),
                 _buildPointsCard(),
-                const SizedBox(height: 14),
-                _buildCommunityCard(),
                 const SizedBox(height: 14),
                 _buildReferralCard(),
                 if (_error != null) ...[
