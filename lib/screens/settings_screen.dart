@@ -14,7 +14,6 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _loading = true;
   bool _routeNotificationsEnabled = false;
-  String _themeMode = 'dark';
 
   @override
   void initState() {
@@ -23,14 +22,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _load() async {
-    final values = await Future.wait([
-      AppPreferences.routeNotificationsEnabled(),
-      AppPreferences.themeMode(),
-    ]);
+    final routeNotificationsEnabled =
+        await AppPreferences.routeNotificationsEnabled();
     if (!mounted) return;
     setState(() {
-      _routeNotificationsEnabled = values[0] as bool;
-      _themeMode = values[1] as String;
+      _routeNotificationsEnabled = routeNotificationsEnabled;
       _loading = false;
     });
   }
@@ -61,7 +57,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           value: _routeNotificationsEnabled,
                           title: const Text('התראות בדרך'),
                           subtitle: const Text(
-                            'התרעה על מקום מומלץ בהמשך המסלול. כבוי כברירת מחדל.',
+                            'התראה על מקום מומלץ בהמשך המסלול. כבוי כברירת מחדל.',
                           ),
                           onChanged: (enabled) async {
                             setState(
@@ -69,35 +65,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             );
                             await AppPreferences.setRouteNotificationsEnabled(
                                 enabled);
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      _section(
-                        title: 'מראה',
-                        child: DropdownButtonFormField<String>(
-                          initialValue: _themeMode,
-                          decoration: const InputDecoration(
-                            labelText: 'ערכת נושא',
-                          ),
-                          items: const [
-                            DropdownMenuItem(
-                              value: 'dark',
-                              child: Text('כהה'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'system',
-                              child: Text('לפי הגדרת המכשיר'),
-                            ),
-                            DropdownMenuItem(
-                              value: 'light',
-                              child: Text('בהירה'),
-                            ),
-                          ],
-                          onChanged: (mode) async {
-                            if (mode == null) return;
-                            setState(() => _themeMode = mode);
-                            await AppPreferences.setThemeMode(mode);
                           },
                         ),
                       ),
@@ -109,7 +76,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _section({required String title, required Widget child}) {
+  Widget _section({
+    required String title,
+    required Widget child,
+  }) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
