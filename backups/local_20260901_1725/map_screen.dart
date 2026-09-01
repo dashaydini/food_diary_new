@@ -1,0 +1,770 @@
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../theme/colors.dart';
+import '../theme/app_icons.dart';
+import '../widgets/home_button.dart';
+import 'place_details_screen.dart';
+
+class MapScreen extends StatefulWidget {
+  const MapScreen({super.key});
+
+  @override
+  State<MapScreen> createState() => _MapScreenState();
+}
+
+class _MapScreenState extends State<MapScreen> {
+  final MapController _mapController = MapController();
+
+  List<Map<String, dynamic>> _places = [];
+  List<Map<String, dynamic>> _categories = [];
+
+  String? _selectedCategoryId;
+
+  bool _loading = true;
+  String? _error;
+
+  bool _nearbyOnly = false;
+  double _nearbyRadiusKm = 10;
+
+  Position? _currentPosition;
+  bool _choosingSurprise = false;
+
+  static const LatLng _defaultCenter = LatLng(31.7683, 35.2137);
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMapData();
+  }
+
+  Future<void> _loadMapData() async {
+    try {
+      final client = Supabase.instance.client;
+
+      final results = await Future.wait([
+        client
+            .from('places')
+            .select(
+              'id, user_id, category_id, name, description, address, '
+              'latitude, longitude, image_url',
+            )
+            .not('latitude', 'is', null)
+            .not('longitude', 'is', null),
+        client
+            .from('categories')
+            .select('id, title, subtitle, icon, sort_order')
+            .order('sort_order'),
+      ]);
+
+      final places = List<Map<String, dynamic>>.from(results[0] as List);
+      final categories = List<Map<String, dynamic>>.from(results[1] as List);
+
+      if (!mounted) return;
+
+      setState(() {
+        _places = places;
+        _categories = categories;
+        _nearbyOnly = false;
+        _loading = false;
+        _error = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _loading = false;
+        _error = e.toString();
+      });
+    }
+  }
+
+  List<Map<String, dynamic>> get _filteredPlaces {
+    if (_selectedCategoryId == null) {
+      return _places;
+    }
+
+    return _places
+        .where(
+          (place) => place['category_id']?.toString() == _selectedCategoryId,
+        )
+        .toList();
+  }
+
+  String _categoryTitle(String? categoryId) {
+    if (categoryId == null) return '';
+
+    for (final category in _categories) {
+      if (category['id']?.toString() == categoryId) {
+        return category['title']?.toString() ?? '';
+      }
+    }
+
+    return '';
+  }
+
+  IconData _categoryIcon(String? categoryId) {
+    if (categoryId == null) {
+      return Icons.place_outlined;
+    }
+
+    for (final category in _categories) {
+      if (category['id']?.toString() == categoryId) {
+        return AppIcons.categoryIcon(
+          category['icon']?.toString(),
+          title: category['title']?.toString(),
+        );
+      }
+    }
+
+    return Icons.place_outlined;
+  }
+
+  LatLng? _placePoint(Map<String, dynamic> place) {
+    final latitude = (place['latitude'] as num?)?.toDouble();
+    final longitude = (place['longitude'] as num?)?.toDouble();
+
+    if (latitude == null || longitude == null) {
+      return null;
+    }
+
+    if (latitude < -90 ||
+        latitude > 90 ||
+        longitude < -180 ||
+        longitude > 180) {
+      return null;
+    }
+
+    return LatLng(latitude, longitude);
+  }
+
+  void _openPlace(Map<String, dynamic> place) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PlaceDetailsScreen(
+          place: {
+            ...place,
+            'category_title': _categoryTitle(
+              place['category_id']?.toString(),
+            ),
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<Position?> _availablePosition() async {
+    if (_currentPosition != null) return _currentPosition;
+    if (!await Geolocator.isLocationServiceEnabled()) return null;
+    final permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      return null;
+    }
+    return Geolocator.getCurrentPosition();
+  }
+
+  Future<void> _surpriseMe() async {
+    final candidates = _filteredPlaces.where((place) {
+      return _placePoint(place) != null;
+    }).toList();
+    if (candidates.isEmpty || _choosingSurprise) return;
+
+    setState(() => _choosingSurprise = true);
+    try {
+      final client = Supabase.instance.client;
+      final user = client.auth.currentUser;
+      final position = await _availablePosition();
+      final ownVisits = user == null || user.isAnonymous
+          ? <Map<String, dynamic>>[]
+          : List<Map<String, dynamic>>.from(
+              await client
+                  .from('visits')
+                  .select('place_id, rating, places(category_id)')
+                  .eq('user_id', user.id),
+            );
+      final allVisits = List<Map<String, dynamic>>.from(
+        await client.from('visits').select('place_id, rating'),
+      );
+
+      final visitedIds = <String>{};
+      final categoryTaste = <String, double>{};
+      for (final visit in ownVisits) {
+        final placeId = visit['place_id']?.toString();
+        if (placeId != null) visitedIds.add(placeId);
+        final nestedPlace = visit['places'];
+        final categoryId =
+            nestedPlace is Map ? nestedPlace['category_id']?.toString() : null;
+        if (categoryId != null) {
+          categoryTaste[categoryId] = (categoryTaste[categoryId] ?? 0) +
+              ((visit['rating'] as num?)?.toDouble() ?? 3);
+        }
+      }
+
+      final ratingSums = <String, double>{};
+      final ratingCounts = <String, int>{};
+      for (final visit in allVisits) {
+        final placeId = visit['place_id']?.toString();
+        final rating = (visit['rating'] as num?)?.toDouble();
+        if (placeId == null || rating == null || rating <= 0) continue;
+        ratingSums[placeId] = (ratingSums[placeId] ?? 0) + rating;
+        ratingCounts[placeId] = (ratingCounts[placeId] ?? 0) + 1;
+      }
+
+      final unvisited = candidates.where((place) {
+        return !visitedIds.contains(place['id']?.toString());
+      }).toList();
+      final pool = unvisited.isEmpty ? candidates : unvisited;
+      final maxTaste = categoryTaste.values.fold<double>(0, math.max);
+      final ranked = <({Map<String, dynamic> place, double score})>[];
+
+      for (final place in pool) {
+        final id = place['id']?.toString() ?? '';
+        final categoryId = place['category_id']?.toString();
+        var score = 1.0;
+        if (categoryId != null && maxTaste > 0) {
+          score += 4 * (categoryTaste[categoryId] ?? 0) / maxTaste;
+        }
+        final count = ratingCounts[id] ?? 0;
+        if (count > 0) score += (ratingSums[id] ?? 0) / count;
+        final point = _placePoint(place);
+        if (position != null && point != null) {
+          final distanceKm = Geolocator.distanceBetween(
+                position.latitude,
+                position.longitude,
+                point.latitude,
+                point.longitude,
+              ) /
+              1000;
+          score += 3 / (1 + distanceKm / 12);
+        }
+        ranked.add((place: place, score: score));
+      }
+      ranked.sort((a, b) => b.score.compareTo(a.score));
+      final shortlist = ranked.take(math.min(5, ranked.length)).toList();
+      final chosen = shortlist[math.Random().nextInt(shortlist.length)].place;
+      final chosenPoint = _placePoint(chosen)!;
+
+      if (!mounted) return;
+      _mapController.move(chosenPoint, 14);
+      await showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: AppColors.surfaceRaised,
+        showDragHandle: true,
+        builder: (sheetContext) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'הבחירה שלנו עבורך',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 7),
+                Text(
+                  chosen['name']?.toString() ?? 'מקום מפתיע',
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'הבחירה משקללת את הטעם האישי שלך, דירוגי הקהילה והמרחק.',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 18),
+                FilledButton.icon(
+                  onPressed: () {
+                    Navigator.of(sheetContext).pop();
+                    _openPlace(chosen);
+                  },
+                  icon: const Icon(Icons.place_outlined),
+                  label: const Text('לפרטי המקום'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('לא ניתן לבחור מקום כרגע')),
+      );
+    } finally {
+      if (mounted) setState(() => _choosingSurprise = false);
+    }
+  }
+
+  List<Marker> _buildMarkers() {
+    final markers = <Marker>[];
+
+    for (final place in _filteredPlaces) {
+      final point = _placePoint(place);
+
+      if (point == null) continue;
+
+      final categoryId = place['category_id']?.toString();
+      final icon = _categoryIcon(categoryId);
+
+      markers.add(
+        Marker(
+          point: point,
+          width: 42,
+          height: 42,
+          child: GestureDetector(
+            onTap: () => _openPlace(place),
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.background.withValues(alpha: 0.94),
+                border: Border.all(
+                  color: AppColors.champagne.withValues(alpha: 0.46),
+                  width: 0.9,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.22),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                  BoxShadow(
+                    color: AppColors.champagne.withValues(alpha: 0.08),
+                    blurRadius: 14,
+                    spreadRadius: -3,
+                  ),
+                ],
+              ),
+              child: Icon(
+                icon,
+                size: 19,
+                color: AppColors.champagne,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return markers;
+  }
+
+  Widget _buildRadiusFilter() {
+    if (!_nearbyOnly) {
+      return const SizedBox.shrink();
+    }
+
+    const radii = <double>[1, 5, 10, 25, 50];
+
+    return Positioned(
+      top: 62,
+      right: 12,
+      child: PopupMenuButton<double>(
+        tooltip: 'בחירת טווח',
+        color: AppColors.surfaceRaised,
+        surfaceTintColor: Colors.transparent,
+        position: PopupMenuPosition.under,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+          side: BorderSide(
+            color: AppColors.champagne.withValues(alpha: 0.18),
+          ),
+        ),
+        onSelected: (radius) async {
+          final position = _currentPosition;
+          if (position == null) return;
+
+          setState(() {
+            _nearbyRadiusKm = radius;
+          });
+
+          await _loadNearbyPlaces(position);
+        },
+        itemBuilder: (_) => radii
+            .map(
+              (radius) => PopupMenuItem<double>(
+                value: radius,
+                child: Text('${radius.toInt()} ק״מ'),
+              ),
+            )
+            .toList(),
+        child: _buildCompactFilterButton(
+          icon: Icons.radar_rounded,
+          label: '${_nearbyRadiusKm.toInt()} ק״מ',
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryFilter() {
+    return Positioned(
+      top: 12,
+      right: 12,
+      child: PopupMenuButton<String>(
+        tooltip: 'סינון לפי קטגוריה',
+        color: AppColors.surfaceRaised,
+        surfaceTintColor: Colors.transparent,
+        position: PopupMenuPosition.under,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+          side: BorderSide(
+            color: AppColors.champagne.withValues(alpha: 0.18),
+          ),
+        ),
+        onSelected: (categoryId) async {
+          if (categoryId == '__all__') {
+            if (_nearbyOnly) {
+              await _loadMapData();
+              return;
+            }
+
+            setState(() {
+              _selectedCategoryId = null;
+            });
+            return;
+          }
+
+          setState(() {
+            _selectedCategoryId = categoryId;
+          });
+        },
+        itemBuilder: (_) => [
+          PopupMenuItem<String>(
+            value: '__all__',
+            child: Text(_nearbyOnly ? 'כל המקומות' : 'כל הקטגוריות'),
+          ),
+          ..._categories.map(
+            (category) => PopupMenuItem<String>(
+              value: category['id']?.toString() ?? '',
+              child: Text(category['title']?.toString() ?? ''),
+            ),
+          ),
+        ],
+        child: _buildCompactFilterButton(
+          icon: Icons.tune_rounded,
+          label: _selectedCategoryId == null
+              ? (_nearbyOnly ? 'מקומות בסביבה' : 'כל הקטגוריות')
+              : _categoryTitle(_selectedCategoryId),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactFilterButton({
+    required IconData icon,
+    required String label,
+  }) {
+    return Container(
+      height: 42,
+      padding: const EdgeInsets.symmetric(horizontal: 13),
+      decoration: BoxDecoration(
+        color: AppColors.background.withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: AppColors.champagne.withValues(alpha: 0.22),
+          width: 0.8,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.16),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        textDirection: TextDirection.rtl,
+        children: [
+          Icon(
+            icon,
+            size: 17,
+            color: AppColors.champagne,
+          ),
+          const SizedBox(width: 7),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(width: 3),
+          const Icon(
+            Icons.keyboard_arrow_down_rounded,
+            size: 16,
+            color: AppColors.textMuted,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _loadNearbyPlaces(Position position) async {
+    try {
+      final rows = await Supabase.instance.client.rpc(
+        'get_nearby_places',
+        params: {
+          'user_lat': position.latitude,
+          'user_lon': position.longitude,
+          'radius_km': _nearbyRadiusKm,
+        },
+      );
+
+      final places = List<Map<String, dynamic>>.from(rows as List);
+
+      if (!mounted) return;
+
+      setState(() {
+        _places = places;
+        _nearbyOnly = true;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('לא ניתן לטעון מקומות בסביבה: $e'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _goToCurrentLocation() async {
+    try {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+
+      if (!serviceEnabled) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('שירותי המיקום כבויים'),
+          ),
+        );
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission();
+
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('אין הרשאה להשתמש במיקום'),
+          ),
+        );
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition();
+
+      _currentPosition = position;
+
+      await _loadNearbyPlaces(position);
+
+      if (!mounted) return;
+
+      _mapController.move(
+        LatLng(
+          position.latitude,
+          position.longitude,
+        ),
+        13,
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('מציג מקומות בטווח של 10 ק״מ'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('לא ניתן לקבל את המיקום הנוכחי'),
+        ),
+      );
+    }
+  }
+
+  Widget _buildMap() {
+    final markers = _buildMarkers();
+
+    return Stack(
+      children: [
+        FlutterMap(
+          mapController: _mapController,
+          options: const MapOptions(
+            initialCenter: _defaultCenter,
+            initialZoom: 8,
+            minZoom: 3,
+            maxZoom: 19,
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.fooddiary.app',
+            ),
+            MarkerLayer(
+              markers: markers,
+            ),
+          ],
+        ),
+        _buildCategoryFilter(),
+        _buildRadiusFilter(),
+        Positioned(
+          top: 12,
+          left: 12,
+          child: FilledButton.tonalIcon(
+            onPressed: _choosingSurprise ? null : _surpriseMe,
+            icon: _choosingSurprise
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 1.5),
+                  )
+                : const Icon(Icons.casino_outlined, size: 18),
+            label: const Text('הפתיעו אותי'),
+          ),
+        ),
+        Positioned(
+          bottom: 18,
+          right: 18,
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.background.withValues(alpha: 0.94),
+              border: Border.all(
+                color: AppColors.champagne.withValues(alpha: 0.30),
+                width: 0.8,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.20),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: IconButton(
+              tooltip: 'מיקום נוכחי',
+              onPressed: _goToCurrentLocation,
+              icon: Icon(
+                Icons.my_location_outlined,
+                size: 19,
+                color: AppColors.champagne.withValues(alpha: 0.90),
+              ),
+            ),
+          ),
+        ),
+        Positioned(
+          bottom: 18,
+          left: 18,
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 13,
+              vertical: 8,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.background.withValues(alpha: 0.94),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: AppColors.champagne.withValues(alpha: 0.20),
+                width: 0.75,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.16),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Text(
+              '${markers.length} מקומות',
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 11.5,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        title: Text(
+          'מפה',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: AppColors.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w400,
+              ),
+        ),
+        actions: const [
+          HomeButton(),
+        ],
+      ),
+      body: _loading
+          ? const Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                color: AppColors.champagne,
+              ),
+            )
+          : _error != null
+              ? Center(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _loading = true;
+                        _error = null;
+                      });
+                      _loadMapData();
+                    },
+                    icon: const Icon(
+                      Icons.refresh_rounded,
+                      size: 18,
+                    ),
+                    label: const Text('נסה שוב'),
+                  ),
+                )
+              : _buildMap(),
+    );
+  }
+}
