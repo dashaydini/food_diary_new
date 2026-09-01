@@ -14,6 +14,8 @@ class Permissions {
   static bool get canManageContent =>
       isFullAdmin || adminRole == 'content_admin';
   static bool get canManageUsers => isFullAdmin || adminRole == 'support_admin';
+  static bool get canManageSupport =>
+      isFullAdmin || adminRole == 'support_admin';
 
   static Future<void> load() async {
     await PremiumService.load();

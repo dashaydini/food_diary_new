@@ -5,6 +5,7 @@ import '../theme/colors.dart';
 import '../utils/permissions.dart';
 import '../widgets/home_button.dart';
 import 'add_visit_screen.dart';
+import 'admin_support_requests_screen.dart';
 
 class AdminNotificationsScreen extends StatefulWidget {
   const AdminNotificationsScreen({super.key});
@@ -16,6 +17,7 @@ class AdminNotificationsScreen extends StatefulWidget {
 
 class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
   int _reportsCount = 0;
+  int _supportRequestsCount = 0;
   bool _loading = true;
 
   @override
@@ -25,7 +27,7 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
   }
 
   Future<void> _loadCounts() async {
-    if (!Permissions.canManageContent) {
+    if (!Permissions.canManageContent && !Permissions.canManageSupport) {
       if (mounted) {
         setState(() {
           _loading = false;
@@ -35,15 +37,26 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
     }
 
     try {
-      final rows = await Supabase.instance.client
-          .from('visit_image_reports')
-          .select('id')
-          .eq('status', 'new');
+      final results = await Future.wait<List<dynamic>>([
+        Permissions.canManageContent
+            ? Supabase.instance.client
+                .from('visit_image_reports')
+                .select('id')
+                .eq('status', 'new')
+            : Future<List<dynamic>>.value(const []),
+        Permissions.canManageSupport
+            ? Supabase.instance.client
+                .from('support_requests')
+                .select('id')
+                .inFilter('status', ['new', 'in_progress'])
+            : Future<List<dynamic>>.value(const []),
+      ]);
 
       if (!mounted) return;
 
       setState(() {
-        _reportsCount = rows.length;
+        _reportsCount = results[0].length;
+        _supportRequestsCount = results[1].length;
         _loading = false;
       });
     } catch (_) {
@@ -51,6 +64,7 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
 
       setState(() {
         _reportsCount = 0;
+        _supportRequestsCount = 0;
         _loading = false;
       });
     }
@@ -68,9 +82,21 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
     }
   }
 
+  Future<void> _openSupportRequests() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const AdminSupportRequestsScreen(),
+      ),
+    );
+
+    if (mounted) {
+      _loadCounts();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (!Permissions.canManageContent) {
+    if (!Permissions.canManageContent && !Permissions.canManageSupport) {
       return Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
@@ -127,18 +153,24 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(18, 16, 18, 32),
                   children: [
-                    _NotificationCategory(
-                      icon: Icons.flag_outlined,
-                      title: 'דיווחים',
-                      count: _reportsCount,
-                      onTap: _openReports,
-                    ),
-                    const SizedBox(height: 11),
-                    const _NotificationCategory(
-                      icon: Icons.inbox_outlined,
-                      title: 'פניות למנהל',
-                      count: 0,
-                    ),
+                    if (Permissions.canManageContent) ...[
+                      _NotificationCategory(
+                        icon: Icons.flag_outlined,
+                        title: 'דיווחים',
+                        count: _reportsCount,
+                        onTap: _openReports,
+                      ),
+                      const SizedBox(height: 11),
+                    ],
+                    if (Permissions.canManageSupport) ...[
+                      _NotificationCategory(
+                        icon: Icons.inbox_outlined,
+                        title: 'פניות למנהל',
+                        count: _supportRequestsCount,
+                        onTap: _openSupportRequests,
+                      ),
+                      const SizedBox(height: 11),
+                    ],
                     const SizedBox(height: 11),
                     const _NotificationCategory(
                       icon: Icons.more_horiz,

@@ -143,12 +143,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Future<void> _loginWithApple() async {
-    await _startOAuth(
-      action: _authService.signInWithApple,
-    );
-  }
-
   Future<void> _startOAuth({
     required Future<void> Function() action,
   }) async {
@@ -288,18 +282,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             onPressed: _loading ? null : _loginWithGoogle,
                             child: const Text(
                               'התחברות עם Google',
-                              style: TextStyle(fontSize: 15),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 11),
-                        SizedBox(
-                          height: 50,
-                          child: OutlinedButton.icon(
-                            onPressed: _loading ? null : _loginWithApple,
-                            icon: const Icon(Icons.apple, size: 21),
-                            label: const Text(
-                              'התחברות עם Apple',
                               style: TextStyle(fontSize: 15),
                             ),
                           ),

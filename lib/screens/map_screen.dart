@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
@@ -31,6 +33,7 @@ class _MapScreenState extends State<MapScreen> {
   double _nearbyRadiusKm = 10;
 
   Position? _currentPosition;
+  bool _choosingSurprise = false;
 
   static const LatLng _defaultCenter = LatLng(31.7683, 35.2137);
 
@@ -153,6 +156,159 @@ class _MapScreenState extends State<MapScreen> {
         ),
       ),
     );
+  }
+
+  Future<Position?> _availablePosition() async {
+    if (_currentPosition != null) return _currentPosition;
+    if (!await Geolocator.isLocationServiceEnabled()) return null;
+    final permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      return null;
+    }
+    return Geolocator.getCurrentPosition();
+  }
+
+  Future<void> _surpriseMe() async {
+    final candidates = _filteredPlaces.where((place) {
+      return _placePoint(place) != null;
+    }).toList();
+    if (candidates.isEmpty || _choosingSurprise) return;
+
+    setState(() => _choosingSurprise = true);
+    try {
+      final client = Supabase.instance.client;
+      final user = client.auth.currentUser;
+      final position = await _availablePosition();
+      final ownVisits = user == null || user.isAnonymous
+          ? <Map<String, dynamic>>[]
+          : List<Map<String, dynamic>>.from(
+              await client
+                  .from('visits')
+                  .select('place_id, rating, places(category_id)')
+                  .eq('user_id', user.id),
+            );
+      final allVisits = List<Map<String, dynamic>>.from(
+        await client.from('visits').select('place_id, rating'),
+      );
+
+      final visitedIds = <String>{};
+      final categoryTaste = <String, double>{};
+      for (final visit in ownVisits) {
+        final placeId = visit['place_id']?.toString();
+        if (placeId != null) visitedIds.add(placeId);
+        final nestedPlace = visit['places'];
+        final categoryId =
+            nestedPlace is Map ? nestedPlace['category_id']?.toString() : null;
+        if (categoryId != null) {
+          categoryTaste[categoryId] = (categoryTaste[categoryId] ?? 0) +
+              ((visit['rating'] as num?)?.toDouble() ?? 3);
+        }
+      }
+
+      final ratingSums = <String, double>{};
+      final ratingCounts = <String, int>{};
+      for (final visit in allVisits) {
+        final placeId = visit['place_id']?.toString();
+        final rating = (visit['rating'] as num?)?.toDouble();
+        if (placeId == null || rating == null || rating <= 0) continue;
+        ratingSums[placeId] = (ratingSums[placeId] ?? 0) + rating;
+        ratingCounts[placeId] = (ratingCounts[placeId] ?? 0) + 1;
+      }
+
+      final unvisited = candidates.where((place) {
+        return !visitedIds.contains(place['id']?.toString());
+      }).toList();
+      final pool = unvisited.isEmpty ? candidates : unvisited;
+      final maxTaste = categoryTaste.values.fold<double>(0, math.max);
+      final ranked = <({Map<String, dynamic> place, double score})>[];
+
+      for (final place in pool) {
+        final id = place['id']?.toString() ?? '';
+        final categoryId = place['category_id']?.toString();
+        var score = 1.0;
+        if (categoryId != null && maxTaste > 0) {
+          score += 4 * (categoryTaste[categoryId] ?? 0) / maxTaste;
+        }
+        final count = ratingCounts[id] ?? 0;
+        if (count > 0) score += (ratingSums[id] ?? 0) / count;
+        final point = _placePoint(place);
+        if (position != null && point != null) {
+          final distanceKm = Geolocator.distanceBetween(
+                position.latitude,
+                position.longitude,
+                point.latitude,
+                point.longitude,
+              ) /
+              1000;
+          score += 3 / (1 + distanceKm / 12);
+        }
+        ranked.add((place: place, score: score));
+      }
+      ranked.sort((a, b) => b.score.compareTo(a.score));
+      final shortlist = ranked.take(math.min(5, ranked.length)).toList();
+      final chosen = shortlist[math.Random().nextInt(shortlist.length)].place;
+      final chosenPoint = _placePoint(chosen)!;
+
+      if (!mounted) return;
+      _mapController.move(chosenPoint, 14);
+      await showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: AppColors.surfaceRaised,
+        showDragHandle: true,
+        builder: (sheetContext) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'הבחירה שלנו עבורך',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 7),
+                Text(
+                  chosen['name']?.toString() ?? 'מקום מפתיע',
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'הבחירה משקללת את הטעם האישי שלך, דירוגי הקהילה והמרחק.',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 18),
+                FilledButton.icon(
+                  onPressed: () {
+                    Navigator.of(sheetContext).pop();
+                    _openPlace(chosen);
+                  },
+                  icon: const Icon(Icons.place_outlined),
+                  label: const Text('לפרטי המקום'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('לא ניתן לבחור מקום כרגע')),
+      );
+    } finally {
+      if (mounted) setState(() => _choosingSurprise = false);
+    }
   }
 
   List<Marker> _buildMarkers() {
@@ -481,6 +637,21 @@ class _MapScreenState extends State<MapScreen> {
         ),
         _buildCategoryFilter(),
         _buildRadiusFilter(),
+        Positioned(
+          top: 12,
+          left: 12,
+          child: FilledButton.tonalIcon(
+            onPressed: _choosingSurprise ? null : _surpriseMe,
+            icon: _choosingSurprise
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 1.5),
+                  )
+                : const Icon(Icons.casino_outlined, size: 18),
+            label: const Text('הפתיעו אותי'),
+          ),
+        ),
         Positioned(
           bottom: 18,
           right: 18,

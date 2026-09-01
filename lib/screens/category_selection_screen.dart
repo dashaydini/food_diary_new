@@ -8,6 +8,7 @@ import '../models/content_filter.dart';
 import '../theme/colors.dart';
 import '../theme/app_icons.dart';
 import '../utils/permissions.dart';
+import '../widgets/admin_notification_button.dart';
 
 import 'places_screen.dart';
 import 'map_screen.dart';
@@ -17,6 +18,7 @@ import 'admin_center_screen.dart';
 import 'recommendations_screen.dart';
 import 'places_on_route_screen.dart';
 import 'settings_screen.dart';
+import 'guided_search_screen.dart';
 
 class PlaceCategory {
   final String id;
@@ -45,6 +47,7 @@ class CategorySelectionScreen extends StatefulWidget {
 class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
   // ignore: prefer_final_fields
   bool _editingOrder = false;
+  bool _savingOrder = false;
   ContentFilter _contentFilter = ContentFilter.all;
   final GlobalKey _filterButtonKey = GlobalKey();
   List<PlaceCategory> _categories = [];
@@ -261,6 +264,48 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
         _loading = false;
         _error = e.toString();
       });
+    }
+  }
+
+  Future<void> _toggleCategoryOrderEditing() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null || user.isAnonymous) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('שינוי סדר זמין לאחר התחברות')),
+      );
+      return;
+    }
+
+    if (!_editingOrder) {
+      setState(() => _editingOrder = true);
+      return;
+    }
+
+    setState(() => _savingOrder = true);
+    try {
+      await Supabase.instance.client.from('user_category_order').upsert(
+        [
+          for (var index = 0; index < _categories.length; index++)
+            {
+              'user_id': user.id,
+              'category_id': _categories[index].id,
+              'sort_order': index,
+            },
+        ],
+        onConflict: 'user_id,category_id',
+      );
+      if (!mounted) return;
+      setState(() => _editingOrder = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('סדר הקטגוריות נשמר')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('לא ניתן לשמור את הסדר כרגע')),
+      );
+    } finally {
+      if (mounted) setState(() => _savingOrder = false);
     }
   }
 
@@ -524,6 +569,10 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
       textDirection: TextDirection.rtl,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (Permissions.isAdmin) ...[
+          const AdminNotificationButton(),
+          SizedBox(width: mobile ? 7 : 10),
+        ],
         PopupMenuButton<String>(
           color: AppColors.card,
           surfaceTintColor: Colors.transparent,
@@ -551,6 +600,16 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                 break;
               case 'journal':
                 _openJournal();
+                break;
+              case 'guided_search':
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const GuidedSearchScreen(),
+                  ),
+                );
+                break;
+              case 'category_order':
+                _toggleCategoryOrderEditing();
                 break;
               case 'profile':
                 _openProfile();
@@ -602,6 +661,30 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                 ],
               ),
             ),
+            if (Supabase.instance.client.auth.currentUser != null &&
+                !(Supabase.instance.client.auth.currentUser?.isAnonymous ??
+                    true)) ...const [
+              PopupMenuItem(
+                value: 'guided_search',
+                child: Row(
+                  children: [
+                    Icon(Icons.tune_rounded),
+                    SizedBox(width: 10),
+                    Text('מומלץ עבורך'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'category_order',
+                child: Row(
+                  children: [
+                    Icon(Icons.reorder_rounded),
+                    SizedBox(width: 10),
+                    Text('עריכת סדר הקטגוריות'),
+                  ],
+                ),
+              ),
+            ],
             const PopupMenuItem(
               value: 'profile',
               child: Row(
@@ -801,18 +884,34 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
   }
 
   Widget _buildTitle({required bool mobile}) {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Text(
-        'קטגוריות',
-        textAlign: TextAlign.right,
-        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              color: AppColors.textPrimary,
-              fontSize: mobile ? 23 : 27,
-              height: 1.1,
-              fontWeight: FontWeight.w300,
-            ),
-      ),
+    return Row(
+      textDirection: TextDirection.rtl,
+      children: [
+        Expanded(
+          child: Text(
+            _editingOrder ? 'עריכת סדר הקטגוריות' : 'קטגוריות',
+            textAlign: TextAlign.right,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: AppColors.textPrimary,
+                  fontSize: mobile ? 23 : 27,
+                  height: 1.1,
+                  fontWeight: FontWeight.w300,
+                ),
+          ),
+        ),
+        if (_editingOrder)
+          TextButton.icon(
+            onPressed: _savingOrder ? null : _toggleCategoryOrderEditing,
+            icon: _savingOrder
+                ? const SizedBox(
+                    width: 15,
+                    height: 15,
+                    child: CircularProgressIndicator(strokeWidth: 1.5),
+                  )
+                : const Icon(Icons.check_rounded, size: 18),
+            label: const Text('שמירה'),
+          ),
+      ],
     );
   }
 

@@ -103,33 +103,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  Future<void> _registerWithApple() async {
-    if (_loading) return;
-
-    final referralCode = _referralCodeController.text.trim();
-    if (referralCode.isNotEmpty) {
-      await _saveReferralCodeForLater(referralCode);
-    }
-
-    setState(() {
-      _loading = true;
-      _error = null;
-      _message = null;
-    });
-
-    try {
-      await _authService.signInWithApple();
-      await _applyReferralCodeIfPossible(referralCode);
-    } catch (_) {
-      if (!mounted) return;
-
-      setState(() {
-        _loading = false;
-        _error = 'ההרשמה עם Apple נכשלה';
-      });
-    }
-  }
-
   Future<void> _register() async {
     FocusScope.of(context).unfocus();
 
@@ -306,18 +279,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             onPressed: _loading ? null : _registerWithGoogle,
                             child: const Text(
                               'הרשמה עם Google',
-                              style: TextStyle(fontSize: 15),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 11),
-                        SizedBox(
-                          height: 50,
-                          child: OutlinedButton.icon(
-                            onPressed: _loading ? null : _registerWithApple,
-                            icon: const Icon(Icons.apple, size: 21),
-                            label: const Text(
-                              'הרשמה עם Apple',
                               style: TextStyle(fontSize: 15),
                             ),
                           ),

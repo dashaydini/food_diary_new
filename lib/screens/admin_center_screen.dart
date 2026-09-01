@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme/colors.dart';
 import '../utils/permissions.dart';
 import '../widgets/home_button.dart';
+import '../widgets/admin_notification_button.dart';
 import 'admin_categories_screen.dart';
 import 'admin_notifications_screen.dart';
 import 'admin_statistics_screen.dart';
@@ -35,15 +36,23 @@ class _AdminCenterScreenState extends State<AdminCenterScreen> {
     }
     try {
       final results = await Future.wait<dynamic>([
-        Supabase.instance.client
-            .from('visit_image_reports')
-            .select('id')
-            .eq('status', 'new'),
+        Permissions.canManageContent
+            ? Supabase.instance.client
+                .from('visit_image_reports')
+                .select('id')
+                .eq('status', 'new')
+            : Future<List<dynamic>>.value(const []),
         Supabase.instance.client.from('categories').select('id'),
         Permissions.canManageUsers
             ? Supabase.instance.client.functions
                 .invoke('admin-users', body: {'action': 'list'})
             : Future<FunctionResponse?>.value(),
+        Permissions.canManageSupport
+            ? Supabase.instance.client
+                .from('support_requests')
+                .select('id')
+                .inFilter('status', ['new', 'in_progress'])
+            : Future<List<dynamic>>.value(const []),
       ]);
       final response = results[2] as FunctionResponse?;
       final data = response == null
@@ -51,7 +60,7 @@ class _AdminCenterScreenState extends State<AdminCenterScreen> {
           : Map<String, dynamic>.from(response.data as Map);
       if (!mounted) return;
       setState(() {
-        _reports = (results[0] as List).length;
+        _reports = (results[0] as List).length + (results[3] as List).length;
         _categories = (results[1] as List).length;
         _users = (data['users'] as List? ?? const []).length;
         _loading = false;
@@ -81,7 +90,11 @@ class _AdminCenterScreenState extends State<AdminCenterScreen> {
       appBar: AppBar(
         title: const Text('מרכז ניהול'),
         centerTitle: true,
-        actions: const [HomeButton()],
+        actions: const [
+          AdminNotificationButton(),
+          SizedBox(width: 8),
+          HomeButton(),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: _loadSummary,
@@ -139,13 +152,14 @@ class _AdminCenterScreenState extends State<AdminCenterScreen> {
                         children: [
                           _AdminCard(
                             icon: Icons.flag_outlined,
-                            title: 'דיווחים והתראות',
-                            subtitle: 'פריטים שממתינים לבדיקה וטיפול',
+                            title: 'דיווחים ופניות',
+                            subtitle: 'דיווחים ופניות שממתינים לטיפול',
                             value: _reports == 0 ? 'נקי' : '$_reports',
                             alert: _reports > 0,
                             onTap: () =>
                                 _open(const AdminNotificationsScreen()),
-                            enabled: Permissions.canManageContent,
+                            enabled: Permissions.canManageContent ||
+                                Permissions.canManageSupport,
                           ),
                           _AdminCard(
                             icon: Icons.category_outlined,

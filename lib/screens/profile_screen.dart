@@ -381,30 +381,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _appleLogin() async {
-    if (_loggingIn) return;
-
-    setState(() {
-      _loggingIn = true;
-    });
-
-    try {
-      await _authService.signInWithApple();
-    } catch (_) {
-      if (!mounted) return;
-
-      setState(() {
-        _loggingIn = false;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('ההתחברות עם Apple נכשלה'),
-        ),
-      );
-    }
-  }
-
   Widget _buildAvatar({bool editable = true}) {
     return Center(
       child: GestureDetector(
@@ -753,7 +729,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: const Text(
                     'בעת חיבור כאורח, ניתן לצפות במקומות וחוויות קיימים. '
                     'אין אפשרות לערוך פרופיל.\n\n'
-                    'נא להתחבר עם חשבון Google או Apple על מנת ליהנות '
+                    'נא להתחבר עם חשבון Google על מנת ליהנות '
                     'משאר האפשרויות של היישום.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
@@ -774,21 +750,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     label: const Text(
                       'התחברות עם Google',
-                      style: TextStyle(fontSize: 15),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  height: 50,
-                  child: OutlinedButton.icon(
-                    onPressed: _loggingIn ? null : _appleLogin,
-                    icon: const Icon(
-                      Icons.apple,
-                      size: 22,
-                    ),
-                    label: const Text(
-                      'התחברות עם Apple',
                       style: TextStyle(fontSize: 15),
                     ),
                   ),

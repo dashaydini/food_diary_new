@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../screens/admin_notifications_screen.dart';
 import '../theme/colors.dart';
@@ -14,6 +15,8 @@ class AdminNotificationButton extends StatefulWidget {
 
 class _AdminNotificationButtonState extends State<AdminNotificationButton> {
   bool _loading = true;
+  int _pendingCount = 0;
+  RealtimeChannel? _channel;
 
   @override
   void initState() {
@@ -25,10 +28,67 @@ class _AdminNotificationButtonState extends State<AdminNotificationButton> {
     await Permissions.load();
 
     if (!mounted) return;
+    if (!Permissions.isAdmin) {
+      setState(() => _loading = false);
+      return;
+    }
+    await _loadCount();
+    _subscribeToChanges();
+  }
 
-    setState(() {
-      _loading = false;
-    });
+  Future<void> _loadCount() async {
+    try {
+      final client = Supabase.instance.client;
+      final results = await Future.wait<List<dynamic>>([
+        Permissions.canManageContent
+            ? client
+                .from('visit_image_reports')
+                .select('id')
+                .eq('status', 'new')
+            : Future<List<dynamic>>.value(const []),
+        Permissions.canManageSupport
+            ? client
+                .from('support_requests')
+                .select('id')
+                .inFilter('status', ['new', 'in_progress'])
+            : Future<List<dynamic>>.value(const []),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _pendingCount = results[0].length + results[1].length;
+        _loading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _subscribeToChanges() {
+    if (_channel != null) return;
+    _channel = Supabase.instance.client
+        .channel('admin-pending-${identityHashCode(this)}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'visit_image_reports',
+          callback: (_) => _loadCount(),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'support_requests',
+          callback: (_) => _loadCount(),
+        )
+        .subscribe();
+  }
+
+  @override
+  void dispose() {
+    final channel = _channel;
+    if (channel != null) {
+      Supabase.instance.client.removeChannel(channel);
+    }
+    super.dispose();
   }
 
   @override
@@ -38,12 +98,13 @@ class _AdminNotificationButtonState extends State<AdminNotificationButton> {
     }
 
     return GestureDetector(
-      onTap: () {
-        Navigator.of(context).push(
+      onTap: () async {
+        await Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => const AdminNotificationsScreen(),
           ),
         );
+        if (mounted) await _loadCount();
       },
       child: Container(
         width: 40,
@@ -63,12 +124,43 @@ class _AdminNotificationButtonState extends State<AdminNotificationButton> {
             ),
           ],
         ),
-        child: Center(
-          child: Icon(
-            Icons.notifications_none_outlined,
-            color: AppColors.champagne.withValues(alpha: 0.82),
-            size: 20,
-          ),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Center(
+              child: Icon(
+                _pendingCount > 0
+                    ? Icons.notifications_active_outlined
+                    : Icons.notifications_none_outlined,
+                color: AppColors.champagne.withValues(alpha: 0.82),
+                size: 20,
+              ),
+            ),
+            if (_pendingCount > 0)
+              Positioned(
+                top: -5,
+                left: -5,
+                child: Container(
+                  constraints: const BoxConstraints(minWidth: 19),
+                  height: 19,
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade700,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppColors.background, width: 1.5),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    _pendingCount > 99 ? '99+' : '$_pendingCount',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );

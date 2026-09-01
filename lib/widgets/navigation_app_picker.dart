@@ -7,6 +7,20 @@ import '../theme/colors.dart';
 class NavigationAppPicker {
   NavigationAppPicker._();
 
+  static List<MapApp> get _webNavigationApps {
+    final maps = <MapApp>[
+      MapApp.google,
+      MapApp.waze,
+    ];
+
+    if (defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS) {
+      maps.insert(0, MapApp.apple);
+    }
+
+    return maps;
+  }
+
   static Future<void> show(
     BuildContext context,
     Map<String, dynamic> place, {
@@ -42,135 +56,25 @@ class NavigationAppPicker {
     );
 
     try {
-      final supportedMaps = await request.getSupportedMaps(MapApp.all);
-      final availableMaps = kIsWeb
-          ? supportedMaps.where((map) => map.hasUniversalLink).toList()
-          : supportedMaps.where((map) => map.isInstalled).toList();
+      final supportedMaps = await request.getSupportedMaps(
+        kIsWeb ? _webNavigationApps : MapApp.all,
+      );
+      final availableMaps = (kIsWeb
+          ? supportedMaps
+          : supportedMaps.where((map) => map.isInstalled).toList())
+        ..sort((first, second) => first.name.compareTo(second.name));
 
       if (!context.mounted) return;
 
-      if (availableMaps.isEmpty) {
-        _showMessage(context, 'לא נמצאה אפליקציית ניווט זמינה במכשיר');
-        return;
-      }
-
-      await showModalBottomSheet<void>(
-        context: context,
-        backgroundColor: AppColors.card,
-        showDragHandle: true,
-        isScrollControlled: true,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => _NavigationAppsScreen(
+            title: title ??
+                (name.isEmpty ? 'בחירת אפליקציית ניווט' : 'ניווט אל $name'),
+            maps: availableMaps,
+            webMode: kIsWeb,
+          ),
         ),
-        builder: (sheetContext) {
-          return SafeArea(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.72,
-              ),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(18, 8, 18, 22),
-                child: Directionality(
-                  textDirection: TextDirection.rtl,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        title ??
-                            (name.isEmpty
-                                ? 'בחירת אפליקציית ניווט'
-                                : 'ניווט אל $name'),
-                        textAlign: TextAlign.right,
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 19,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        kIsWeb
-                            ? 'בחר שירות ניווט שייפתח בדפדפן'
-                            : 'מוצגות אפליקציות הניווט המותקנות במכשיר',
-                        textAlign: TextAlign.right,
-                        style: const TextStyle(
-                          color: AppColors.textMuted,
-                          fontSize: 12,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      for (final map in availableMaps)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Material(
-                            color: AppColors.surfaceRaised,
-                            borderRadius: BorderRadius.circular(14),
-                            child: ListTile(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                                side: BorderSide(
-                                  color: AppColors.champagne
-                                      .withValues(alpha: 0.12),
-                                ),
-                              ),
-                              leading: ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.memory(
-                                  map.iconBytes,
-                                  width: 38,
-                                  height: 38,
-                                  fit: BoxFit.cover,
-                                  gaplessPlayback: true,
-                                ),
-                              ),
-                              title: Text(
-                                map.name,
-                                textAlign: TextAlign.right,
-                                style: const TextStyle(
-                                  color: AppColors.textPrimary,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              subtitle: kIsWeb
-                                  ? const Text(
-                                      'פתיחה בדפדפן',
-                                      textAlign: TextAlign.right,
-                                      style: TextStyle(
-                                        color: AppColors.textMuted,
-                                        fontSize: 11,
-                                      ),
-                                    )
-                                  : null,
-                              trailing: const Icon(
-                                Icons.arrow_back_ios_new_rounded,
-                                size: 15,
-                                color: AppColors.textMuted,
-                              ),
-                              onTap: () async {
-                                Navigator.of(sheetContext).pop();
-                                try {
-                                  await map.show();
-                                } catch (_) {
-                                  if (context.mounted) {
-                                    _showMessage(
-                                      context,
-                                      'לא ניתן לפתוח את ${map.name}',
-                                    );
-                                  }
-                                }
-                              },
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
       );
     } catch (_) {
       if (context.mounted) {
@@ -196,6 +100,193 @@ class NavigationAppPicker {
   static void _showMessage(BuildContext context, String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
+    );
+  }
+}
+
+class _NavigationAppsScreen extends StatelessWidget {
+  final String title;
+  final List<SupportedMap> maps;
+  final bool webMode;
+
+  const _NavigationAppsScreen({
+    required this.title,
+    required this.maps,
+    required this.webMode,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text('בחירת אפליקציית ניווט'),
+        centerTitle: true,
+      ),
+      body: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(18, 20, 18, 36),
+              children: [
+                Text(
+                  title,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  webMode
+                      ? 'בסימנייה ממסך הבית לא ניתן לזהות אילו אפליקציות מותקנות. בחר שירות ניווט לפתיחה.'
+                      : 'מוצגות רק אפליקציות הניווט שמותקנות במכשיר.',
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                if (maps.isEmpty)
+                  _NavigationEmptyState(
+                    icon: Icons.location_off_outlined,
+                    title: webMode
+                        ? 'לא נמצא שירות ניווט מתאים'
+                        : 'לא נמצאה אפליקציית ניווט',
+                    message: webMode
+                        ? 'שירותי הניווט הזמינים בסימנייה אינם תומכים במסלול הזה.'
+                        : 'לא נמצאה במכשיר אפליקציית ניווט שתומכת ביעד הזה.',
+                  )
+                else
+                  ...maps.map(
+                    (map) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Material(
+                        color: AppColors.surfaceRaised,
+                        borderRadius: BorderRadius.circular(16),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 7,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            side: BorderSide(
+                              color:
+                                  AppColors.champagne.withValues(alpha: 0.16),
+                            ),
+                          ),
+                          leading: ClipRRect(
+                            borderRadius: BorderRadius.circular(9),
+                            child: Image.memory(
+                              map.iconBytes,
+                              width: 42,
+                              height: 42,
+                              fit: BoxFit.cover,
+                              gaplessPlayback: true,
+                            ),
+                          ),
+                          title: Text(
+                            map.name,
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          subtitle: Text(
+                            webMode
+                                ? 'ייפתח באפליקציה אם היא מותקנת'
+                                : 'מותקנת במכשיר',
+                            textAlign: TextAlign.right,
+                            style: TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 11.5,
+                            ),
+                          ),
+                          trailing: const Icon(
+                            Icons.arrow_back_ios_new_rounded,
+                            size: 15,
+                            color: AppColors.textMuted,
+                          ),
+                          onTap: () => _openMap(context, map),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openMap(BuildContext context, SupportedMap map) async {
+    try {
+      await map.show();
+      if (context.mounted) Navigator.of(context).pop();
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('לא ניתן לפתוח את ${map.name}')),
+      );
+    }
+  }
+}
+
+class _NavigationEmptyState extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String message;
+
+  const _NavigationEmptyState({
+    required this.icon,
+    required this.title,
+    required this.message,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 34),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: AppColors.champagne.withValues(alpha: 0.16),
+        ),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: AppColors.champagne, size: 40),
+          const SizedBox(height: 14),
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.textMuted,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
