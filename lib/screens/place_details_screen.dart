@@ -5,6 +5,7 @@ import '../models/content_filter.dart';
 
 import 'add_place_screen.dart';
 import 'add_visit_screen.dart';
+import '../theme/app_icons.dart';
 import '../theme/colors.dart';
 import '../utils/permissions.dart';
 import '../widgets/home_button.dart';
@@ -358,24 +359,6 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
               ),
               onPressed: _openNavigation,
             ),
-          if (canEdit)
-            IconButton(
-              tooltip: 'עריכה',
-              icon: const Icon(
-                Icons.edit_outlined,
-                color: AppColors.textMuted,
-              ),
-              onPressed: _editPlace,
-            ),
-          if (canDelete)
-            IconButton(
-              tooltip: 'מחיקה',
-              icon: const Icon(
-                Icons.delete_outline,
-                color: AppColors.textMuted,
-              ),
-              onPressed: _deletePlace,
-            ),
           const HomeButton(),
         ],
       ),
@@ -423,6 +406,15 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                     textDirection: TextDirection.rtl,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
+                      Icon(
+                        AppIcons.categoryIcon(
+                          widget.place['category_icon']?.toString(),
+                          title: widget.place['category_title']?.toString(),
+                        ),
+                        size: mobile ? 19 : 21,
+                        color: AppColors.champagneSoft,
+                      ),
+                      const SizedBox(width: 9),
                       Expanded(
                         child: Text(
                           name,
@@ -456,6 +448,31 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                       ],
                     ],
                   ),
+                  if (canEdit || canDelete) ...[
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          if (canEdit)
+                            _PlaceManagementButton(
+                              icon: Icons.edit_outlined,
+                              label: 'עריכת מקום',
+                              onPressed: _editPlace,
+                            ),
+                          if (canDelete)
+                            _PlaceManagementButton(
+                              icon: Icons.delete_outline,
+                              label: 'מחיקת מקום',
+                              color: AppColors.danger,
+                              onPressed: _deletePlace,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
                   if (description.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text(
@@ -651,6 +668,42 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
           },
         );
       }).toList(),
+    );
+  }
+}
+
+class _PlaceManagementButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onPressed;
+
+  const _PlaceManagementButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.color = AppColors.textSecondary,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 16),
+      label: Text(label),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: color,
+        visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+        textStyle: const TextStyle(
+          fontSize: 11.5,
+          fontWeight: FontWeight.w500,
+        ),
+        side: BorderSide(color: color.withValues(alpha: 0.34)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
     );
   }
 }

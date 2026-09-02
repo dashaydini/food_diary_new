@@ -535,6 +535,8 @@ class _PlacesScreenState extends State<PlacesScreen> {
     return '${_selectedTagIds.length} תגיות נבחרו';
   }
 
+  // Kept temporarily while the unified filter replaces this local UI.
+  // ignore: unused_element
   Future<void> _openAdvancedFilter() async {
     setState(() {
       _advancedFilterOpen = !_advancedFilterOpen;
@@ -888,6 +890,8 @@ class _PlacesScreenState extends State<PlacesScreen> {
     );
   }
 
+  // Kept temporarily while the unified filter replaces this local UI.
+  // ignore: unused_element
   Widget _buildAdvancedFilterBar() {
     if (!_advancedFilterOpen) {
       return const SizedBox.shrink();
@@ -1182,30 +1186,9 @@ class _PlacesScreenState extends State<PlacesScreen> {
                 fontWeight: FontWeight.w400,
               ),
         ),
-        actions: [
-          const HomeButton(),
-          IconButton(
-            tooltip: 'חיפוש וסינון',
-            onPressed: _openAdvancedFilter,
-            icon: Icon(
-              _hasAdvancedFilter
-                  ? Icons.filter_alt_rounded
-                  : Icons.filter_alt_outlined,
-              color: _hasAdvancedFilter
-                  ? AppColors.champagne
-                  : AppColors.textMuted,
-            ),
-          ),
-        ],
+        actions: const [HomeButton()],
       ),
-      body: Column(
-        children: [
-          _buildAdvancedFilterBar(),
-          Expanded(
-            child: _buildContent(),
-          ),
-        ],
-      ),
+      body: _buildContent(),
       floatingActionButton: !isAnonymous
           ? FloatingActionButton.extended(
               onPressed: () async {

@@ -333,19 +333,42 @@ class AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.surfaceRaised,
-        selectedColor: AppColors.champagne.withValues(alpha: 0.13),
+        selectedColor: AppColors.champagne,
         disabledColor: AppColors.card,
-        side: const BorderSide(
-          color: AppColors.cardBorder,
+        checkmarkColor: AppColors.background,
+        side: WidgetStateBorderSide.resolveWith(
+          (states) => BorderSide(
+            color: states.contains(WidgetState.selected)
+                ? AppColors.champagne
+                : AppColors.cardBorder,
+            width: states.contains(WidgetState.selected) ? 1.4 : 1,
+          ),
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(11),
         ),
-        labelStyle: const TextStyle(
-          color: AppColors.textSecondary,
+        labelStyle: TextStyle(
+          color: WidgetStateColor.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? AppColors.background
+                : AppColors.textSecondary,
+          ),
+          fontWeight: FontWeight.w600,
         ),
-        secondaryLabelStyle: const TextStyle(
-          color: AppColors.champagne,
+        secondaryLabelStyle: TextStyle(
+          color: WidgetStateColor.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? AppColors.background
+                : AppColors.textSecondary,
+          ),
+          fontWeight: FontWeight.w600,
+        ),
+        iconTheme: IconThemeData(
+          color: WidgetStateColor.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? AppColors.background
+                : AppColors.champagne,
+          ),
         ),
       ),
       navigationBarTheme: const NavigationBarThemeData(

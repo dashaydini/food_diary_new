@@ -1013,8 +1013,31 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
 
     try {
       final rating = _averageRating();
+      String? newVisitId;
+      var shouldAskForTaste = false;
 
       if (existingVisit == null) {
+        final placeId = widget.place['id'].toString();
+        final existingSignalsAndVisits = await Future.wait([
+          Supabase.instance.client
+              .from('user_place_preferences')
+              .select('taste_feedback')
+              .eq('user_id', user.id)
+              .eq('place_id', placeId)
+              .limit(1),
+          Supabase.instance.client
+              .from('visits')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('place_id', placeId)
+              .limit(1),
+        ]);
+        final preferenceRows = existingSignalsAndVisits[0] as List;
+        final previousVisits = existingSignalsAndVisits[1] as List;
+        final hasTasteFeedback = preferenceRows.isNotEmpty &&
+            (preferenceRows.first as Map)['taste_feedback'] != null;
+        shouldAskForTaste = previousVisits.isEmpty && !hasTasteFeedback;
+
         final imageUrls = await _uploadImages(user.id);
 
         final visit = await Supabase.instance.client
@@ -1044,6 +1067,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
             .single();
 
         final visitId = visit['id'] as String;
+        newVisitId = visitId;
 
         if (imageUrls.isNotEmpty) {
           await Supabase.instance.client.from('visit_images').insert(
@@ -1178,6 +1202,16 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
 
       if (!mounted) return;
 
+      if (newVisitId != null && shouldAskForTaste) {
+        await _askForTasteFeedback(
+          userId: user.id,
+          placeId: widget.place['id'].toString(),
+          visitId: newVisitId,
+        );
+      }
+
+      if (!mounted) return;
+
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
@@ -1186,6 +1220,69 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
         _saving = false;
         _error = 'לא ניתן לשמור את החוויה: $e';
       });
+    }
+  }
+
+  Future<void> _askForTasteFeedback({
+    required String userId,
+    required String placeId,
+    required String visitId,
+  }) async {
+    final placeName = widget.place['name']?.toString().trim();
+    final liked = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            title: const Text('המקום היה לטעמך?'),
+            content: Text(
+              'החוויה נשמרה. הבחירה שלך${placeName?.isNotEmpty == true ? ' לגבי $placeName' : ''} תעזור לנו לדייק עבורך המלצות בהמשך.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('לא עכשיו'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                icon: const Icon(Icons.thumb_down_alt_outlined),
+                label: const Text('לא היה לטעמי'),
+              ),
+              FilledButton.icon(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                icon: const Icon(Icons.thumb_up_alt_outlined),
+                label: const Text('אהבתי'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (liked == null) return;
+
+    try {
+      await Supabase.instance.client.from('user_place_preferences').upsert(
+        {
+          'user_id': userId,
+          'place_id': placeId,
+          'taste_feedback': liked ? 1 : -1,
+          'taste_feedback_source': 'experience',
+          'taste_feedback_visit_id': visitId,
+          'taste_feedback_at': DateTime.now().toUtc().toIso8601String(),
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        },
+        onConflict: 'user_id,place_id',
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('החוויה נשמרה, אך לא הצלחנו לשמור את בחירת הטעם.'),
+        ),
+      );
     }
   }
 

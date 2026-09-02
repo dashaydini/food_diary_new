@@ -48,20 +48,42 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
       final results = await Future.wait([
         _client
             .from('visits')
-            .select('place_id, rating, price_level, places(category_id)')
+            .select('id, place_id, rating, price_level, places(category_id)')
             .eq('user_id', user.id),
         _client.from('places').select(
               'id, user_id, category_id, name, description, address, '
               'latitude, longitude, image_url, created_at, categories(title)',
             ),
         _client.from('visits').select(
-              'place_id, user_id, rating, price_level, created_at',
+              'id, place_id, user_id, rating, price_level, created_at',
             ),
+        _client
+            .from('user_place_preferences')
+            .select('place_id, taste_feedback')
+            .eq('user_id', user.id)
+            .not('taste_feedback', 'is', null),
+        _client.from('visit_tag_links').select('visit_id, tag_id'),
       ]);
 
       final ownVisits = List<Map<String, dynamic>>.from(results[0]);
       final places = List<Map<String, dynamic>>.from(results[1]);
       final allVisits = List<Map<String, dynamic>>.from(results[2]);
+      final tastePreferences = List<Map<String, dynamic>>.from(results[3]);
+      final allTagLinks = List<Map<String, dynamic>>.from(results[4]);
+
+      final placesById = <String, Map<String, dynamic>>{
+        for (final place in places)
+          if (place['id'] != null) place['id'].toString(): place,
+      };
+      final likedPlaceIds = <String>{};
+      final dislikedPlaceIds = <String>{};
+      for (final preference in tastePreferences) {
+        final placeId = preference['place_id']?.toString();
+        final feedback = (preference['taste_feedback'] as num?)?.toInt();
+        if (placeId == null) continue;
+        if (feedback == 1) likedPlaceIds.add(placeId);
+        if (feedback == -1) dislikedPlaceIds.add(placeId);
+      }
 
       final visitedPlaceIds = <String>{};
       final categoryWeights = <String, double>{};
@@ -88,6 +110,13 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
         }
       }
 
+      for (final placeId in likedPlaceIds) {
+        final categoryId = placesById[placeId]?['category_id']?.toString();
+        if (categoryId != null) {
+          categoryWeights[categoryId] = (categoryWeights[categoryId] ?? 0) + 6;
+        }
+      }
+
       final preferredPrice =
           ownPriceCount == 0 ? null : ownPriceSum / ownPriceCount;
       final ratingSums = <String, double>{};
@@ -97,10 +126,13 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
       final priceRaters = <String, Set<String>>{};
       final visitCounts = <String, int>{};
       final latestVisits = <String, DateTime>{};
+      final visitPlaceIds = <String, String>{};
 
       for (final visit in allVisits) {
         final placeId = visit['place_id']?.toString();
         if (placeId == null) continue;
+        final visitId = visit['id']?.toString();
+        if (visitId != null) visitPlaceIds[visitId] = placeId;
 
         visitCounts[placeId] = (visitCounts[placeId] ?? 0) + 1;
         final rating = (visit['rating'] as num?)?.toDouble();
@@ -129,6 +161,27 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
         }
       }
 
+      final placeTags = <String, Set<String>>{};
+      for (final link in allTagLinks) {
+        final visitId = link['visit_id']?.toString();
+        final tagId = link['tag_id']?.toString();
+        final placeId = visitId == null ? null : visitPlaceIds[visitId];
+        if (placeId == null || tagId == null) continue;
+        placeTags.putIfAbsent(placeId, () => <String>{}).add(tagId);
+      }
+
+      final tasteAnchorIds = <String>{...likedPlaceIds};
+      for (final visit in ownVisits) {
+        final rating = (visit['rating'] as num?)?.toDouble();
+        final placeId = visit['place_id']?.toString();
+        if (placeId != null && rating != null && rating >= 4) {
+          tasteAnchorIds.add(placeId);
+        }
+      }
+      tasteAnchorIds.removeAll(dislikedPlaceIds);
+      final personalEvidenceCount = tastePreferences.length +
+          ownVisits.where((visit) => visit['rating'] != null).length;
+
       final position = await _positionIfAlreadyAllowed();
       final maxCategoryWeight = categoryWeights.values.fold<double>(
         0,
@@ -138,7 +191,11 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
 
       for (final rawPlace in places) {
         final placeId = rawPlace['id']?.toString();
-        if (placeId == null || visitedPlaceIds.contains(placeId)) continue;
+        if (placeId == null ||
+            visitedPlaceIds.contains(placeId) ||
+            dislikedPlaceIds.contains(placeId)) {
+          continue;
+        }
 
         final categoryId = rawPlace['category_id']?.toString();
         final categoryWeight = categoryWeights[categoryId] ?? 0;
@@ -220,13 +277,64 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
         };
 
         reasons.sort((a, b) => b.weight.compareTo(a.weight));
+        String? personalTasteReason;
+        var bestSimilarity = 0.0;
+        Map<String, dynamic>? bestAnchor;
+        for (final anchorId in tasteAnchorIds) {
+          final anchor = placesById[anchorId];
+          if (anchor == null) continue;
+
+          var similarity = 0.0;
+          if (anchor['category_id']?.toString() == categoryId) {
+            similarity += 0.45;
+          }
+
+          final anchorTags = placeTags[anchorId] ?? const <String>{};
+          final candidateTags = placeTags[placeId] ?? const <String>{};
+          if (anchorTags.isNotEmpty && candidateTags.isNotEmpty) {
+            final sharedTags = anchorTags.intersection(candidateTags).length;
+            final combinedTags = anchorTags.union(candidateTags).length;
+            similarity += sharedTags / combinedTags * 0.35;
+          }
+
+          final anchorPriceCount = priceCounts[anchorId] ?? 0;
+          final anchorPrice = anchorPriceCount == 0
+              ? null
+              : (priceSums[anchorId] ?? 0) / anchorPriceCount;
+          if (anchorPrice != null && averagePrice != null) {
+            final priceMatch =
+                (1 - (anchorPrice - averagePrice).abs() / 2).clamp(0.0, 1.0);
+            similarity += priceMatch * 0.20;
+          }
+
+          if (similarity > bestSimilarity) {
+            bestSimilarity = similarity;
+            bestAnchor = anchor;
+          }
+        }
+
+        if (bestAnchor != null && bestSimilarity >= 0.35) {
+          final normalizedScore = (score / 10.5).clamp(0.0, 1.0);
+          final rawProbability =
+              55 + bestSimilarity * 28 + normalizedScore * 12;
+          final evidenceConfidence = math.min(personalEvidenceCount, 5) / 5;
+          final probability = (55 + (rawProbability - 55) * evidenceConfidence)
+              .round()
+              .clamp(55, 95);
+          final anchorName = bestAnchor['name']?.toString() ?? 'מקום שאהבת';
+          final candidateName = rawPlace['name']?.toString() ?? 'את המקום';
+          personalTasteReason =
+              'אם אהבת את $anchorName, יש סיכוי משוער של $probability% שתאהב את $candidateName · מבוסס AI';
+        }
+
         recommendations.add(
           _PlaceRecommendation(
             place: place,
             score: score,
-            reason: reasons.isEmpty
-                ? 'מקום שכדאי להכיר'
-                : reasons.take(2).map((reason) => reason.text).join(' · '),
+            reason: personalTasteReason ??
+                (reasons.isEmpty
+                    ? 'מקום שכדאי להכיר'
+                    : reasons.take(2).map((reason) => reason.text).join(' · ')),
           ),
         );
       }

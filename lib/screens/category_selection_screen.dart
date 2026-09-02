@@ -237,7 +237,6 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
           for (final row in orderRows as List)
             row['category_id'] as String: row['sort_order'] as int,
         };
-
         categories.sort((a, b) {
           final aOrder = orderMap[a.id];
           final bOrder = orderMap[b.id];
@@ -601,7 +600,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
               case 'journal':
                 _openJournal();
                 break;
-              case 'guided_search':
+              case 'advanced_filter':
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => const GuidedSearchScreen(),
@@ -609,7 +608,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                 );
                 break;
               case 'category_order':
-                _toggleCategoryOrderEditing();
+                if (!_editingOrder) _toggleCategoryOrderEditing();
                 break;
               case 'profile':
                 _openProfile();
@@ -663,27 +662,57 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
             ),
             if (Supabase.instance.client.auth.currentUser != null &&
                 !(Supabase.instance.client.auth.currentUser?.isAnonymous ??
-                    true)) ...const [
-              PopupMenuItem(
-                value: 'guided_search',
+                    true)) ...[
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'advanced_filter',
                 child: Row(
                   children: [
-                    Icon(Icons.tune_rounded),
+                    Icon(Icons.filter_alt_outlined),
                     SizedBox(width: 10),
-                    Text('מומלץ עבורך'),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('סינון מתקדם'),
+                          Text(
+                            'חיפוש לפי כמה העדפות יחד',
+                            style: TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
-              PopupMenuItem(
+              const PopupMenuItem(
                 value: 'category_order',
                 child: Row(
                   children: [
-                    Icon(Icons.reorder_rounded),
+                    Icon(Icons.swap_vert_rounded),
                     SizedBox(width: 10),
-                    Text('עריכת סדר הקטגוריות'),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('סידור קטגוריות'),
+                          Text(
+                            'שינוי סדר התצוגה במסך הבית',
+                            style: TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
+              const PopupMenuDivider(),
             ],
             const PopupMenuItem(
               value: 'profile',
@@ -1070,15 +1099,19 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => PlacesScreen(
-                    categoryId: category.id, categoryTitle: category.title),
-              ),
-            );
-          },
+          onTap: showDragHandle
+              ? null
+              : () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => PlacesScreen(
+                        categoryId: category.id,
+                        categoryTitle: category.title,
+                      ),
+                    ),
+                  );
+                },
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
             child: Row(
@@ -1128,7 +1161,16 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                 ),
                 if (showDragHandle) ...[
                   const SizedBox(width: 12),
-                  const Icon(Icons.drag_handle, color: AppColors.muted),
+                  ReorderableDragStartListener(
+                    index: index,
+                    child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Icon(
+                        Icons.drag_handle_rounded,
+                        color: AppColors.champagne,
+                      ),
+                    ),
+                  ),
                 ],
               ],
             ),
