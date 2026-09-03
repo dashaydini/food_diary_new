@@ -7,8 +7,9 @@ and in the Flutter client:
 
 1. A normal user can no longer promote their own profile to administrator,
    premium, or alter points and level.
-2. Profile email addresses can no longer be selected by other clients. The
-   account-existence RPC was disabled to prevent email enumeration.
+2. The duplicate email values were removed from public profiles; canonical
+   addresses remain protected in Supabase Auth. The legacy profile field stays
+   null for old-client compatibility. The account-existence RPC was disabled.
 3. Private journal fields can no longer be selected from public visits. The
    journal reads only the signed-in owner's private fields through a guarded
    function. Existing journal data was preserved in its original rows.

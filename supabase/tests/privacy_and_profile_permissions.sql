@@ -38,10 +38,8 @@ begin
   update public.profiles set avatar_url='https://example.invalid/avatar' where id=user_a;
   assert (select display_name='Safe name' and role='user' from public.profiles where id=user_a);
   assert not public.is_admin(), 'User remains non-admin';
-  begin
-    perform email from public.profiles where id=user_b;
-    raise exception 'FAIL: another user email readable';
-  exception when insufficient_privilege then null; end;
+  assert (select email is null from public.profiles where id=user_b),
+    'Legacy email projection must never contain an address';
   begin
     perform journal_note from public.visits where id=visit_b;
     raise exception 'FAIL: private journal directly readable';
