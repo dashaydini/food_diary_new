@@ -47,7 +47,7 @@ class _JournalScreenState extends State<JournalScreen> {
       final rows = await _client
           .from('visits')
           .select(
-            'id, place_id, created_at, visit_date, notes, journal_note, '
+            'id, user_id, place_id, created_at, visit_date, notes, journal_note, '
             'with_whom, favorite_memory, food_rating, drink_rating, '
             'atmosphere_rating, service_rating, cleanliness_rating, '
             'variety_rating, value_rating, rating, food, food_price, '

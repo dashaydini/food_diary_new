@@ -1,1 +1,75 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"foodiary-91a6b","appId":"1:188806948323:android:fb25288f70f34a99002cd6","fileOutput":"android/app/google-services.json"}},"ios":{"default":{"projectId":"foodiary-91a6b","appId":"1:188806948323:ios:5476f939f1ae4401002cd6","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}},"macos":{"default":{"projectId":"foodiary-91a6b","appId":"1:188806948323:ios:db5b3492ecec65ff002cd6","uploadDebugSymbols":false,"fileOutput":"macos/Runner/GoogleService-Info.plist"}},"dart":{"lib/firebase_options.dart":{"projectId":"foodiary-91a6b","configurations":{"android":"1:188806948323:android:fb25288f70f34a99002cd6","ios":"1:188806948323:ios:5476f939f1ae4401002cd6","macos":"1:188806948323:ios:db5b3492ecec65ff002cd6","web":"1:188806948323:web:45836b22055f7b89002cd6","windows":"1:188806948323:web:0993464c67d2013a002cd6"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "foodiary-91a6b",
+          "appId": "1:188806948323:android:fb25288f70f34a99002cd6",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "foodiary-91a6b",
+          "appId": "1:188806948323:ios:5476f939f1ae4401002cd6",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "macos": {
+        "default": {
+          "projectId": "foodiary-91a6b",
+          "appId": "1:188806948323:ios:db5b3492ecec65ff002cd6",
+          "uploadDebugSymbols": false,
+          "fileOutput": "macos/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "foodiary-91a6b",
+          "configurations": {
+            "android": "1:188806948323:android:fb25288f70f34a99002cd6",
+            "ios": "1:188806948323:ios:5476f939f1ae4401002cd6",
+            "macos": "1:188806948323:ios:db5b3492ecec65ff002cd6",
+            "web": "1:188806948323:web:45836b22055f7b89002cd6",
+            "windows": "1:188806948323:web:0993464c67d2013a002cd6"
+          }
+        }
+      }
+    }
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "/flutter_service_worker.js",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "/index.html",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, no-store, must-revalidate"
+          }
+        ]
+      }
+    ]
+  }
+}

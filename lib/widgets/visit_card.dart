@@ -4,6 +4,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../screens/add_visit_screen.dart';
 import '../screens/public_profile_screen.dart';
 import '../theme/colors.dart';
+import '../utils/experience_hashtags.dart';
+import '../screens/hashtag_search_screen.dart';
+import 'hashtag_chips.dart';
 
 class VisitCard extends StatelessWidget {
   final Map<String, dynamic> visit;
@@ -80,6 +83,7 @@ class VisitCard extends StatelessWidget {
         ownerId != null && currentUserId != null && ownerId == currentUserId;
 
     final visitTitle = isOwnVisit ? 'החוויה שלך' : 'חוויה של $author';
+    final hashtags = ExperienceHashtags.extract(visit['notes'] as String?);
 
     return Container(
       width: double.infinity,
@@ -122,104 +126,118 @@ class VisitCard extends StatelessWidget {
               ),
               child: Directionality(
                 textDirection: TextDirection.rtl,
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: ownerId == null
-                          ? null
-                          : () => _openProfile(
-                                context,
-                                ownerId,
-                              ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        textDirection: TextDirection.rtl,
-                        children: [
-                          Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color:
-                                  AppColors.champagne.withValues(alpha: 0.028),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color:
-                                    AppColors.champagne.withValues(alpha: 0.16),
-                                width: 0.7,
-                              ),
-                            ),
-                            clipBehavior: Clip.antiAlias,
-                            child: avatarUrl != null &&
-                                    avatarUrl.trim().isNotEmpty
-                                ? Image.network(
-                                    avatarUrl,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => const Icon(
-                                      Icons.person_outline_rounded,
-                                      size: 19,
-                                      color: AppColors.champagne,
-                                    ),
-                                  )
-                                : const Icon(
-                                    Icons.person_outline_rounded,
-                                    size: 19,
-                                    color: AppColors.champagne,
+                    Row(
+                      children: [
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: ownerId == null
+                              ? null
+                              : () => _openProfile(
+                                    context,
+                                    ownerId,
                                   ),
-                          ),
-                          const SizedBox(width: 12),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            visitTitle,
-                            textAlign: TextAlign.right,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: AppColors.textPrimary,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          if (dateText.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              dateText,
-                              textAlign: TextAlign.right,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: AppColors.textMuted,
-                                fontSize: 11,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            textDirection: TextDirection.rtl,
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color: AppColors.champagne
+                                      .withValues(alpha: 0.028),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: AppColors.champagne
+                                        .withValues(alpha: 0.16),
+                                    width: 0.7,
+                                  ),
+                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: avatarUrl != null &&
+                                        avatarUrl.trim().isNotEmpty
+                                    ? Image.network(
+                                        avatarUrl,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) =>
+                                            const Icon(
+                                          Icons.person_outline_rounded,
+                                          size: 19,
+                                          color: AppColors.champagne,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.person_outline_rounded,
+                                        size: 19,
+                                        color: AppColors.champagne,
+                                      ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 12),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                visitTitle,
+                                textAlign: TextAlign.right,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  color: AppColors.textPrimary,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              if (dateText.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  dateText,
+                                  textAlign: TextAlign.right,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: AppColors.textMuted,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        if (rating != null) ...[
+                          const SizedBox(width: 14),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.star_rounded,
+                                size: 17,
+                                color: AppColors.champagne,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                (rating as num).toStringAsFixed(1),
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: AppColors.textPrimary,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
-                      ),
+                      ],
                     ),
-                    if (rating != null) ...[
-                      const SizedBox(width: 14),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.star_rounded,
-                            size: 17,
-                            color: AppColors.champagne,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            (rating as num).toStringAsFixed(1),
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: AppColors.textPrimary,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
+                    if (hashtags.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      HashtagChips(
+                        hashtags: hashtags,
+                        onSelected: (tag) =>
+                            HashtagSearchScreen.open(context, tag),
                       ),
                     ],
                   ],

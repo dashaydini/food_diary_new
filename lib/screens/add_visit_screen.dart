@@ -1,23 +1,29 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import '../utils/experience_hashtags.dart';
+import '../widgets/hashtag_chips.dart';
+import 'hashtag_search_screen.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme/colors.dart';
 import 'public_profile_screen.dart';
-import '../utils/permissions.dart';
 import '../widgets/visit_image_gallery.dart';
+import '../widgets/shared_visit_panel.dart';
+import '../core/services/shared_visit_service.dart';
 
 class AddVisitScreen extends StatefulWidget {
   final Map<String, dynamic> place;
   final Map<String, dynamic>? visit;
   final bool viewOnly;
+  final Map<String, dynamic>? sourceVisit;
 
   const AddVisitScreen({
     super.key,
     required this.place,
     this.visit,
     this.viewOnly = false,
+    this.sourceVisit,
   });
 
   bool get isEditing => visit != null;
@@ -40,7 +46,14 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
   final Set<String> _selectedTags = {};
 
   final Map<String, Map<String, dynamic>> _selectedParticipants = {};
+  final Set<String> _initialParticipantIds = {};
   bool _loadingParticipants = false;
+  bool _participantPermissionLoaded = false;
+  bool _isSharedResponse = false;
+  bool get _canInviteParticipants =>
+      widget.sourceVisit == null &&
+      !_isSharedResponse &&
+      (widget.visit == null || _participantPermissionLoaded);
 
   final List<Uint8List> _imageBytes = [];
   final List<String> _imageNames = [];
@@ -64,10 +77,17 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
   @override
   void initState() {
     super.initState();
+    _visitDate = DateTime.tryParse(
+            widget.sourceVisit?['visit_date']?.toString() ?? '') ??
+        DateTime.now();
     _loadExistingVisit();
     _loadExistingParticipants();
     _loadTags();
   }
+
+  bool get _ownsVisit =>
+      widget.visit?['user_id'] != null &&
+      widget.visit?['user_id'] == Supabase.instance.client.auth.currentUser?.id;
 
   Future<void> _loadExistingVisit() async {
     final visit = widget.visit;
@@ -144,6 +164,16 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
     }
 
     try {
+      final permission = await Supabase.instance.client
+          .from('visits')
+          .select('is_shared_response')
+          .eq('id', visitId)
+          .single();
+      if (!mounted) return;
+      setState(() {
+        _isSharedResponse = permission['is_shared_response'] == true;
+        _participantPermissionLoaded = true;
+      });
       final links = await Supabase.instance.client
           .from('visit_user_tags')
           .select('user_id')
@@ -160,6 +190,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
 
         setState(() {
           _selectedParticipants.clear();
+          _initialParticipantIds.clear();
           _loadingParticipants = false;
         });
         return;
@@ -189,6 +220,9 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
         _selectedParticipants
           ..clear()
           ..addAll(loaded);
+        _initialParticipantIds
+          ..clear()
+          ..addAll(userIds);
         _loadingParticipants = false;
       });
     } catch (e) {
@@ -202,7 +236,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
   }
 
   Future<void> _showParticipantPicker() async {
-    if (widget.viewOnly) return;
+    if (widget.viewOnly || !_canInviteParticipants) return;
 
     final result =
         await showModalBottomSheet<Map<String, Map<String, dynamic>>>(
@@ -294,6 +328,9 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
   }
 
   Widget _buildParticipants() {
+    if (!widget.viewOnly && !_canInviteParticipants && !_loadingParticipants) {
+      return const SizedBox.shrink();
+    }
     if (_loadingParticipants) {
       return const Align(
         alignment: Alignment.centerRight,
@@ -649,6 +686,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
   }
 
   Future<bool> _onWillPop() async {
+    if (_saving) return false;
     if (widget.viewOnly) {
       return true;
     }
@@ -693,7 +731,8 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
       return true;
     } else if (result == 'save') {
       await _saveVisit();
-      return true;
+      // _saveVisit already closes on success; stay here if saving failed.
+      return false;
     }
     return false;
   }
@@ -987,9 +1026,10 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
   }
 
   Future<void> _saveVisit() async {
+    if (_saving || _loadingParticipants) return;
     final user = Supabase.instance.client.auth.currentUser;
 
-    if (user == null) {
+    if (user == null || user.isAnonymous) {
       setState(() {
         _error = 'יש להתחבר כדי לשמור את החוויה';
       });
@@ -998,8 +1038,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
 
     final existingVisit = widget.visit;
 
-    if (existingVisit != null &&
-        !Permissions.canEditVisit(existingVisit['user_id']?.toString())) {
+    if (existingVisit != null && !_ownsVisit) {
       setState(() {
         _error = 'אין לך הרשאה לערוך את החוויה הזו';
       });
@@ -1018,6 +1057,18 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
 
       if (existingVisit == null) {
         final placeId = widget.place['id'].toString();
+        if (widget.sourceVisit != null) {
+          final own = await Supabase.instance.client
+              .from('visits')
+              .select('id')
+              .eq('outing_id', widget.sourceVisit!['outing_id'])
+              .eq('user_id', user.id)
+              .maybeSingle();
+          if (own != null) {
+            throw StateError(
+                'כבר קיימת חוויה שלך מהביקור. חזור לחוויה ופתח אותה לעריכה.');
+          }
+        }
         final existingSignalsAndVisits = await Future.wait([
           Supabase.instance.client
               .from('user_place_preferences')
@@ -1045,6 +1096,8 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
             .insert({
               'place_id': widget.place['id'],
               'user_id': user.id,
+              if (widget.sourceVisit != null)
+                'source_visit_id': widget.sourceVisit!['id'],
               'visit_date': _visitDate.toIso8601String(),
               'notes': _notesController.text.trim(),
               'rating': rating == 0 ? null : rating,
@@ -1099,17 +1152,10 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
               );
         }
 
-        if (_selectedParticipants.isNotEmpty) {
-          await Supabase.instance.client.from('visit_user_tags').insert(
-                _selectedParticipants.keys
-                    .map(
-                      (participantId) => {
-                        'visit_id': visitId,
-                        'user_id': participantId,
-                      },
-                    )
-                    .toList(),
-              );
+        if (_canInviteParticipants) {
+          await SharedVisitService(Supabase.instance.client).syncParticipants(
+              visitId, _selectedParticipants.keys,
+              previousUserIds: _initialParticipantIds);
         }
       } else {
         final visitId = existingVisit['id'].toString();
@@ -1151,22 +1197,10 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
               );
         }
 
-        await Supabase.instance.client
-            .from('visit_user_tags')
-            .delete()
-            .eq('visit_id', visitId);
-
-        if (_selectedParticipants.isNotEmpty) {
-          await Supabase.instance.client.from('visit_user_tags').insert(
-                _selectedParticipants.keys
-                    .map(
-                      (participantId) => {
-                        'visit_id': visitId,
-                        'user_id': participantId,
-                      },
-                    )
-                    .toList(),
-              );
+        if (_canInviteParticipants) {
+          await SharedVisitService(Supabase.instance.client).syncParticipants(
+              visitId, _selectedParticipants.keys,
+              previousUserIds: _initialParticipantIds);
         }
 
         if (_imageBytes.isNotEmpty) {
@@ -1304,9 +1338,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
     final visit = widget.visit;
     if (visit == null) return;
 
-    final ownerId = visit['user_id']?.toString();
-
-    if (!Permissions.canDeleteVisit(ownerId)) {
+    if (!_ownsVisit) {
       setState(() {
         _error = 'אין לך הרשאה למחוק את החוויה הזו';
       });
@@ -1355,7 +1387,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
 
   Future<void> _toggleFavoriteMemory() async {
     final visit = widget.visit;
-    if (visit == null) return;
+    if (visit == null || !_ownsVisit) return;
 
     final newValue = !_isFavoriteMemory;
 
@@ -1830,11 +1862,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                   color: AppColors.champagne,
                 ),
               ),
-            if (widget.viewOnly &&
-                widget.isEditing &&
-                Permissions.canEditVisit(
-                  widget.visit?['user_id']?.toString(),
-                ))
+            if (widget.viewOnly && widget.isEditing && _ownsVisit)
               IconButton(
                 tooltip: 'עריכת חוויה',
                 icon: const Icon(
@@ -1857,11 +1885,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                   }
                 },
               ),
-            if (!widget.viewOnly &&
-                widget.isEditing &&
-                Permissions.canDeleteVisit(
-                  widget.visit?['user_id']?.toString(),
-                ))
+            if (!widget.viewOnly && widget.isEditing && _ownsVisit)
               IconButton(
                 tooltip: 'מחיקת חוויה',
                 icon: const Icon(
@@ -1870,7 +1894,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                 ),
                 onPressed: _deleteVisit,
               ),
-            if (widget.isEditing)
+            if (widget.isEditing && _ownsVisit)
               IconButton(
                 tooltip: _isFavoriteMemory
                     ? 'הסרה מהזיכרונות המועדפים'
@@ -1919,6 +1943,21 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                       ),
                     ),
                     SizedBox(height: 24),
+                    if (widget.viewOnly && widget.visit?['id'] != null)
+                      SharedVisitPanel(
+                        visitId: widget.visit!['id'].toString(),
+                        place: widget.place,
+                        onTagRemoved: () {
+                          _loadExistingParticipants();
+                        },
+                      ),
+                    if (widget.sourceVisit != null)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 20),
+                        child: Text(
+                            'החוויה האישית שלך מאותו ביקור. הדירוג, התמונות והטקסט הם שלך בלבד.',
+                            style: TextStyle(color: AppColors.champagne)),
+                      ),
                     _textField(
                       _foodController,
                       'מה אכלתי?',
@@ -1985,6 +2024,31 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                       _notesController,
                       'הערות נוספות / חוויות',
                       maxLines: 3,
+                    ),
+                    if (!widget.viewOnly) ...[
+                      const SizedBox(height: 8),
+                      const Text(
+                        'אפשר להוסיף האשטאגים לחיפוש, למשל #שניצל או #אוכל_רחוב. בין מילים משתמשים בקו תחתון.',
+                        style:
+                            TextStyle(color: AppColors.textMuted, fontSize: 12),
+                      ),
+                    ],
+                    ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: _notesController,
+                      builder: (context, value, _) {
+                        final hashtags = ExperienceHashtags.extract(value.text);
+                        if (hashtags.isEmpty) return const SizedBox.shrink();
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: HashtagChips(
+                            hashtags: hashtags,
+                            onSelected: widget.viewOnly
+                                ? (tag) =>
+                                    HashtagSearchScreen.open(context, tag)
+                                : null,
+                          ),
+                        );
+                      },
                     ),
                     SizedBox(height: 24),
                     _buildParticipants(),

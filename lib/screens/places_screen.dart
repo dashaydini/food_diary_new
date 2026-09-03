@@ -6,6 +6,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'add_place_screen.dart';
 
 import '../models/content_filter.dart';
+import '../core/services/experience_hashtag_service.dart';
+import '../utils/experience_hashtags.dart';
 import '../theme/colors.dart';
 import '../widgets/home_button.dart';
 import '../widgets/place_card.dart';
@@ -37,6 +39,7 @@ class _PlacesScreenState extends State<PlacesScreen> {
   final Set<String> _selectedTagIds = {};
   final Set<String> _selectedCategoryIds = {};
   final Map<String, Set<String>> _placeTagIds = {};
+  Map<String, Set<String>> _placeHashtags = {};
   final Set<String> _visitedPlaceIds = {};
 
   bool _matchAllTags = true;
@@ -268,11 +271,13 @@ class _PlacesScreenState extends State<PlacesScreen> {
       }
 
       await _loadPlaceTags(client, places);
+      final hashtags = await ExperienceHashtagService.load(client);
 
       if (!mounted) return;
 
       setState(() {
         _allPlaces = places;
+        _placeHashtags = hashtags;
         _loading = false;
         _error = null;
       });
@@ -389,14 +394,11 @@ class _PlacesScreenState extends State<PlacesScreen> {
 
     if (query.isNotEmpty) {
       filtered = filtered.where((place) {
-        final name = place['name']?.toString().toLowerCase() ?? '';
-        final description =
-            place['description']?.toString().toLowerCase() ?? '';
-        final address = place['address']?.toString().toLowerCase() ?? '';
-
-        return name.contains(query) ||
-            description.contains(query) ||
-            address.contains(query);
+        return ExperienceHashtags.matchesPlace(
+          place,
+          _placeHashtags[place['id']] ?? {},
+          query,
+        );
       }).toList();
     }
 
@@ -938,7 +940,7 @@ class _PlacesScreenState extends State<PlacesScreen> {
                 textDirection: TextDirection.rtl,
                 textAlign: TextAlign.right,
                 decoration: InputDecoration(
-                  hintText: 'חיפוש בשם, תיאור או כתובת',
+                  hintText: 'חיפוש בשם, תיאור, כתובת או #האשטאג',
                   prefixIcon: const Icon(Icons.search),
                   suffixIcon: _searchController.text.isNotEmpty
                       ? IconButton(
@@ -1312,6 +1314,10 @@ class _PlacesScreenState extends State<PlacesScreen> {
                     ...place,
                     'category_title': categoryTitle,
                     'display_tags': displayTags,
+                    'matched_hashtags': ExperienceHashtags.matching(
+                      _placeHashtags[placeId] ?? {},
+                      _searchController.text,
+                    ),
                   },
                   onTap: () {
                     Navigator.push(

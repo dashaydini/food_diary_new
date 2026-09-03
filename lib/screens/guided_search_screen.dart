@@ -3,6 +3,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/services/premium_service.dart';
+import '../core/services/experience_hashtag_service.dart';
+import '../utils/experience_hashtags.dart';
 import '../theme/app_icons.dart';
 import '../theme/colors.dart';
 import '../widgets/home_button.dart';
@@ -31,6 +33,7 @@ class _GuidedSearchScreenState extends State<GuidedSearchScreen> {
   List<Map<String, dynamic>> _allPlaces = [];
   List<Map<String, dynamic>> _results = [];
   Map<String, Set<String>> _tagNamesByPlace = {};
+  Map<String, Set<String>> _hashtagsByPlace = {};
   Set<String> _visitedPlaceIds = {};
   double _minimumRating = 0;
   double _maximumPriceLevel = 0;
@@ -91,6 +94,7 @@ class _GuidedSearchScreenState extends State<GuidedSearchScreen> {
       final visits = List<Map<String, dynamic>>.from(responses[2]);
       final metrics = _buildMetrics(visits);
       final tagsByPlace = await _loadTagNames(visits);
+      final hashtagsByPlace = await ExperienceHashtagService.load(_client);
       final experienceTextByPlace = <String, String>{};
       for (final visit in visits) {
         final placeId = visit['place_id']?.toString();
@@ -134,6 +138,7 @@ class _GuidedSearchScreenState extends State<GuidedSearchScreen> {
         _categories = categories;
         _allPlaces = enrichedPlaces;
         _tagNamesByPlace = tagsByPlace;
+        _hashtagsByPlace = hashtagsByPlace;
         _visitedPlaceIds = visited;
         _loading = false;
         _error = null;
@@ -270,12 +275,11 @@ class _GuidedSearchScreenState extends State<GuidedSearchScreen> {
       );
     }
     final query = _searchController.text.trim().toLowerCase();
+    final hashtags = _hashtagsByPlace[place['id']] ?? <String>{};
+    place['matched_hashtags'] = ExperienceHashtags.matching(hashtags, query);
     if (query.isNotEmpty) {
-      final searchable = [place['name'], place['description'], place['address']]
-          .join(' ')
-          .toLowerCase();
       criterion(
-        searchable.contains(query),
+        ExperienceHashtags.matchesPlace(place, hashtags, query),
         'חיפוש “$query”',
         required: true,
       );
@@ -561,7 +565,7 @@ class _GuidedSearchScreenState extends State<GuidedSearchScreen> {
               textAlign: TextAlign.right,
               onChanged: (_) => _selectionChanged(() {}),
               decoration: InputDecoration(
-                hintText: 'חיפוש בשם, תיאור או כתובת',
+                hintText: 'חיפוש בשם, תיאור, כתובת או #האשטאג',
                 prefixIcon: const Icon(Icons.search_rounded),
                 suffixIcon: _searchController.text.isEmpty
                     ? null
@@ -769,11 +773,18 @@ class _GuidedSearchScreenState extends State<GuidedSearchScreen> {
                     padding: const EdgeInsets.only(bottom: 13),
                     child: PlaceCard(
                       place: place,
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => PlaceDetailsScreen(place: place),
-                        ),
-                      ),
+                      onTap: () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => PlaceDetailsScreen(place: place),
+                          ),
+                        );
+                        if (!mounted) return;
+                        await _loadData();
+                        if (mounted && _error == null && _hasSelection) {
+                          await _search();
+                        }
+                      },
                     ),
                   ),
                 ),

@@ -335,7 +335,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (code == null || code.isEmpty) return;
 
     final inviteUrl =
-        'https://dashaydini.github.io/food_diary_new/?ref=${Uri.encodeComponent(code)}';
+        'https://foodiary-91a6b.web.app/?ref=${Uri.encodeComponent(code)}';
 
     final text = 'הצטרף אליי ל-Food Diary 👋\n$inviteUrl';
 

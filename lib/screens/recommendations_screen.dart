@@ -5,6 +5,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/colors.dart';
+import '../core/services/experience_hashtag_service.dart';
+import '../utils/hashtag_taste_profile.dart';
+import 'hashtag_search_screen.dart';
 import '../widgets/home_button.dart';
 import '../widgets/place_card.dart';
 import 'place_details_screen.dart';
@@ -23,6 +26,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
   List<_PlaceRecommendation> _recommendations = [];
   List<_PlaceRecommendation> _similarTasteRecommendations = [];
   List<_SimilarUser> _similarUsers = [];
+  List<HashtagTasteStat> _hashtagStats = [];
   bool _loading = true;
   bool _hasLocation = false;
   String? _error;
@@ -46,10 +50,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
 
     try {
       final results = await Future.wait([
-        _client
-            .from('visits')
-            .select('id, place_id, rating, price_level, places(category_id)')
-            .eq('user_id', user.id),
+        ExperienceHashtagService.loadOwnVisits(_client, user.id),
         _client.from('places').select(
               'id, user_id, category_id, name, description, address, '
               'latitude, longitude, image_url, created_at, categories(title)',
@@ -70,6 +71,12 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
       final allVisits = List<Map<String, dynamic>>.from(results[2]);
       final tastePreferences = List<Map<String, dynamic>>.from(results[3]);
       final allTagLinks = List<Map<String, dynamic>>.from(results[4]);
+      final hashtagsByPlace = await ExperienceHashtagService.load(_client);
+      final hashtagProfile = HashtagTasteProfile.fromVisits(ownVisits, {
+        for (final preference in tastePreferences)
+          preference['place_id'].toString():
+              (preference['taste_feedback'] as num).toInt(),
+      });
 
       final placesById = <String, Map<String, dynamic>>{
         for (final place in places)
@@ -209,6 +216,15 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
 
         var score = 0.0;
         final reasons = <_Reason>[];
+        final candidateHashtags = hashtagsByPlace[placeId] ?? <String>{};
+        final hashtagContribution = hashtagProfile.scoreFor(candidateHashtags);
+        score += hashtagContribution;
+        final positiveHashtags =
+            hashtagProfile.positiveMatches(candidateHashtags);
+        final hashtagReason = hashtagContribution > 0 &&
+                positiveHashtags.isNotEmpty
+            ? 'האשטאגים משותפים לחוויות שהערכת בחיוב: ${positiveHashtags.take(2).map((tag) => '#$tag').join(' · ')}'
+            : '';
 
         if (categoryWeight > 0 && maxCategoryWeight > 0) {
           final contribution = categoryWeight / maxCategoryWeight * 4;
@@ -273,6 +289,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
           'rating_count': ratingCount,
           'average_price_level': averagePrice,
           'price_rating_count': priceRaters[placeId]?.length ?? 0,
+          'hashtag_recommendation_reason': hashtagReason,
           if (distanceMeters != null) 'distance_meters': distanceMeters,
         };
 
@@ -314,7 +331,9 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
         }
 
         if (bestAnchor != null && bestSimilarity >= 0.35) {
-          final normalizedScore = (score / 10.5).clamp(0.0, 1.0);
+          // Hashtags affect ranking, not the existing estimated match percentage.
+          final normalizedScore =
+              ((score - hashtagContribution) / 10.5).clamp(0.0, 1.0);
           final rawProbability =
               55 + bestSimilarity * 28 + normalizedScore * 12;
           final evidenceConfidence = math.min(personalEvidenceCount, 5) / 5;
@@ -454,6 +473,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
         _recommendations = recommendations.take(12).toList();
         _similarTasteRecommendations = similarTasteRecommendations;
         _similarUsers = similarUsers.take(6).toList();
+        _hashtagStats = hashtagProfile.stats;
         _loading = false;
         _error = null;
       });
@@ -570,6 +590,39 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
                 36,
               ),
               children: [
+                if (_hashtagStats.isNotEmpty) ...[
+                  _sectionTitle('האשטאגים בחוויות שלך'),
+                  const Text(
+                    'כל מקום נספר פעם אחת. חיובי: אהבתי או דירוג 4 ומעלה; שלילי: לא אהבתי או דירוג עד 2.5. בחירה מפורשת קודמת לדירוג. אזכור בלבד אינו העדפה למנה.',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    textDirection: TextDirection.rtl,
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: _hashtagStats
+                        .take(8)
+                        .map((stat) => ActionChip(
+                              label: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text('#${stat.hashtag}',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis),
+                                    Text(
+                                        '${stat.places} מקומות · ${stat.positive} חיוביים · ${stat.negative} שליליים',
+                                        maxLines: 2),
+                                  ]),
+                              labelStyle: const TextStyle(
+                                  color: AppColors.champagne, fontSize: 12),
+                              onPressed: () => HashtagSearchScreen.open(
+                                  context, stat.hashtag),
+                            ))
+                        .toList(),
+                  ),
+                ],
                 _sectionTitle('קרוב אליך'),
                 if (nearby.isEmpty)
                   _emptySection(

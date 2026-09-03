@@ -8,7 +8,8 @@ import '../models/content_filter.dart';
 import '../theme/colors.dart';
 import '../theme/app_icons.dart';
 import '../utils/permissions.dart';
-import '../widgets/admin_notification_button.dart';
+import '../widgets/admin_pending_status.dart';
+import '../widgets/visit_notification_button.dart';
 
 import 'places_screen.dart';
 import 'map_screen.dart';
@@ -19,6 +20,7 @@ import 'recommendations_screen.dart';
 import 'places_on_route_screen.dart';
 import 'settings_screen.dart';
 import 'guided_search_screen.dart';
+import 'free_search_screen.dart';
 
 class PlaceCategory {
   final String id;
@@ -564,18 +566,35 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
   }
 
   Widget _buildHeader({required bool mobile}) {
-    return Row(
+    return AdminPendingStatus(
+      canManageContent: Permissions.isAdmin && Permissions.canManageContent,
+      canManageSupport: Permissions.isAdmin && Permissions.canManageSupport,
+      builder: (context, pending, refresh) => _buildHeaderContent(
+          mobile: mobile,
+          pendingAdminItems: pending,
+          refreshAdminStatus: refresh),
+    );
+  }
+
+  Widget _buildHeaderContent(
+      {required bool mobile,
+      required bool pendingAdminItems,
+      required VoidCallback refreshAdminStatus}) {
+    final signedIn = Supabase.instance.client.auth.currentUser != null &&
+        !(Supabase.instance.client.auth.currentUser?.isAnonymous ?? true);
+    final actions = Row(
       textDirection: TextDirection.rtl,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (Permissions.isAdmin) ...[
-          const AdminNotificationButton(),
+        if (!mobile && signedIn) ...[
+          VisitNotificationButton(mobile: mobile),
           SizedBox(width: mobile ? 7 : 10),
         ],
         PopupMenuButton<String>(
           color: AppColors.card,
           surfaceTintColor: Colors.transparent,
-          tooltip: '',
+          tooltip: pendingAdminItems ? 'תפריט — פניות ממתינות לטיפול' : 'תפריט',
+          onOpened: refreshAdminStatus,
           offset: const Offset(0, 64),
           padding: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
@@ -586,9 +605,14 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
           ),
           child: _labeledHeaderAction(
             label: 'תפריט',
-            child: _headerActionIcon(
-              Icons.menu_rounded,
-              mobile: mobile,
+            child: Badge(
+              key: const ValueKey('admin-menu-dot'),
+              isLabelVisible: pendingAdminItems,
+              backgroundColor: Colors.red,
+              child: _headerActionIcon(
+                Icons.menu_rounded,
+                mobile: mobile,
+              ),
             ),
           ),
           onSelected: (value) {
@@ -614,11 +638,15 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                 _openProfile();
                 break;
               case 'admin':
-                Navigator.of(context).push(
+                Navigator.of(context)
+                    .push(
                   MaterialPageRoute(
                     builder: (_) => const AdminCenterScreen(),
                   ),
-                );
+                )
+                    .then((_) {
+                  refreshAdminStatus();
+                });
                 break;
               case 'settings':
                 Navigator.of(context).push(
@@ -726,13 +754,18 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
             ),
             if (Permissions.isAdmin) ...[
               const PopupMenuDivider(),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'admin',
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.admin_panel_settings_outlined,
-                      color: AppColors.champagne,
+                    Badge(
+                      key: const ValueKey('admin-entry-dot'),
+                      isLabelVisible: pendingAdminItems,
+                      backgroundColor: Colors.red,
+                      child: const Icon(
+                        Icons.admin_panel_settings_outlined,
+                        color: AppColors.champagne,
+                      ),
                     ),
                     SizedBox(width: 10),
                     Text(
@@ -791,21 +824,24 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
         ),
         SizedBox(width: mobile ? 12 : 18),
         Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 10),
-            child: Text(
-              'שלום $_greetingName',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontSize: mobile ? 16 : 18,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ),
+          child: mobile
+              ? const SizedBox.shrink()
+              : Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Text(
+                    'שלום $_greetingName',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: mobile ? 16 : 18,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ),
         ),
+        _freeSearchButton(mobile: mobile),
         if (Supabase.instance.client.auth.currentUser != null &&
             !(Supabase.instance.client.auth.currentUser?.isAnonymous ??
                 true)) ...[
@@ -827,7 +863,45 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
         ],
       ],
     );
+    if (!mobile) return actions;
+    return Column(
+      children: [
+        Row(
+          textDirection: TextDirection.rtl,
+          children: [
+            if (signedIn) ...[
+              const VisitNotificationButton(),
+              const SizedBox(width: 12),
+            ],
+            Expanded(
+                child: Text('שלום $_greetingName',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400))),
+          ],
+        ),
+        const SizedBox(height: 12),
+        actions,
+      ],
+    );
   }
+
+  Widget _freeSearchButton({required bool mobile}) => Tooltip(
+        message: 'חיפוש חופשי',
+        child: InkWell(
+          borderRadius: BorderRadius.circular(13),
+          onTap: () => Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => const FreeSearchScreen(),
+          )),
+          child: _labeledHeaderAction(
+              label: 'חיפוש',
+              child: _headerActionIcon(Icons.search_rounded, mobile: mobile)),
+        ),
+      );
 
   Widget _labeledHeaderAction({
     required String label,
@@ -838,13 +912,17 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
       children: [
         child,
         const SizedBox(height: 4),
-        Text(
-          label,
-          maxLines: 1,
-          style: const TextStyle(
-            color: AppColors.textMuted,
-            fontSize: 9.5,
-            fontWeight: FontWeight.w400,
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 72),
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.textMuted,
+              fontSize: 9.5,
+              fontWeight: FontWeight.w400,
+            ),
           ),
         ),
       ],

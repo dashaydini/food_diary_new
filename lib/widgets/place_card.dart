@@ -56,7 +56,13 @@ class PlaceCard extends StatelessWidget {
     final description = place['description']?.toString() ?? '';
     final recommendationReason =
         place['recommendation_reason']?.toString().trim() ?? '';
+    final hashtagReason =
+        place['hashtag_recommendation_reason']?.toString() ?? '';
     final imageUrl = extractImageUrl(place);
+    final matchedHashtags = (place['matched_hashtags'] as Iterable?)
+            ?.whereType<String>()
+            .toList() ??
+        <String>[];
 
     final ratingValue = place['weighted_rating'] ?? place['rating'];
     final rating =
@@ -179,6 +185,27 @@ class PlaceCard extends StatelessWidget {
                                         height: 1.35,
                                         fontWeight: FontWeight.w500,
                                       ),
+                                    ),
+                                  ],
+                                  if (matchedHashtags.isNotEmpty) ...[
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'מופיע בחוויה: ${matchedHashtags.map((tag) => '#$tag').join(' · ')}',
+                                      textAlign: TextAlign.right,
+                                      style:
+                                          theme.textTheme.bodySmall?.copyWith(
+                                        color: AppColors.champagne,
+                                      ),
+                                    ),
+                                  ],
+                                  if (hashtagReason.isNotEmpty) ...[
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      hashtagReason,
+                                      textAlign: TextAlign.right,
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                              color: AppColors.champagneSoft),
                                     ),
                                   ],
                                   if (address.isNotEmpty) ...[

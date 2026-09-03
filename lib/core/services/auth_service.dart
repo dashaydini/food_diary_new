@@ -141,7 +141,9 @@ class AuthService {
       throw const AuthException('יש להזין כתובת מייל');
     }
 
-    final redirectTo = kIsWeb ? Uri.base.origin : 'fooddiary://password-reset';
+    final redirectTo = kIsWeb
+        ? '${Uri.base.origin}${Uri.base.path}'
+        : 'fooddiary://password-reset';
 
     await _supabase.auth.resetPasswordForEmail(
       trimmedEmail,
@@ -175,7 +177,7 @@ class AuthService {
   Future<void> signInWithApple() async {
     await clearLocalGuestMode();
     final redirectTo = kIsWeb
-        ? 'https://dashaydini.github.io/food_diary_new/'
+        ? '${Uri.base.origin}${Uri.base.path}'
         : 'fooddiary://login-callback';
 
     await _supabase.auth.signInWithOAuth(
