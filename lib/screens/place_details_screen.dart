@@ -37,13 +37,56 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
   bool _savingWishlist = false;
   bool _loadingVisits = true;
   String? _visitsError;
+  String? _creatorName;
+  DateTime? _placeCreatedAt;
 
   @override
   void initState() {
     super.initState();
     _loadVisits();
     _loadPreferences();
+    _loadAttribution();
   }
+
+  Future<void> _loadAttribution() async {
+    final placeId = widget.place['id']?.toString();
+    if (placeId == null || placeId.isEmpty) return;
+
+    try {
+      final client = Supabase.instance.client;
+      final place = await client
+          .from('places')
+          .select('user_id, created_at')
+          .eq('id', placeId)
+          .maybeSingle();
+      final creatorId = place?['user_id']?.toString();
+      String? creatorName;
+
+      if (creatorId != null && creatorId.isNotEmpty) {
+        final profile = await client
+            .from('profiles')
+            .select('display_name')
+            .eq('id', creatorId)
+            .maybeSingle();
+        final value = profile?['display_name']?.toString().trim();
+        if (value != null && value.isNotEmpty) creatorName = value;
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _creatorName = creatorId == null ? null : (creatorName ?? 'משתמש');
+        _placeCreatedAt = DateTime.tryParse(
+          place?['created_at']?.toString() ?? '',
+        )?.toLocal();
+      });
+    } catch (_) {
+      // Attribution is secondary and must not block the place screen.
+    }
+  }
+
+  String _formatCreatedAt(DateTime value) =>
+      '${value.day.toString().padLeft(2, '0')}.'
+      '${value.month.toString().padLeft(2, '0')}.${value.year}';
 
   Future<void> _loadPreferences() async {
     final user = Supabase.instance.client.auth.currentUser;
@@ -448,6 +491,21 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                       ],
                     ],
                   ),
+                  if (_creatorName != null || _placeCreatedAt != null) ...[
+                    const SizedBox(height: 7),
+                    Text(
+                      [
+                        if (_creatorName != null) 'נוצר על ידי $_creatorName',
+                        if (_placeCreatedAt != null)
+                          'בתאריך ${_formatCreatedAt(_placeCreatedAt!)}',
+                      ].join(' · '),
+                      textAlign: TextAlign.right,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppColors.textMuted,
+                            fontSize: mobile ? 11 : 12,
+                          ),
+                    ),
+                  ],
                   if (canEdit || canDelete) ...[
                     const SizedBox(height: 8),
                     Align(
