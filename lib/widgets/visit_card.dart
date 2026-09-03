@@ -56,16 +56,13 @@ class VisitCard extends StatelessWidget {
 
     final profile = visit['profiles'] as Map<String, dynamic>?;
     final displayName = profile?['display_name'] as String?;
-    final email = profile?['email'] as String?;
     final avatarUrl = profile?['avatar_url']?.toString();
 
     final ownerId = visit['user_id']?.toString();
 
     final author = (displayName?.trim().isNotEmpty ?? false)
         ? displayName!.trim()
-        : (email?.trim().isNotEmpty ?? false)
-            ? email!.trim().split('@').first
-            : 'משתמש';
+        : 'משתמש';
 
     final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 

@@ -72,7 +72,7 @@ class _FollowersListScreenState extends State<FollowersListScreen> {
 
       final profiles = await _client
           .from('profiles')
-          .select('id, display_name, email, avatar_url')
+          .select('id, display_name, avatar_url')
           .inFilter('id', ids);
 
       final profileList = List<Map<String, dynamic>>.from(profiles as List);
@@ -125,12 +125,6 @@ class _FollowersListScreenState extends State<FollowersListScreen> {
 
     if (displayName != null && displayName.isNotEmpty) {
       return displayName;
-    }
-
-    final email = user['email']?.toString().trim();
-
-    if (email != null && email.isNotEmpty) {
-      return email.split('@').first;
     }
 
     return 'משתמש';

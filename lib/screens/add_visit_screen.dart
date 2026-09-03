@@ -198,7 +198,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
 
       final profiles = await Supabase.instance.client
           .from('profiles')
-          .select('id, display_name, email, avatar_url')
+          .select('id, display_name, avatar_url')
           .inFilter('id', userIds);
 
       final loaded = <String, Map<String, dynamic>>{};
@@ -280,12 +280,6 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
 
     if (displayName != null && displayName.isNotEmpty) {
       return displayName;
-    }
-
-    final email = profile['email']?.toString().trim();
-
-    if (email != null && email.isNotEmpty) {
-      return email.split('@').first;
     }
 
     return 'משתמש';
@@ -891,13 +885,9 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
       final profile = widget.visit?['profiles'] as Map<String, dynamic>?;
 
       final displayName = profile?['display_name']?.toString();
-      final email = profile?['email']?.toString();
-
       final author = (displayName?.trim().isNotEmpty ?? false)
           ? displayName!.trim()
-          : (email?.trim().isNotEmpty ?? false)
-              ? email!.trim().split('@').first
-              : 'משתמש';
+          : 'משתמש';
 
       final visitDate = DateTime.tryParse(
         widget.visit?['visit_date']?.toString() ?? '',
@@ -1727,13 +1717,9 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
     final profile = widget.visit?['profiles'] as Map<String, dynamic>?;
 
     final displayName = profile?['display_name']?.toString();
-    final email = profile?['email']?.toString();
-
     final author = (displayName?.trim().isNotEmpty ?? false)
         ? displayName!.trim()
-        : (email?.trim().isNotEmpty ?? false)
-            ? email!.trim().split('@').first
-            : 'משתמש';
+        : 'משתמש';
 
     final visitDate = DateTime.tryParse(
       widget.visit?['visit_date']?.toString() ?? '',
@@ -2216,13 +2202,13 @@ class _ParticipantPickerSheetState extends State<_ParticipantPickerSheet> {
       if (query.isEmpty) {
         rows = await Supabase.instance.client
             .from('profiles')
-            .select('id, display_name, email, avatar_url')
+            .select('id, display_name, avatar_url')
             .order('display_name')
             .limit(40);
       } else {
         rows = await Supabase.instance.client
             .from('profiles')
-            .select('id, display_name, email, avatar_url')
+            .select('id, display_name, avatar_url')
             .ilike('display_name', '%$query%')
             .order('display_name')
             .limit(40);
@@ -2257,12 +2243,6 @@ class _ParticipantPickerSheetState extends State<_ParticipantPickerSheet> {
 
     if (displayName != null && displayName.isNotEmpty) {
       return displayName;
-    }
-
-    final email = profile['email']?.toString().trim();
-
-    if (email != null && email.isNotEmpty) {
-      return email.split('@').first;
     }
 
     return 'משתמש';

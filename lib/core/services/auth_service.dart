@@ -106,23 +106,6 @@ class AuthService {
     });
   }
 
-  Future<bool> emailExists(String email) async {
-    try {
-      final result = await _supabase.rpc(
-        'check_email_exists',
-        params: {
-          'email_to_check': email.trim(),
-        },
-      );
-
-      debugPrint('CHECK EMAIL EXISTS: $result');
-      return result == true;
-    } catch (e) {
-      debugPrint('CHECK EMAIL EXISTS ERROR: $e');
-      rethrow;
-    }
-  }
-
   Future<void> signInWithEmail({
     required String email,
     required String password,

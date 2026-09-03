@@ -624,7 +624,7 @@ class _AdminReportDetailsScreenState extends State<AdminReportDetailsScreen> {
             'food_price, total_price, price_level, drink, drink_price, image_url, food_rating, '
             'drink_rating, atmosphere_rating, service_rating, '
             'cleanliness_rating, variety_rating, value_rating, created_at, '
-            'profiles(display_name, email, avatar_url), '
+            'profiles(display_name, avatar_url), '
             'visit_tag_links(tag_id, visit_tags(name, icon)), '
             'visit_images(id, image_url, sort_order)',
           )

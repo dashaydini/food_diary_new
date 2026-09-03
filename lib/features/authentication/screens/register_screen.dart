@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/services/auth_service.dart';
+import '../../../core/services/registration_service.dart';
 import '../../../theme/colors.dart';
 import '../widgets/auth_brand_hero.dart';
 import '../widgets/auth_brand_divider.dart';
@@ -64,13 +65,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     try {
-      await Supabase.instance.client.rpc(
-        'apply_referral_code',
-        params: {'p_referral_code': trimmed},
-      );
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('pending_referral_code');
+      await _saveReferralCodeForLater(trimmed);
+      await RegistrationService(Supabase.instance.client)
+          .applyPendingReferral();
     } catch (_) {
       // Referral code must never block registration.
     }

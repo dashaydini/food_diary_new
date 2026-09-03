@@ -440,7 +440,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
         final profileResults = await Future.wait([
           _client
               .from('profiles')
-              .select('id, display_name, email, avatar_url')
+              .select('id, display_name, avatar_url')
               .inFilter('id', topSimilarUserIds),
           _client
               .from('user_follows')
@@ -745,10 +745,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
         final profile = user.profile;
         final id = profile['id']?.toString() ?? '';
         final displayName = profile['display_name']?.toString().trim();
-        final email = profile['email']?.toString().trim();
-        final name = displayName?.isNotEmpty == true
-            ? displayName!
-            : (email?.split('@').first ?? 'משתמש');
+        final name = displayName?.isNotEmpty == true ? displayName! : 'משתמש';
         final avatarUrl = profile['avatar_url']?.toString().trim();
 
         return SizedBox(

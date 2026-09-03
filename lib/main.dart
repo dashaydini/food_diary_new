@@ -1,11 +1,12 @@
 import 'dart:async';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/services/premium_service.dart';
 import 'core/services/auth_service.dart';
+import 'core/services/registration_service.dart';
+import 'features/authentication/widgets/registration_gate.dart';
 import 'features/authentication/screens/login_screen.dart';
 import 'features/authentication/screens/register_screen.dart';
 import 'features/authentication/screens/reset_password_screen.dart';
@@ -16,6 +17,11 @@ import 'utils/permissions.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Preserve invitation links before OAuth initialization can consume the URL.
+  try {
+    await RegistrationService.captureInvitation(Uri.base);
+  } catch (_) {}
 
   await Supabase.initialize(
     url: 'https://qvqrretduhivnxrquzte.supabase.co',
@@ -105,15 +111,8 @@ class _AuthGateState extends State<AuthGate> {
       }
 
       _updateSession(state.session);
-
-      // לאחר התחברות OAuth, נסה להחיל קוד הזמנה שנשמר לפני ההפניה.
-      if (state.session != null &&
-          !state.session!.user.isAnonymous &&
-          (state.event == AuthChangeEvent.signedIn ||
-              state.event == AuthChangeEvent.tokenRefreshed)) {
-        _applyPendingReferralCode();
-      }
     });
+    _updateSession(_session);
   }
 
   Future<void> _handleWebAuthCallback() async {
@@ -145,55 +144,9 @@ class _AuthGateState extends State<AuthGate> {
 
   Future<void> _handleReferralLink() async {
     try {
-      final uri = Uri.base;
-
-      String? code = uri.queryParameters['ref'] ??
-          uri.queryParameters['referral'] ??
-          uri.queryParameters['code'];
-
-      // Also support custom app links such as:
-      // fooddiary://invite?code=ABC123
-      if ((code == null || code.trim().isEmpty) && uri.scheme == 'fooddiary') {
-        code = uri.queryParameters['code'] ??
-            uri.queryParameters['ref'] ??
-            uri.queryParameters['referral'];
-      }
-
-      if (code == null || code.trim().isEmpty) return;
-
-      final trimmed = code.trim();
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('pending_referral_code', trimmed);
-
-      debugPrint('REFERRAL LINK SAVED: $trimmed');
+      await RegistrationService.captureInvitation(Uri.base);
     } catch (e) {
       debugPrint('REFERRAL LINK ERROR: $e');
-    }
-  }
-
-  Future<void> _applyPendingReferralCode() async {
-    final user = Supabase.instance.client.auth.currentUser;
-
-    if (user == null || user.isAnonymous) return;
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final code = prefs.getString('pending_referral_code')?.trim();
-
-      if (code == null || code.isEmpty) return;
-
-      final result = await Supabase.instance.client.rpc(
-        'apply_referral_code',
-        params: {'p_referral_code': code},
-      );
-
-      debugPrint('REFERRAL APPLY RESULT: $result');
-
-      // Remove it after a successful RPC call.
-      await prefs.remove('pending_referral_code');
-    } catch (e) {
-      debugPrint('REFERRAL APPLY ERROR: $e');
     }
   }
 
@@ -214,7 +167,6 @@ class _AuthGateState extends State<AuthGate> {
       }
 
       if (session != null && !session.user.isAnonymous) {
-        _applyPendingReferralCode();
         PremiumService.load();
       } else {
         PremiumService.clear();
@@ -330,7 +282,10 @@ class _AuthGateState extends State<AuthGate> {
           );
         }
 
-        return const CategorySelectionScreen();
+        return RegistrationGate(
+          key: ValueKey('registration-${session.user.id}'),
+          child: const CategorySelectionScreen(),
+        );
       },
     );
   }

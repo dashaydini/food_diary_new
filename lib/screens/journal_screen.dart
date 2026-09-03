@@ -47,8 +47,8 @@ class _JournalScreenState extends State<JournalScreen> {
       final rows = await _client
           .from('visits')
           .select(
-            'id, user_id, place_id, created_at, visit_date, notes, journal_note, '
-            'with_whom, favorite_memory, food_rating, drink_rating, '
+            'id, user_id, place_id, created_at, visit_date, notes, '
+            'food_rating, drink_rating, '
             'atmosphere_rating, service_rating, cleanliness_rating, '
             'variety_rating, value_rating, rating, food, food_price, '
             'drink, drink_price, total_price, price_level, image_url, '
@@ -58,11 +58,24 @@ class _JournalScreenState extends State<JournalScreen> {
           .eq('user_id', user.id)
           .order('visit_date', ascending: false)
           .order('created_at', ascending: false);
+      final privateRows = await _client.rpc('get_my_visit_private_details');
+      final privateById = <String, Map<String, dynamic>>{
+        for (final row in privateRows as List)
+          if ((row as Map)['id'] != null)
+            row['id'].toString(): Map<String, dynamic>.from(row),
+      };
+      final mergedRows = <Map<String, dynamic>>[
+        for (final raw in rows as List)
+          {
+            ...Map<String, dynamic>.from(raw as Map),
+            ...?privateById[raw['id']?.toString()],
+          },
+      ];
 
       if (!mounted) return;
 
       setState(() {
-        _visits = List<Map<String, dynamic>>.from(rows);
+        _visits = mergedRows;
         _loading = false;
         _error = null;
       });

@@ -55,7 +55,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
       final results = await Future.wait([
         _client
             .from('profiles')
-            .select('id, display_name, email, avatar_url')
+            .select('id, display_name, avatar_url')
             .eq('id', widget.userId)
             .maybeSingle(),
         _client
@@ -216,12 +216,6 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
 
     if (name != null && name.isNotEmpty) {
       return name;
-    }
-
-    final email = _profile?['email']?.toString().trim();
-
-    if (email != null && email.isNotEmpty) {
-      return email.split('@').first;
     }
 
     return 'משתמש';

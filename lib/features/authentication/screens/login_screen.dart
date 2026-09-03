@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/services/auth_service.dart';
+import '../../../core/services/registration_service.dart';
 import '../../../screens/category_selection_screen.dart';
 import '../../../theme/colors.dart';
 import '../widgets/auth_brand_hero.dart';
@@ -67,32 +67,6 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final emailExists = await _authService.emailExists(email);
-
-      if (!emailExists) {
-        if (!mounted) return;
-
-        setState(() {
-          _loading = false;
-          _error = 'משתמש לא רשום';
-          _showRegisterButton = true;
-        });
-        return;
-      }
-    } catch (e) {
-      if (!mounted) return;
-
-      debugPrint('LOGIN EMAIL CHECK ERROR: $e');
-
-      setState(() {
-        _loading = false;
-        _error = 'לא ניתן לבדוק את המשתמש כרגע';
-        _showRegisterButton = false;
-      });
-      return;
-    }
-
-    try {
       await _authService.signInWithEmail(
         email: email,
         password: password,
@@ -116,25 +90,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _applyPendingReferralCode() async {
-    final prefs = await SharedPreferences.getInstance();
-    final code = prefs.getString('pending_referral_code')?.trim();
-
-    if (code == null || code.isEmpty) return;
-
-    try {
-      final result = await Supabase.instance.client.rpc(
-        'apply_referral_code',
-        params: {'p_referral_code': code},
-      );
-
-      // Whether valid or already used, the pending code should not
-      // be attempted again on every login.
-      if (result is bool) {
-        await prefs.remove('pending_referral_code');
-      }
-    } catch (_) {
-      // Referral handling must never block login.
-    }
+    await RegistrationService(Supabase.instance.client).applyPendingReferral();
   }
 
   Future<void> _loginWithGoogle() async {

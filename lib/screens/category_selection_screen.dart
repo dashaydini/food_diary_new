@@ -10,6 +10,8 @@ import '../theme/app_icons.dart';
 import '../utils/permissions.dart';
 import '../widgets/admin_pending_status.dart';
 import '../widgets/visit_notification_button.dart';
+import '../features/authentication/screens/register_screen.dart';
+import '../main.dart' show AuthGate;
 
 import 'places_screen.dart';
 import 'map_screen.dart';
@@ -490,6 +492,40 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
     final user = Supabase.instance.client.auth.currentUser;
 
     if (user == null || user.isAnonymous) {
+      final register = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            title: const Text('נדרשת הרשמה'),
+            content: const Text(
+                'כדי להשתמש ביומן האישי ולשמור את החוויות שלך, צריך להירשם לאפליקציה.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('לא עכשיו'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('להרשמה'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (register != true || !mounted) return;
+      await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => RegisterScreen(
+          onAuthSuccess: () {
+            if (!mounted) return;
+            // Use the regular auth/completion flow, not a direct journal route.
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const AuthGate()),
+              (route) => false,
+            );
+          },
+        ),
+      ));
       return;
     }
 
