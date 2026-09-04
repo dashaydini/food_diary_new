@@ -5,11 +5,18 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme/colors.dart';
 import '../widgets/home_button.dart';
 import '../widgets/navigation_app_picker.dart';
+import '../features/authentication/screens/login_screen.dart';
+import '../main.dart' show AuthGate;
 import 'place_details_screen.dart';
 
-class MyCouponsScreen extends StatelessWidget {
+class MyCouponsScreen extends StatefulWidget {
   const MyCouponsScreen({super.key});
 
+  @override
+  State<MyCouponsScreen> createState() => _MyCouponsScreenState();
+}
+
+class _MyCouponsScreenState extends State<MyCouponsScreen> {
   static const _coupon = _Coupon(
     title: 'קפה לבחירה במתנה',
     subtitle: 'בקניית מארז לראש השנה',
@@ -23,6 +30,65 @@ class MyCouponsScreen extends StatelessWidget {
     placeId: 'ca43cd9b-a450-47fd-8a7d-b51d0dd174b4',
     imageAsset: 'assets/coupons/rosh_hashanah_gift_basket.jpeg',
   );
+
+  bool get _isGuest {
+    final user = Supabase.instance.client.auth.currentUser;
+    return user == null || user.isAnonymous;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isGuest) {
+      Future<void>.delayed(const Duration(seconds: 1), _showLoginRequired);
+    }
+  }
+
+  Future<void> _showLoginRequired() async {
+    if (!mounted || !_isGuest) return;
+    final login = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          icon: const Icon(Icons.lock_outline_rounded),
+          title: const Text('יש להתחבר כדי להציג קופונים'),
+          content: const Text(
+            'הקופונים האישיים זמינים למשתמשים רשומים. אפשר להתחבר לחשבון קיים או להירשם.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('לא עכשיו'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('לכניסה ולהרשמה'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (login != true) {
+      Navigator.of(context).pop();
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => LoginScreen(
+          onAuthSuccess: () {
+            if (!mounted) return;
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => const AuthGate()),
+              (route) => false,
+            );
+          },
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,14 +105,18 @@ class MyCouponsScreen extends StatelessWidget {
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 720),
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(18, 12, 18, 30),
-                children: [
-                  const _PageIntro(),
-                  const SizedBox(height: 20),
-                  _CouponCard(coupon: _coupon),
-                ],
-              ),
+              child: _isGuest
+                  ? const Center(
+                      child: CircularProgressIndicator(strokeWidth: 1.5),
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.fromLTRB(18, 12, 18, 30),
+                      children: [
+                        const _PageIntro(),
+                        const SizedBox(height: 20),
+                        _CouponCard(coupon: _coupon),
+                      ],
+                    ),
             ),
           ),
         ),
@@ -74,7 +144,7 @@ class _PageIntro extends StatelessWidget {
             ),
           ),
           child: const Icon(
-            Icons.confirmation_number_outlined,
+            Icons.card_giftcard_rounded,
             color: AppColors.champagne,
           ),
         ),

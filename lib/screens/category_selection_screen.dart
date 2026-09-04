@@ -736,7 +736,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
               value: 'coupons',
               child: Row(
                 children: [
-                  Icon(Icons.confirmation_number_outlined),
+                  Icon(Icons.card_giftcard_rounded),
                   SizedBox(width: 10),
                   Text('הקופונים שלי'),
                 ],
