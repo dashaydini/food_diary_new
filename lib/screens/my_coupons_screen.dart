@@ -112,218 +112,87 @@ class _CouponCard extends StatelessWidget {
 
   const _CouponCard({required this.coupon});
 
-  Future<void> _openNavigation(BuildContext context) =>
-      NavigationAppPicker.show(
-        context,
-        coupon.navigationPlace,
-        title: 'ניווט אל ${coupon.businessName}',
-      );
-
-  Future<void> _openBusiness(BuildContext context) async {
-    try {
-      final place = await Supabase.instance.client
-          .from('places')
-          .select()
-          .eq('id', coupon.placeId)
-          .single();
-      if (!context.mounted) return;
-      await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => PlaceDetailsScreen(place: place)),
-      );
-    } catch (_) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('לא ניתן לפתוח כרגע את כרטיס העסק')),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(22),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          border: Border.all(color: AppColors.cardBorder),
-          borderRadius: BorderRadius.circular(22),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Stack(
-              children: [
-                AspectRatio(
-                  aspectRatio: 3.2,
-                  child: Image.asset(
-                    coupon.imageAsset,
-                    fit: BoxFit.cover,
-                    alignment: const Alignment(0, 0.28),
-                  ),
-                ),
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          AppColors.background.withValues(alpha: 0.78),
-                        ],
-                        stops: const [0.5, 1],
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 14,
-                  right: 14,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: AppColors.background.withValues(alpha: 0.82),
-                      borderRadius: BorderRadius.circular(99),
-                      border: Border.all(
-                        color: AppColors.champagne.withValues(alpha: 0.55),
-                      ),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.all_inclusive,
-                            size: 17, color: AppColors.champagne),
-                        SizedBox(width: 6),
-                        Text(
-                          'ללא הגבלת מימושים',
-                          style: TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.storefront_outlined,
-                        size: 20,
-                        color: AppColors.champagne,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          coupon.businessName,
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    coupon.title,
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    coupon.subtitle,
-                    style: const TextStyle(
-                      color: AppColors.champagne,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _InfoRow(
-                    icon: Icons.event_available_outlined,
-                    text: 'בתוקף עד ${coupon.validUntil}',
-                  ),
-                  const SizedBox(height: 8),
-                  const _InfoRow(
-                    icon: Icons.storefront_outlined,
-                    text: 'למימוש בהצגת הקופון בבית העסק',
-                  ),
-                  const SizedBox(height: 8),
-                  _InfoRow(
-                    icon: Icons.location_on_outlined,
-                    text: coupon.address,
-                  ),
-                  const SizedBox(height: 20),
-                  FilledButton.icon(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              _CouponPresentationScreen(coupon: coupon),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.qr_code_2_rounded),
-                    label: const Text('הצגת הקופון למימוש'),
-                  ),
-                  const SizedBox(height: 10),
-                  OutlinedButton.icon(
-                    onPressed: () => _openNavigation(context),
-                    icon: const Icon(Icons.navigation_outlined),
-                    label: const Text('ניווט לבית העסק'),
-                  ),
-                  const SizedBox(height: 10),
-                  TextButton.icon(
-                    onPressed: () => _openBusiness(context),
-                    icon: const Icon(Icons.open_in_new_rounded),
-                    label: const Text('לכרטיס העסק באפליקציה'),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+  Future<void> _openCoupon(BuildContext context) async {
+    await _CouponAnalytics.record(coupon.code, 'coupon_open');
+    await _CouponAnalytics.record(coupon.code, 'code_view');
+    if (!context.mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _CouponPresentationScreen(coupon: coupon),
       ),
     );
   }
-}
-
-class _InfoRow extends StatelessWidget {
-  final IconData icon;
-  final String text;
-
-  const _InfoRow({required this.icon, required this.text});
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 19, color: AppColors.champagneSoft),
-        const SizedBox(width: 9),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 13,
-            ),
+    return Material(
+      color: AppColors.card,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: AppColors.cardBorder),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => _openCoupon(context),
+        child: SizedBox(
+          height: 170,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 15, 16, 13),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(coupon.businessName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              color: AppColors.champagne,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600)),
+                      const SizedBox(height: 7),
+                      Text(coupon.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              height: 1.15)),
+                      const SizedBox(height: 6),
+                      Text(coupon.subtitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              color: AppColors.textSecondary, fontSize: 13)),
+                      const Spacer(),
+                      Text('בתוקף עד ${coupon.validUntil}',
+                          style: const TextStyle(
+                              color: AppColors.textMuted, fontSize: 12)),
+                      const SizedBox(height: 5),
+                      const Row(children: [
+                        Icon(Icons.touch_app_outlined,
+                            size: 16, color: AppColors.champagne),
+                        SizedBox(width: 5),
+                        Text('לפתיחת הקופון',
+                            style: TextStyle(
+                                color: AppColors.champagne, fontSize: 12.5)),
+                      ]),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 138,
+                child: Image.asset(coupon.imageAsset,
+                    fit: BoxFit.cover, alignment: const Alignment(0, 0.3)),
+              ),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 }
@@ -571,4 +440,21 @@ class _Coupon {
         'latitude': latitude,
         'longitude': longitude,
       };
+}
+
+class _CouponAnalytics {
+  static Future<void> record(String couponId, String eventType) async {
+    final client = Supabase.instance.client;
+    final user = client.auth.currentUser;
+    if (user == null || user.isAnonymous) return;
+    try {
+      await client.from('coupon_events').insert({
+        'coupon_id': couponId,
+        'event_type': eventType,
+        'user_id': user.id,
+      });
+    } catch (_) {
+      // Analytics must never block access to a coupon.
+    }
+  }
 }

@@ -9,6 +9,7 @@ import 'admin_categories_screen.dart';
 import 'admin_notifications_screen.dart';
 import 'admin_statistics_screen.dart';
 import 'admin_users_screen.dart';
+import 'admin_coupon_statistics_screen.dart';
 
 class AdminCenterScreen extends StatefulWidget {
   const AdminCenterScreen({super.key});
@@ -183,6 +184,14 @@ class _AdminCenterScreenState extends State<AdminCenterScreen> {
                             subtitle: 'משתמשים, פעילות, שיתופים ומיקום',
                             value: 'צפייה',
                             onTap: () => _open(const AdminStatisticsScreen()),
+                          ),
+                          _AdminCard(
+                            icon: Icons.confirmation_number_outlined,
+                            title: 'סטטיסטיקת קופונים',
+                            subtitle: 'כניסות לקופון והצגות קוד',
+                            value: 'צפייה',
+                            onTap: () =>
+                                _open(const AdminCouponStatisticsScreen()),
                           ),
                           const _AdminCard(
                             icon: Icons.campaign_outlined,
