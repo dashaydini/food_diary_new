@@ -10,6 +10,7 @@ import 'admin_notifications_screen.dart';
 import 'admin_statistics_screen.dart';
 import 'admin_users_screen.dart';
 import 'admin_coupon_statistics_screen.dart';
+import 'admin_coupons_screen.dart';
 
 class AdminCenterScreen extends StatefulWidget {
   const AdminCenterScreen({super.key});
@@ -151,6 +152,14 @@ class _AdminCenterScreenState extends State<AdminCenterScreen> {
                         crossAxisSpacing: 14,
                         childAspectRatio: desktop ? 2.35 : 2.75,
                         children: [
+                          _AdminCard(
+                            icon: Icons.card_giftcard_rounded,
+                            title: 'ניהול קופונים',
+                            subtitle: 'יצירה, עריכה, פרסום ושליחת פוש',
+                            value: 'ניהול',
+                            onTap: () => _open(const AdminCouponsScreen()),
+                            enabled: Permissions.canManageContent,
+                          ),
                           _AdminCard(
                             icon: Icons.flag_outlined,
                             title: 'דיווחים ופניות',

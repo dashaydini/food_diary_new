@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/colors.dart';
 import '../utils/app_preferences.dart';
+import '../core/services/push_notification_service.dart';
 import '../widgets/home_button.dart';
 import 'legal_screens.dart';
 import 'support_requests_screen.dart';
@@ -20,6 +21,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   bool _loading = true;
   bool _routeNotificationsEnabled = false;
+  bool _pushSupported = false;
+  bool _pushEnabled = false;
+  bool _changingPush = false;
   double _maximumRouteDetourKm = AppPreferences.defaultMaximumRouteDetourKm;
   Set<String> _selectedCategoryIds = {};
 
@@ -55,7 +59,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await Future.wait([
       _loadCategories(),
       _refreshLocationStatus(),
+      _loadPushStatus(),
     ]);
+  }
+
+  Future<void> _loadPushStatus() async {
+    try {
+      final supported = await PushNotificationService.isSupported();
+      final enabled = supported && await PushNotificationService.isEnabled();
+      if (mounted) {
+        setState(() {
+          _pushSupported = supported;
+          _pushEnabled = enabled;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _togglePush(bool enabled) async {
+    setState(() => _changingPush = true);
+    try {
+      if (enabled) {
+        await PushNotificationService.enable();
+      } else {
+        await PushNotificationService.disable();
+      }
+      if (mounted) setState(() => _pushEnabled = enabled);
+      _showMessage(
+          enabled ? 'התראות על קופונים חדשים הופעלו' : 'התראות הפוש כובו');
+    } catch (_) {
+      _showMessage(
+          'לא ניתן להפעיל התראות. באייפון יש לפתוח את האפליקציה ממסך הבית.');
+    } finally {
+      if (mounted) setState(() => _changingPush = false);
+    }
   }
 
   Future<void> _loadCategories() async {
@@ -195,21 +232,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       _section(
                         title: 'התראות',
-                        child: SwitchListTile.adaptive(
-                          contentPadding: EdgeInsets.zero,
-                          value: _routeNotificationsEnabled,
-                          title: const Text('התראות בדרך'),
-                          subtitle: const Text(
-                            'התראה על מקום מומלץ בהמשך המסלול. כבוי כברירת מחדל.',
-                          ),
-                          onChanged: (enabled) async {
-                            setState(
-                              () => _routeNotificationsEnabled = enabled,
-                            );
-                            await AppPreferences.setRouteNotificationsEnabled(
-                              enabled,
-                            );
-                          },
+                        child: Column(
+                          children: [
+                            SwitchListTile.adaptive(
+                              contentPadding: EdgeInsets.zero,
+                              value: _pushEnabled,
+                              secondary: const Icon(
+                                  Icons.notifications_active_outlined),
+                              title: const Text('קופונים ועדכונים חדשים'),
+                              subtitle: Text(_pushSupported
+                                  ? 'קבלת התראה גם כשהאפליקציה סגורה'
+                                  : 'באייפון: יש להוסיף את האפליקציה למסך הבית תחילה'),
+                              onChanged: !_pushSupported || _changingPush
+                                  ? null
+                                  : _togglePush,
+                            ),
+                            const Divider(),
+                            SwitchListTile.adaptive(
+                              contentPadding: EdgeInsets.zero,
+                              value: _routeNotificationsEnabled,
+                              title: const Text('התראות בדרך'),
+                              subtitle: const Text(
+                                  'התראה על מקום מומלץ בהמשך המסלול.'),
+                              onChanged: (enabled) async {
+                                setState(
+                                    () => _routeNotificationsEnabled = enabled);
+                                await AppPreferences
+                                    .setRouteNotificationsEnabled(enabled);
+                              },
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 14),

@@ -8,7 +8,10 @@
 
   if ('serviceWorker' in navigator) {
     const registrations = await navigator.serviceWorker.getRegistrations();
-    await Promise.all(registrations.map((registration) => registration.unregister()));
+    await Promise.all(registrations
+      .filter((registration) =>
+        registration.active?.scriptURL.endsWith('/flutter_service_worker.js'))
+      .map((registration) => registration.unregister()));
   }
 
   if ('caches' in window) {

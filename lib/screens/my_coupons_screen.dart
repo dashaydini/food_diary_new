@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/colors.dart';
+import '../core/models/coupon.dart';
+import '../core/services/coupon_service.dart';
 import '../widgets/home_button.dart';
 import '../widgets/navigation_app_picker.dart';
 import '../features/authentication/screens/login_screen.dart';
@@ -17,19 +19,8 @@ class MyCouponsScreen extends StatefulWidget {
 }
 
 class _MyCouponsScreenState extends State<MyCouponsScreen> {
-  static const _coupon = _Coupon(
-    title: 'קפה לבחירה במתנה',
-    subtitle: 'בקניית מארז לראש השנה',
-    description: 'על כל קניית מארז לחג, קפה לבחירה במתנה.',
-    code: 'BTW-CAFE-1109',
-    validUntil: '11.09.2026',
-    businessName: 'פטפוט במוזיאון',
-    address: 'העצמאות 60, העיר העתיקה, באר שבע',
-    latitude: 31.2410286761093,
-    longitude: 34.7888643763947,
-    placeId: 'ca43cd9b-a450-47fd-8a7d-b51d0dd174b4',
-    imageAsset: 'assets/coupons/rosh_hashanah_gift_basket.jpeg',
-  );
+  bool _loading = true;
+  List<Coupon> _coupons = [];
 
   bool get _isGuest {
     final user = Supabase.instance.client.auth.currentUser;
@@ -41,6 +32,23 @@ class _MyCouponsScreenState extends State<MyCouponsScreen> {
     super.initState();
     if (_isGuest) {
       Future<void>.delayed(const Duration(seconds: 1), _showLoginRequired);
+    } else {
+      _loadCoupons();
+    }
+  }
+
+  Future<void> _loadCoupons() async {
+    try {
+      final coupons = await CouponService.list();
+      if (mounted) setState(() => _coupons = coupons);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('לא ניתן לטעון את הקופונים')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -105,7 +113,7 @@ class _MyCouponsScreenState extends State<MyCouponsScreen> {
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 720),
-              child: _isGuest
+              child: _isGuest || _loading
                   ? const Center(
                       child: CircularProgressIndicator(strokeWidth: 1.5),
                     )
@@ -114,7 +122,16 @@ class _MyCouponsScreenState extends State<MyCouponsScreen> {
                       children: [
                         const _PageIntro(),
                         const SizedBox(height: 20),
-                        _CouponCard(coupon: _coupon),
+                        if (_coupons.isEmpty)
+                          const Padding(
+                              padding: EdgeInsets.all(30),
+                              child: Text('אין כרגע קופונים פעילים',
+                                  textAlign: TextAlign.center))
+                        else
+                          for (final coupon in _coupons) ...[
+                            _CouponCard(coupon: coupon),
+                            const SizedBox(height: 12),
+                          ],
                       ],
                     ),
             ),
@@ -178,13 +195,13 @@ class _PageIntro extends StatelessWidget {
 }
 
 class _CouponCard extends StatelessWidget {
-  final _Coupon coupon;
+  final Coupon coupon;
 
   const _CouponCard({required this.coupon});
 
   Future<void> _openCoupon(BuildContext context) async {
-    await _CouponAnalytics.record(coupon.code, 'coupon_open');
-    await _CouponAnalytics.record(coupon.code, 'code_view');
+    await _CouponAnalytics.record(coupon.id, 'coupon_open');
+    await _CouponAnalytics.record(coupon.id, 'code_view');
     if (!context.mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -238,7 +255,7 @@ class _CouponCard extends StatelessWidget {
                           style: const TextStyle(
                               color: AppColors.textSecondary, fontSize: 13)),
                       const Spacer(),
-                      Text('בתוקף עד ${coupon.validUntil}',
+                      Text('בתוקף עד ${coupon.validUntilLabel}',
                           style: const TextStyle(
                               color: AppColors.textMuted, fontSize: 12)),
                       const SizedBox(height: 5),
@@ -256,8 +273,7 @@ class _CouponCard extends StatelessWidget {
               ),
               SizedBox(
                 width: 138,
-                child: Image.asset(coupon.imageAsset,
-                    fit: BoxFit.cover, alignment: const Alignment(0, 0.3)),
+                child: _couponImage(coupon.imageUrl),
               ),
             ],
           ),
@@ -268,7 +284,7 @@ class _CouponCard extends StatelessWidget {
 }
 
 class _CouponPresentationScreen extends StatelessWidget {
-  final _Coupon coupon;
+  final Coupon coupon;
 
   const _CouponPresentationScreen({required this.coupon});
 
@@ -284,7 +300,7 @@ class _CouponPresentationScreen extends StatelessWidget {
       final place = await Supabase.instance.client
           .from('places')
           .select()
-          .eq('id', coupon.placeId)
+          .eq('id', coupon.placeId!)
           .single();
       if (!context.mounted) return;
       await Navigator.of(context).push(
@@ -329,11 +345,7 @@ class _CouponPresentationScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(22),
                       child: AspectRatio(
                         aspectRatio: 16 / 10,
-                        child: Image.asset(
-                          coupon.imageAsset,
-                          fit: BoxFit.cover,
-                          alignment: const Alignment(0, 0.28),
-                        ),
+                        child: _couponImage(coupon.imageUrl),
                       ),
                     ),
                     const SizedBox(height: 22),
@@ -447,7 +459,7 @@ class _CouponPresentationScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'בתוקף עד ${coupon.validUntil}  •  ללא הגבלת מימושים',
+                      'בתוקף עד ${coupon.validUntilLabel}  •  ${coupon.isUnlimited ? 'ללא הגבלת מימושים' : ''}',
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                         color: AppColors.textMuted,
@@ -455,17 +467,19 @@ class _CouponPresentationScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 22),
-                    OutlinedButton.icon(
-                      onPressed: () => _openNavigation(context),
-                      icon: const Icon(Icons.navigation_outlined),
-                      label: const Text('ניווט לבית העסק'),
-                    ),
+                    if (coupon.latitude != null && coupon.longitude != null)
+                      OutlinedButton.icon(
+                        onPressed: () => _openNavigation(context),
+                        icon: const Icon(Icons.navigation_outlined),
+                        label: const Text('ניווט לבית העסק'),
+                      ),
                     const SizedBox(height: 10),
-                    TextButton.icon(
-                      onPressed: () => _openBusiness(context),
-                      icon: const Icon(Icons.open_in_new_rounded),
-                      label: const Text('לכרטיס העסק באפליקציה'),
-                    ),
+                    if (coupon.placeId != null)
+                      TextButton.icon(
+                        onPressed: () => _openBusiness(context),
+                        icon: const Icon(Icons.open_in_new_rounded),
+                        label: const Text('לכרטיס העסק באפליקציה'),
+                      ),
                   ],
                 ),
               ),
@@ -477,39 +491,19 @@ class _CouponPresentationScreen extends StatelessWidget {
   }
 }
 
-class _Coupon {
-  final String title;
-  final String subtitle;
-  final String description;
-  final String code;
-  final String validUntil;
-  final String businessName;
-  final String address;
-  final double latitude;
-  final double longitude;
-  final String placeId;
-  final String imageAsset;
-
-  const _Coupon({
-    required this.title,
-    required this.subtitle,
-    required this.description,
-    required this.code,
-    required this.validUntil,
-    required this.businessName,
-    required this.address,
-    required this.latitude,
-    required this.longitude,
-    required this.placeId,
-    required this.imageAsset,
-  });
-
-  Map<String, dynamic> get navigationPlace => {
-        'name': businessName,
-        'address': address,
-        'latitude': latitude,
-        'longitude': longitude,
-      };
+Widget _couponImage(String source) {
+  if (source.startsWith('http://') || source.startsWith('https://')) {
+    return Image.network(source,
+        fit: BoxFit.cover,
+        alignment: const Alignment(0, 0.3),
+        errorBuilder: (_, __, ___) =>
+            const Center(child: Icon(Icons.card_giftcard_rounded)));
+  }
+  return Image.asset(source,
+      fit: BoxFit.cover,
+      alignment: const Alignment(0, 0.3),
+      errorBuilder: (_, __, ___) =>
+          const Center(child: Icon(Icons.card_giftcard_rounded)));
 }
 
 class _CouponAnalytics {
