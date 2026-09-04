@@ -205,7 +205,7 @@ class _CouponCard extends StatelessWidget {
     if (!context.mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => _CouponPresentationScreen(coupon: coupon),
+        builder: (_) => CouponPresentationScreen(coupon: coupon),
       ),
     );
   }
@@ -283,10 +283,17 @@ class _CouponCard extends StatelessWidget {
   }
 }
 
-class _CouponPresentationScreen extends StatelessWidget {
+class CouponPresentationScreen extends StatelessWidget {
   final Coupon coupon;
+  final Future<void> Function()? onEdit;
+  final Future<void> Function()? onDelete;
 
-  const _CouponPresentationScreen({required this.coupon});
+  const CouponPresentationScreen({
+    super.key,
+    required this.coupon,
+    this.onEdit,
+    this.onDelete,
+  });
 
   Future<void> _openNavigation(BuildContext context) =>
       NavigationAppPicker.show(
@@ -328,7 +335,21 @@ class _CouponPresentationScreen extends StatelessWidget {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('הצגת קופון'),
-        actions: const [HomeButton()],
+        actions: [
+          if (onEdit != null)
+            IconButton(
+              tooltip: 'עריכת הקופון',
+              onPressed: onEdit,
+              icon: const Icon(Icons.edit_outlined),
+            ),
+          if (onDelete != null)
+            IconButton(
+              tooltip: 'מחיקת הקופון',
+              onPressed: onDelete,
+              icon: const Icon(Icons.delete_outline),
+            ),
+          const HomeButton(),
+        ],
       ),
       body: Directionality(
         textDirection: TextDirection.rtl,

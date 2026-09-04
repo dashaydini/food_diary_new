@@ -31,10 +31,20 @@ class CouponService {
     await _client.from('coupons').delete().eq('id', id);
   }
 
-  static Future<Map<String, dynamic>> publishAndNotify(String id) async {
+  static Future<Map<String, dynamic>> publish(
+    String id, {
+    bool sendPush = false,
+    String? pushTitle,
+    String? pushBody,
+  }) async {
     final response = await _client.functions.invoke(
       'publish-coupon',
-      body: {'coupon_id': id},
+      body: {
+        'coupon_id': id,
+        'send_push': sendPush,
+        if (pushTitle != null) 'push_title': pushTitle,
+        if (pushBody != null) 'push_body': pushBody,
+      },
     );
     return Map<String, dynamic>.from(response.data as Map);
   }

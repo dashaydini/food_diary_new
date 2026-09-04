@@ -24,34 +24,42 @@ Deno.serve(async (req) => {
       throw new Error('Forbidden')
     }
 
-    const { coupon_id } = await req.json()
+    const { coupon_id, send_push = false, push_title, push_body } = await req.json()
     const admin = createClient(url, service)
     const { data: coupon, error: couponError } = await admin.from('coupons').select('*').eq('id', coupon_id).single()
     if (couponError) throw couponError
 
-    const publicKey = Deno.env.get('VAPID_PUBLIC_KEY')!
-    const privateKey = Deno.env.get('VAPID_PRIVATE_KEY')!
-    const subject = Deno.env.get('VAPID_SUBJECT') || 'mailto:notifications@bitetheway.app'
-    webpush.setVapidDetails(subject, publicKey, privateKey)
-
-    const { data: subscriptions, error: subError } = await admin.from('push_subscriptions').select('id,subscription')
-    if (subError) throw subError
-    const payload = JSON.stringify({
-      title: 'קופון חדש ב־BITE THE WAY',
-      body: `${coupon.title} — ${coupon.business_name}`,
-      tag: `coupon-${coupon.id}`,
-      url: '/?open=coupons',
-    })
     let sent = 0
     let failed = 0
-    for (const row of subscriptions ?? []) {
-      try {
-        await webpush.sendNotification(row.subscription, payload)
-        sent++
-      } catch (error) {
-        failed++
-        if (error?.statusCode === 404 || error?.statusCode === 410) {
-          await admin.from('push_subscriptions').delete().eq('id', row.id)
+    if (send_push === true) {
+      const publicKey = Deno.env.get('VAPID_PUBLIC_KEY')!
+      const privateKey = Deno.env.get('VAPID_PRIVATE_KEY')!
+      const subject = Deno.env.get('VAPID_SUBJECT') || 'mailto:notifications@bitetheway.app'
+      webpush.setVapidDetails(subject, publicKey, privateKey)
+
+      const { data: subscriptions, error: subError } = await admin.from('push_subscriptions').select('id,subscription')
+      if (subError) throw subError
+      const title = typeof push_title === 'string' && push_title.trim()
+        ? push_title.trim().slice(0, 80)
+        : 'קופון חדש ב־BITE THE WAY'
+      const body = typeof push_body === 'string' && push_body.trim()
+        ? push_body.trim().slice(0, 180)
+        : `${coupon.title} — ${coupon.business_name}`
+      const payload = JSON.stringify({
+        title,
+        body,
+        tag: `coupon-${coupon.id}`,
+        url: '/?open=coupons',
+      })
+      for (const row of subscriptions ?? []) {
+        try {
+          await webpush.sendNotification(row.subscription, payload)
+          sent++
+        } catch (error) {
+          failed++
+          if (error?.statusCode === 404 || error?.statusCode === 410) {
+            await admin.from('push_subscriptions').delete().eq('id', row.id)
+          }
         }
       }
     }
@@ -59,10 +67,10 @@ Deno.serve(async (req) => {
     await admin.from('coupons').update({
       is_published: true,
       published_at: coupon.published_at || now,
-      notification_sent_at: now,
+      ...(send_push === true ? { notification_sent_at: now } : {}),
       updated_at: now,
     }).eq('id', coupon.id)
-    return Response.json({ ok: true, sent, failed }, { headers: cors })
+    return Response.json({ ok: true, published: true, push_sent: send_push === true, sent, failed }, { headers: cors })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error'
     const status = message === 'Unauthorized' ? 401 : message === 'Forbidden' ? 403 : 400

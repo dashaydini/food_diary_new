@@ -15,6 +15,7 @@ import '../theme/colors.dart';
 import '../utils/permissions.dart';
 import '../widgets/home_button.dart';
 import 'admin_coupon_statistics_screen.dart';
+import 'my_coupons_screen.dart';
 
 class AdminCouponsScreen extends StatefulWidget {
   const AdminCouponsScreen({super.key});
@@ -55,9 +56,117 @@ class _AdminCouponsScreenState extends State<AdminCouponsScreen> {
     await _load();
   }
 
-  Future<void> _publish(Coupon coupon) async {
+  Future<void> _view(Coupon coupon) async {
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => CouponPresentationScreen(
+        coupon: coupon,
+        onEdit: () async {
+          await _edit(coupon);
+          if (mounted) Navigator.of(context).pop();
+        },
+        onDelete: () => _deleteCoupon(coupon, closeDetails: true),
+      ),
+    ));
+    await _load();
+  }
+
+  Future<void> _deleteCoupon(Coupon coupon, {bool closeDetails = false}) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('מחיקת קופון'),
+        content: Text('למחוק לצמית את „${coupon.title}”?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('ביטול'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('מחיקה'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await CouponService.remove(coupon.id);
+    if (!mounted) return;
+    if (closeDetails) Navigator.of(context).pop();
+    await _load();
+  }
+
+  Future<void> _publishOnly(Coupon coupon) async {
     try {
-      final result = await CouponService.publishAndNotify(coupon.id);
+      await CouponService.publish(coupon.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('הקופון פורסם ללא שליחת התראה')),
+      );
+      await _load();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('הפרסום לא הושלם. נסה שוב.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _publishWithPush(Coupon coupon) async {
+    final title = TextEditingController(
+        text: coupon.isPublished
+            ? 'תזכורת לקופון ב־BITE THE WAY'
+            : 'קופון חדש ב־BITE THE WAY');
+    final body =
+        TextEditingController(text: '${coupon.title} — ${coupon.businessName}');
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('תוכן ההתראה'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(
+            controller: title,
+            maxLength: 80,
+            decoration: const InputDecoration(labelText: 'כותרת הפוש'),
+          ),
+          TextField(
+            controller: body,
+            maxLength: 180,
+            minLines: 2,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              labelText: 'מלל הפוש',
+              hintText: 'למשל: יום אחרון למימוש הקופון',
+            ),
+          ),
+        ]),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('ביטול'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            icon: const Icon(Icons.send_rounded),
+            label: const Text('פרסום ושליחה'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true ||
+        title.text.trim().isEmpty ||
+        body.text.trim().isEmpty) {
+      title.dispose();
+      body.dispose();
+      return;
+    }
+    try {
+      final result = await CouponService.publish(
+        coupon.id,
+        sendPush: true,
+        pushTitle: title.text.trim(),
+        pushBody: body.text.trim(),
+      );
       if (!mounted) return;
       final sent = (result['sent'] as num?)?.toInt() ?? 0;
       final failed = (result['failed'] as num?)?.toInt() ?? 0;
@@ -94,7 +203,44 @@ class _AdminCouponsScreenState extends State<AdminCouponsScreen> {
           const SnackBar(content: Text('הפרסום לא הושלם. נסה שוב.')),
         );
       }
+    } finally {
+      title.dispose();
+      body.dispose();
     }
+  }
+
+  Future<void> _showPublishActions(Coupon coupon) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(coupon.title, style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.public_outlined),
+              title: const Text('פרסום בלבד'),
+              subtitle: const Text('הקופון יופיע באפליקציה ללא התראה'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _publishOnly(coupon);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.notifications_active_outlined),
+              title: const Text('פרסום ופוש'),
+              subtitle: const Text('אפשר לערוך את מלל ההתראה לפני השליחה'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _publishWithPush(coupon);
+              },
+            ),
+          ]),
+        ),
+      ),
+    );
   }
 
   @override
@@ -139,7 +285,7 @@ class _AdminCouponsScreenState extends State<AdminCouponsScreen> {
                         title: Text(coupon.title),
                         subtitle: Text(
                             '${coupon.businessName} · ${coupon.validUntil.isBefore(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day)) ? 'פג תוקף — חסום למשתמשים' : coupon.isPublished ? 'פורסם' : 'טיוטה'}'),
-                        onTap: () => _edit(coupon),
+                        onTap: () => _view(coupon),
                         trailing:
                             Row(mainAxisSize: MainAxisSize.min, children: [
                           IconButton(
@@ -149,9 +295,9 @@ class _AdminCouponsScreenState extends State<AdminCouponsScreen> {
                           ),
                           IconButton(
                             tooltip: coupon.isPublished
-                                ? 'שליחת פוש'
-                                : 'פרסום ושליחת פוש',
-                            onPressed: () => _publish(coupon),
+                                ? 'אפשרויות פרסום ופוש'
+                                : 'פרסום הקופון',
+                            onPressed: () => _showPublishActions(coupon),
                             icon: Icon(coupon.isPublished
                                 ? Icons.send_rounded
                                 : Icons.campaign_outlined),
@@ -324,22 +470,7 @@ class _CouponEditorScreenState extends State<_CouponEditorScreen> {
     }
   }
 
-  Future<void> _pickImage() async {
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      builder: (context) => SafeArea(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-        ListTile(
-            leading: const Icon(Icons.camera_alt_outlined),
-            title: const Text('צילום במצלמה'),
-            onTap: () => Navigator.pop(context, ImageSource.camera)),
-        ListTile(
-            leading: const Icon(Icons.photo_library_outlined),
-            title: const Text('בחירה מהגלריה'),
-            onTap: () => Navigator.pop(context, ImageSource.gallery)),
-      ])),
-    );
-    if (source == null) return;
+  Future<void> _pickImage(ImageSource source) async {
     if (source == ImageSource.camera) {
       final image = await _picker.pickImage(
           source: source, imageQuality: 82, maxWidth: 1600, maxHeight: 1600);
@@ -502,10 +633,27 @@ class _CouponEditorScreenState extends State<_CouponEditorScreen> {
                             Text('המיקום נשמר עם הקופון')
                           ])),
                     const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                        onPressed: _pickImage,
-                        icon: const Icon(Icons.add_a_photo_outlined),
-                        label: const Text('הוספת תמונות לגלריה')),
+                    const SizedBox(height: 6),
+                    Text('גלריית הקופון',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    Row(children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _pickImage(ImageSource.gallery),
+                          icon: const Icon(Icons.photo_library_outlined),
+                          label: const Text('הוספת תמונות'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () => _pickImage(ImageSource.camera),
+                          icon: const Icon(Icons.camera_alt_outlined),
+                          label: const Text('צילום תמונה'),
+                        ),
+                      ),
+                    ]),
                     if (_existingImages.isNotEmpty ||
                         _selectedImages.isNotEmpty)
                       Padding(
