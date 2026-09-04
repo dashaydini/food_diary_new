@@ -24,8 +24,9 @@ self.addEventListener('notificationclick', (event) => {
     .then((windows) => {
       for (const windowClient of windows) {
         if ('focus' in windowClient) {
-          windowClient.navigate(target);
-          return windowClient.focus();
+          return windowClient.navigate(target).then((client) =>
+            client && 'focus' in client ? client.focus() : windowClient.focus()
+          );
         }
       }
       return clients.openWindow ? clients.openWindow(target) : undefined;

@@ -60,6 +60,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
   String? _error;
   String _greetingName = 'אורח';
   StreamSubscription<AuthState>? _authSubscription;
+  bool _handledInitialLink = false;
 
   @override
   void initState() {
@@ -68,12 +69,22 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
     _loadPermissions();
     _loadCategories();
     _loadGreeting();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openInitialLink());
 
     _authSubscription =
         Supabase.instance.client.auth.onAuthStateChange.listen((_) {
       _loadPermissions();
       _loadGreeting();
     });
+  }
+
+  Future<void> _openInitialLink() async {
+    if (!mounted || _handledInitialLink) return;
+    _handledInitialLink = true;
+    if (Uri.base.queryParameters['open'] != 'coupons') return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const MyCouponsScreen()),
+    );
   }
 
   Future<void> _loadPermissions() async {
