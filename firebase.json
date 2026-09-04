@@ -79,7 +79,7 @@
           },
           {
             "key": "Service-Worker-Allowed",
-            "value": "/push-notifications/"
+            "value": "/"
           }
         ]
       },

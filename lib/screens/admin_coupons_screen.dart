@@ -49,9 +49,33 @@ class _AdminCouponsScreenState extends State<AdminCouponsScreen> {
     try {
       final result = await CouponService.publishAndNotify(coupon.id);
       if (!mounted) return;
-      final sent = result['sent'] ?? 0;
+      final sent = (result['sent'] as num?)?.toInt() ?? 0;
+      final failed = (result['failed'] as num?)?.toInt() ?? 0;
+      if (sent == 0 && failed == 0) {
+        await showDialog<void>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            icon: const Icon(Icons.notifications_off_outlined),
+            title: const Text('אין עדיין מכשירים רשומים'),
+            content: const Text(
+              'כדי לקבל פוש, יש לפתוח את האפליקציה בטלפון, להיכנס להגדרות ← קבלת התראות, ולאשר את בקשת המערכת.',
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('הבנתי'),
+              ),
+            ],
+          ),
+        );
+        await _load();
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('הקופון פורסם ונשלחו $sent התראות')),
+        SnackBar(
+            content: Text(failed == 0
+                ? 'הקופון פורסם ונשלחו $sent התראות'
+                : 'נשלחו $sent התראות; $failed לא נשלחו')),
       );
       await _load();
     } catch (_) {
