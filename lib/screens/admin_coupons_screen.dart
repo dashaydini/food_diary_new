@@ -99,7 +99,10 @@ class _AdminCouponsScreenState extends State<AdminCouponsScreen> {
                             '${coupon.businessName} · ${coupon.isPublished ? 'פורסם' : 'טיוטה'}'),
                         onTap: () => _edit(coupon),
                         trailing: coupon.isPublished
-                            ? const Icon(Icons.edit_outlined)
+                            ? OutlinedButton.icon(
+                                onPressed: () => _publish(coupon),
+                                icon: const Icon(Icons.send_rounded, size: 17),
+                                label: const Text('שליחת פוש'))
                             : FilledButton(
                                 onPressed: () => _publish(coupon),
                                 child: const Text('פרסום + פוש')),

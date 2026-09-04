@@ -231,7 +231,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     padding: const EdgeInsets.all(18),
                     children: [
                       _section(
-                        title: 'התראות',
+                        title: 'קבלת התראות',
                         child: Column(
                           children: [
                             SwitchListTile.adaptive(
@@ -239,7 +239,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               value: _pushEnabled,
                               secondary: const Icon(
                                   Icons.notifications_active_outlined),
-                              title: const Text('קופונים ועדכונים חדשים'),
+                              title: const Text('התראות על קופונים ועדכונים'),
                               subtitle: Text(_pushSupported
                                   ? 'קבלת התראה גם כשהאפליקציה סגורה'
                                   : 'באייפון: יש להוסיף את האפליקציה למסך הבית תחילה'),
