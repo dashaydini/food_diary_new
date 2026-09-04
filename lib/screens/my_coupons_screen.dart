@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/colors.dart';
+import '../widgets/home_button.dart';
 import '../widgets/navigation_app_picker.dart';
+import 'place_details_screen.dart';
 
 class MyCouponsScreen extends StatelessWidget {
   const MyCouponsScreen({super.key});
@@ -17,6 +20,7 @@ class MyCouponsScreen extends StatelessWidget {
     address: 'העצמאות 60, העיר העתיקה, באר שבע',
     latitude: 31.2410286761093,
     longitude: 34.7888643763947,
+    placeId: 'ca43cd9b-a450-47fd-8a7d-b51d0dd174b4',
     imageAsset: 'assets/coupons/rosh_hashanah_gift_basket.jpeg',
   );
 
@@ -24,7 +28,10 @@ class MyCouponsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('הקופונים שלי')),
+      appBar: AppBar(
+        title: const Text('הקופונים שלי'),
+        actions: const [HomeButton()],
+      ),
       body: Directionality(
         textDirection: TextDirection.rtl,
         child: SafeArea(
@@ -112,6 +119,25 @@ class _CouponCard extends StatelessWidget {
         title: 'ניווט אל ${coupon.businessName}',
       );
 
+  Future<void> _openBusiness(BuildContext context) async {
+    try {
+      final place = await Supabase.instance.client
+          .from('places')
+          .select()
+          .eq('id', coupon.placeId)
+          .single();
+      if (!context.mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => PlaceDetailsScreen(place: place)),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('לא ניתן לפתוח כרגע את כרטיס העסק')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
@@ -128,7 +154,7 @@ class _CouponCard extends StatelessWidget {
             Stack(
               children: [
                 AspectRatio(
-                  aspectRatio: 16 / 10,
+                  aspectRatio: 3.2,
                   child: Image.asset(
                     coupon.imageAsset,
                     fit: BoxFit.cover,
@@ -208,12 +234,12 @@ class _CouponCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 10),
                   Text(
                     coupon.title,
                     style: const TextStyle(
                       color: AppColors.textPrimary,
-                      fontSize: 24,
+                      fontSize: 20,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -227,15 +253,6 @@ class _CouponCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    coupon.description,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 15,
-                      height: 1.45,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
                   _InfoRow(
                     icon: Icons.event_available_outlined,
                     text: 'בתוקף עד ${coupon.validUntil}',
@@ -268,6 +285,12 @@ class _CouponCard extends StatelessWidget {
                     onPressed: () => _openNavigation(context),
                     icon: const Icon(Icons.navigation_outlined),
                     label: const Text('ניווט לבית העסק'),
+                  ),
+                  const SizedBox(height: 10),
+                  TextButton.icon(
+                    onPressed: () => _openBusiness(context),
+                    icon: const Icon(Icons.open_in_new_rounded),
+                    label: const Text('לכרטיס העסק באפליקציה'),
                   ),
                 ],
               ),
@@ -317,6 +340,25 @@ class _CouponPresentationScreen extends StatelessWidget {
         title: 'ניווט אל ${coupon.businessName}',
       );
 
+  Future<void> _openBusiness(BuildContext context) async {
+    try {
+      final place = await Supabase.instance.client
+          .from('places')
+          .select()
+          .eq('id', coupon.placeId)
+          .single();
+      if (!context.mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => PlaceDetailsScreen(place: place)),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('לא ניתן לפתוח כרגע את כרטיס העסק')),
+      );
+    }
+  }
+
   Future<void> _copyCode(BuildContext context) async {
     await Clipboard.setData(ClipboardData(text: coupon.code));
     if (!context.mounted) return;
@@ -329,7 +371,10 @@ class _CouponPresentationScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('הצגת קופון')),
+      appBar: AppBar(
+        title: const Text('הצגת קופון'),
+        actions: const [HomeButton()],
+      ),
       body: Directionality(
         textDirection: TextDirection.rtl,
         child: SafeArea(
@@ -341,6 +386,18 @@ class _CouponPresentationScreen extends StatelessWidget {
                 constraints: const BoxConstraints(maxWidth: 520),
                 child: Column(
                   children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(22),
+                      child: AspectRatio(
+                        aspectRatio: 16 / 10,
+                        child: Image.asset(
+                          coupon.imageAsset,
+                          fit: BoxFit.cover,
+                          alignment: const Alignment(0, 0.28),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 22),
                     Container(
                       width: 82,
                       height: 82,
@@ -464,6 +521,12 @@ class _CouponPresentationScreen extends StatelessWidget {
                       icon: const Icon(Icons.navigation_outlined),
                       label: const Text('ניווט לבית העסק'),
                     ),
+                    const SizedBox(height: 10),
+                    TextButton.icon(
+                      onPressed: () => _openBusiness(context),
+                      icon: const Icon(Icons.open_in_new_rounded),
+                      label: const Text('לכרטיס העסק באפליקציה'),
+                    ),
                   ],
                 ),
               ),
@@ -485,6 +548,7 @@ class _Coupon {
   final String address;
   final double latitude;
   final double longitude;
+  final String placeId;
   final String imageAsset;
 
   const _Coupon({
@@ -497,6 +561,7 @@ class _Coupon {
     required this.address,
     required this.latitude,
     required this.longitude,
+    required this.placeId,
     required this.imageAsset,
   });
 
