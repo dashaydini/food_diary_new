@@ -37,8 +37,29 @@ Deno.serve(async (req) => {
       const subject = Deno.env.get('VAPID_SUBJECT') || 'mailto:notifications@bitetheway.app'
       webpush.setVapidDetails(subject, publicKey, privateKey)
 
-      const { data: subscriptions, error: subError } = await admin.from('push_subscriptions').select('id,subscription')
+      const { data: subscriptions, error: subError } = await admin.from('push_subscriptions').select('id,user_id,subscription')
       if (subError) throw subError
+      const userIds = [...new Set((subscriptions ?? []).map((row) => row.user_id).filter(Boolean))]
+      const { data: preferences, error: preferencesError } = userIds.length
+        ? await admin.from('coupon_notification_preferences')
+          .select('user_id,category_ids,regions').in('user_id', userIds)
+        : { data: [], error: null }
+      if (preferencesError) throw preferencesError
+      const preferencesByUser = new Map((preferences ?? []).map((row) => [row.user_id, row]))
+      const couponCategories = Array.isArray(coupon.category_ids) ? coupon.category_ids : []
+      const couponRegion = coupon.notification_region
+      const eligibleSubscriptions = (subscriptions ?? []).filter((row) => {
+        const preference = preferencesByUser.get(row.user_id)
+        if (!preference) return true
+        const wantedCategories = Array.isArray(preference.category_ids) ? preference.category_ids : []
+        const wantedRegions = Array.isArray(preference.regions) ? preference.regions : []
+        const categoryMatches = wantedCategories.length === 0 ||
+          couponCategories.some((id) => wantedCategories.includes(id))
+        const regionMatches = wantedRegions.length === 0 ||
+          wantedRegions.includes('כל הארץ') || couponRegion === 'כל הארץ' ||
+          (couponRegion && wantedRegions.includes(couponRegion))
+        return categoryMatches && regionMatches
+      })
       const title = typeof push_title === 'string' && push_title.trim()
         ? push_title.trim().slice(0, 80)
         : 'קופון חדש ב־BITE THE WAY'
@@ -51,7 +72,7 @@ Deno.serve(async (req) => {
         tag: `coupon-${coupon.id}`,
         url: '/?open=coupons',
       })
-      for (const row of subscriptions ?? []) {
+      for (const row of eligibleSubscriptions) {
         try {
           await webpush.sendNotification(row.subscription, payload)
           sent++

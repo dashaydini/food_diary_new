@@ -319,6 +319,14 @@ class _CouponEditorScreen extends StatefulWidget {
 }
 
 class _CouponEditorScreenState extends State<_CouponEditorScreen> {
+  static const _regions = [
+    'צפון',
+    'חיפה והקריות',
+    'מרכז',
+    'ירושלים והסביבה',
+    'דרום',
+    'כל הארץ'
+  ];
   final _formKey = GlobalKey<FormState>();
   final _picker = ImagePicker();
   late final Map<String, TextEditingController> c;
@@ -331,6 +339,9 @@ class _CouponEditorScreenState extends State<_CouponEditorScreen> {
   double? _latitude;
   double? _longitude;
   List<Map<String, dynamic>> _placeSuggestions = [];
+  List<Map<String, dynamic>> _categories = [];
+  late Set<String> _categoryIds;
+  String? _notificationRegion;
   int _searchSequence = 0;
 
   @override
@@ -355,7 +366,22 @@ class _CouponEditorScreenState extends State<_CouponEditorScreen> {
     _latitude = x?.latitude;
     _longitude = x?.longitude;
     _existingImages = List<String>.from(x?.images ?? const []);
+    _categoryIds = Set<String>.from(x?.categoryIds ?? const []);
+    _notificationRegion = x?.notificationRegion;
     if (widget.coupon == null) _generateCode();
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final rows = await Supabase.instance.client
+          .from('categories')
+          .select('id,title,sort_order')
+          .order('sort_order');
+      if (mounted) {
+        setState(() => _categories = List<Map<String, dynamic>>.from(rows));
+      }
+    } catch (_) {}
   }
 
   @override
@@ -519,6 +545,8 @@ class _CouponEditorScreenState extends State<_CouponEditorScreen> {
         'longitude': _longitude,
         'image_url': images.isEmpty ? '' : images.first,
         'gallery_images': images,
+        'category_ids': _categoryIds.toList(),
+        'notification_region': _notificationRegion,
         'valid_until': _validUntil.toIso8601String().split('T').first,
         'is_unlimited': true,
         'is_published': widget.coupon?.isPublished ?? false,
@@ -579,6 +607,37 @@ class _CouponEditorScreenState extends State<_CouponEditorScreen> {
                     _field('title', 'כותרת', required: true),
                     _field('subtitle', 'מלל קצר'),
                     _field('description', 'תיאור', lines: 3),
+                    const SizedBox(height: 6),
+                    Text('תחומי עניין לקופון',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 8),
+                    Wrap(spacing: 8, runSpacing: 6, children: [
+                      for (final category in _categories)
+                        FilterChip(
+                          label: Text(category['title']?.toString() ?? ''),
+                          selected:
+                              _categoryIds.contains(category['id']?.toString()),
+                          onSelected: (selected) => setState(() {
+                            final id = category['id'].toString();
+                            selected
+                                ? _categoryIds.add(id)
+                                : _categoryIds.remove(id);
+                          }),
+                        ),
+                    ]),
+                    const SizedBox(height: 10),
+                    DropdownButtonFormField<String>(
+                      initialValue: _notificationRegion,
+                      decoration:
+                          const InputDecoration(labelText: 'אזור הקופון'),
+                      items: _regions
+                          .map((region) => DropdownMenuItem(
+                              value: region, child: Text(region)))
+                          .toList(),
+                      onChanged: (value) =>
+                          setState(() => _notificationRegion = value),
+                    ),
+                    const SizedBox(height: 12),
                     _field('code', 'קוד קופון',
                         required: true,
                         helper: 'נוצר אוטומטית; אפשר גם לערוך ידנית',

@@ -12,6 +12,8 @@ class Coupon {
   final String? placeId;
   final String imageUrl;
   final List<String> galleryImages;
+  final List<String> categoryIds;
+  final String? notificationRegion;
   final bool isUnlimited;
   final bool isPublished;
 
@@ -29,6 +31,8 @@ class Coupon {
     required this.placeId,
     required this.imageUrl,
     this.galleryImages = const [],
+    this.categoryIds = const [],
+    this.notificationRegion,
     required this.isUnlimited,
     required this.isPublished,
   });
@@ -50,6 +54,10 @@ class Coupon {
             .map((image) => image.toString())
             .where((image) => image.isNotEmpty)
             .toList(),
+        categoryIds: (json['category_ids'] as List? ?? const [])
+            .map((value) => value.toString())
+            .toList(),
+        notificationRegion: json['notification_region']?.toString(),
         isUnlimited: json['is_unlimited'] != false,
         isPublished: json['is_published'] == true,
       );

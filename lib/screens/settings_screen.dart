@@ -18,6 +18,14 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   static const _detourOptionsKm = <double>[2, 5, 10, 20];
+  static const _couponRegions = [
+    'צפון',
+    'חיפה והקריות',
+    'מרכז',
+    'ירושלים והסביבה',
+    'דרום',
+    'כל הארץ'
+  ];
 
   bool _loading = true;
   bool _routeNotificationsEnabled = false;
@@ -26,6 +34,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _changingPush = false;
   double _maximumRouteDetourKm = AppPreferences.defaultMaximumRouteDetourKm;
   Set<String> _selectedCategoryIds = {};
+  Set<String> _couponCategoryIds = {};
+  Set<String> _couponRegionsSelected = {};
 
   bool _loadingCategories = true;
   List<Map<String, dynamic>> _categories = [];
@@ -60,7 +70,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _loadCategories(),
       _refreshLocationStatus(),
       _loadPushStatus(),
+      _loadCouponNotificationPreferences(),
     ]);
+  }
+
+  Future<void> _loadCouponNotificationPreferences() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null || user.isAnonymous) return;
+    try {
+      final row = await Supabase.instance.client
+          .from('coupon_notification_preferences')
+          .select('category_ids,regions')
+          .eq('user_id', user.id)
+          .maybeSingle();
+      if (row != null && mounted) {
+        setState(() {
+          _couponCategoryIds =
+              Set<String>.from(row['category_ids'] as List? ?? const []);
+          _couponRegionsSelected =
+              Set<String>.from(row['regions'] as List? ?? const []);
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveCouponNotificationPreferences() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null || user.isAnonymous) return;
+    await Supabase.instance.client
+        .from('coupon_notification_preferences')
+        .upsert({
+      'user_id': user.id,
+      'category_ids': _couponCategoryIds.toList(),
+      'regions': _couponRegionsSelected.toList(),
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    });
   }
 
   Future<void> _loadPushStatus() async {
@@ -246,6 +290,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               onChanged: !_pushSupported || _changingPush
                                   ? null
                                   : _togglePush,
+                            ),
+                            const Divider(),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: Text('קופונים שמעניינים אותי',
+                                  style:
+                                      Theme.of(context).textTheme.titleMedium),
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(spacing: 8, runSpacing: 6, children: [
+                              for (final category in _categories)
+                                FilterChip(
+                                  label:
+                                      Text(category['title']?.toString() ?? ''),
+                                  selected: _couponCategoryIds
+                                      .contains(category['id']?.toString()),
+                                  onSelected: (selected) {
+                                    setState(() {
+                                      final id = category['id'].toString();
+                                      selected
+                                          ? _couponCategoryIds.add(id)
+                                          : _couponCategoryIds.remove(id);
+                                    });
+                                    _saveCouponNotificationPreferences();
+                                  },
+                                ),
+                            ]),
+                            const SizedBox(height: 12),
+                            const Align(
+                                alignment: Alignment.centerRight,
+                                child: Text('אזורים מועדפים')),
+                            const SizedBox(height: 8),
+                            Wrap(spacing: 8, runSpacing: 6, children: [
+                              for (final region in _couponRegions)
+                                FilterChip(
+                                  label: Text(region),
+                                  selected:
+                                      _couponRegionsSelected.contains(region),
+                                  onSelected: (selected) {
+                                    setState(() => selected
+                                        ? _couponRegionsSelected.add(region)
+                                        : _couponRegionsSelected
+                                            .remove(region));
+                                    _saveCouponNotificationPreferences();
+                                  },
+                                ),
+                            ]),
+                            const Padding(
+                              padding: EdgeInsets.only(top: 8),
+                              child: Text(
+                                  'ללא בחירה יתקבלו קופונים מכל התחומים והאזורים.',
+                                  style: TextStyle(color: AppColors.textMuted)),
                             ),
                             const Divider(),
                             SwitchListTile.adaptive(
