@@ -18,6 +18,7 @@ class _AdminCouponStatisticsScreenState
   bool _loading = true;
   String? _error;
   List<Map<String, dynamic>> _events = [];
+  Map<String, Map<String, dynamic>> _usersById = {};
 
   @override
   void initState() {
@@ -40,8 +41,36 @@ class _AdminCouponStatisticsScreenState
           .select('coupon_id,event_type,user_id,created_at')
           .order('created_at', ascending: false)
           .limit(5000);
+      final userIds = List<Map<String, dynamic>>.from(rows)
+          .map((row) => row['user_id']?.toString())
+          .whereType<String>()
+          .toSet()
+          .toList();
+      final usersById = <String, Map<String, dynamic>>{};
+      if (Permissions.canManageUsers) {
+        final response = await Supabase.instance.client.functions
+            .invoke('admin-users', body: {'action': 'list'});
+        final data = Map<String, dynamic>.from(response.data as Map);
+        for (final raw in data['users'] as List? ?? const []) {
+          if (raw is! Map) continue;
+          final user = Map<String, dynamic>.from(raw);
+          final id = user['id']?.toString();
+          if (id != null && userIds.contains(id)) usersById[id] = user;
+        }
+      } else if (userIds.isNotEmpty) {
+        final profiles = await Supabase.instance.client
+            .from('profiles')
+            .select('id,display_name')
+            .inFilter('id', userIds);
+        for (final raw in List<Map<String, dynamic>>.from(profiles)) {
+          usersById[raw['id'].toString()] = raw;
+        }
+      }
       if (!mounted) return;
-      setState(() => _events = List<Map<String, dynamic>>.from(rows));
+      setState(() {
+        _events = List<Map<String, dynamic>>.from(rows);
+        _usersById = usersById;
+      });
     } catch (_) {
       if (mounted) setState(() => _error = 'לא ניתן לטעון את הנתונים כרגע');
     } finally {
@@ -101,7 +130,7 @@ class _AdminCouponStatisticsScreenState
                 ),
                 const SizedBox(height: 22),
                 const Text(
-                  'קפה לבחירה במתנה',
+                  'פעילות משתמשים אחרונה',
                   style: TextStyle(
                     color: AppColors.textPrimary,
                     fontSize: 20,
@@ -113,10 +142,45 @@ class _AdminCouponStatisticsScreenState
                   'הצגת קוד משקפת כוונת מימוש. לאישור מימוש בפועל נדרש אימות של בית העסק.',
                   style: TextStyle(color: AppColors.textMuted, height: 1.4),
                 ),
+                const SizedBox(height: 12),
+                if (_events.isEmpty)
+                  const Text('עדיין אין פעילות')
+                else
+                  for (final event in _events.take(100)) _activityTile(event),
               ],
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _activityTile(Map<String, dynamic> event) {
+    final id = event['user_id']?.toString() ?? '';
+    final user = _usersById[id];
+    final name = user?['display_name']?.toString().trim();
+    final email = user?['email']?.toString().trim();
+    final label = name?.isNotEmpty == true
+        ? name!
+        : email?.isNotEmpty == true
+            ? email!
+            : 'משתמש ${id.length > 8 ? id.substring(0, 8) : id}';
+    final date =
+        DateTime.tryParse(event['created_at']?.toString() ?? '')?.toLocal();
+    final dateText = date == null
+        ? ''
+        : '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}  ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    return Card(
+      child: ListTile(
+        leading: Icon(event['event_type'] == 'code_view'
+            ? Icons.qr_code_2_rounded
+            : Icons.touch_app_outlined),
+        title: Text(label),
+        subtitle: Text(event['event_type'] == 'code_view'
+            ? 'הציג/ה את קוד הקופון'
+            : 'נכנס/ה לקופון'),
+        trailing: Text(dateText,
+            style: const TextStyle(fontSize: 11, color: AppColors.textMuted)),
       ),
     );
   }
