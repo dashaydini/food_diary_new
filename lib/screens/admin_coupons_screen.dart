@@ -140,14 +140,23 @@ class _AdminCouponsScreenState extends State<AdminCouponsScreen> {
                         subtitle: Text(
                             '${coupon.businessName} · ${coupon.validUntil.isBefore(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day)) ? 'פג תוקף — חסום למשתמשים' : coupon.isPublished ? 'פורסם' : 'טיוטה'}'),
                         onTap: () => _edit(coupon),
-                        trailing: coupon.isPublished
-                            ? OutlinedButton.icon(
-                                onPressed: () => _publish(coupon),
-                                icon: const Icon(Icons.send_rounded, size: 17),
-                                label: const Text('שליחת פוש'))
-                            : FilledButton(
-                                onPressed: () => _publish(coupon),
-                                child: const Text('פרסום + פוש')),
+                        trailing:
+                            Row(mainAxisSize: MainAxisSize.min, children: [
+                          IconButton(
+                            tooltip: 'עריכת הקופון',
+                            onPressed: () => _edit(coupon),
+                            icon: const Icon(Icons.edit_outlined),
+                          ),
+                          IconButton(
+                            tooltip: coupon.isPublished
+                                ? 'שליחת פוש'
+                                : 'פרסום ושליחת פוש',
+                            onPressed: () => _publish(coupon),
+                            icon: Icon(coupon.isPublished
+                                ? Icons.send_rounded
+                                : Icons.campaign_outlined),
+                          ),
+                        ]),
                       ),
                     );
                   },
@@ -170,7 +179,8 @@ class _CouponEditorScreenState extends State<_CouponEditorScreen> {
   late DateTime _validUntil;
   bool _saving = false;
   bool _loadingLocation = false;
-  XFile? _selectedImage;
+  final List<XFile> _selectedImages = [];
+  late List<String> _existingImages;
   String? _selectedPlaceId;
   double? _latitude;
   double? _longitude;
@@ -198,6 +208,7 @@ class _CouponEditorScreenState extends State<_CouponEditorScreen> {
     _selectedPlaceId = x?.placeId;
     _latitude = x?.latitude;
     _longitude = x?.longitude;
+    _existingImages = List<String>.from(x?.images ?? const []);
     if (widget.coupon == null) _generateCode();
   }
 
@@ -329,29 +340,42 @@ class _CouponEditorScreenState extends State<_CouponEditorScreen> {
       ])),
     );
     if (source == null) return;
-    final image = await _picker.pickImage(
-        source: source, imageQuality: 82, maxWidth: 1600, maxHeight: 1600);
-    if (mounted && image != null) setState(() => _selectedImage = image);
+    if (source == ImageSource.camera) {
+      final image = await _picker.pickImage(
+          source: source, imageQuality: 82, maxWidth: 1600, maxHeight: 1600);
+      if (mounted && image != null) {
+        setState(() => _selectedImages.add(image));
+      }
+    } else {
+      final images = await _picker.pickMultiImage(
+          imageQuality: 82, maxWidth: 1600, maxHeight: 1600);
+      if (mounted && images.isNotEmpty) {
+        setState(() => _selectedImages.addAll(images));
+      }
+    }
   }
 
-  Future<String> _uploadImage() async {
-    if (_selectedImage == null) return c['image_url']!.text.trim();
-    final extension = _selectedImage!.name.split('.').last.toLowerCase();
-    final path =
-        '${Supabase.instance.client.auth.currentUser!.id}/${const Uuid().v4()}.$extension';
-    await Supabase.instance.client.storage.from('coupon-images').uploadBinary(
-        path, await _selectedImage!.readAsBytes(),
-        fileOptions: const FileOptions(upsert: false));
-    return Supabase.instance.client.storage
-        .from('coupon-images')
-        .getPublicUrl(path);
+  Future<List<String>> _uploadImages() async {
+    final urls = List<String>.from(_existingImages);
+    for (final image in _selectedImages) {
+      final extension = image.name.split('.').last.toLowerCase();
+      final path =
+          '${Supabase.instance.client.auth.currentUser!.id}/${const Uuid().v4()}.$extension';
+      await Supabase.instance.client.storage.from('coupon-images').uploadBinary(
+          path, await image.readAsBytes(),
+          fileOptions: const FileOptions(upsert: false));
+      urls.add(Supabase.instance.client.storage
+          .from('coupon-images')
+          .getPublicUrl(path));
+    }
+    return urls;
   }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
     try {
-      final imageUrl = await _uploadImage();
+      final images = await _uploadImages();
       await CouponService.save({
         'title': c['title']!.text.trim(),
         'subtitle': c['subtitle']!.text.trim(),
@@ -362,7 +386,8 @@ class _CouponEditorScreenState extends State<_CouponEditorScreen> {
         'place_id': _selectedPlaceId,
         'latitude': _latitude,
         'longitude': _longitude,
-        'image_url': imageUrl,
+        'image_url': images.isEmpty ? '' : images.first,
+        'gallery_images': images,
         'valid_until': _validUntil.toIso8601String().split('T').first,
         'is_unlimited': true,
         'is_published': widget.coupon?.isPublished ?? false,
@@ -480,22 +505,45 @@ class _CouponEditorScreenState extends State<_CouponEditorScreen> {
                     OutlinedButton.icon(
                         onPressed: _pickImage,
                         icon: const Icon(Icons.add_a_photo_outlined),
-                        label: Text(_selectedImage == null
-                            ? 'צילום או בחירת תמונה'
-                            : 'נבחרה: ${_selectedImage!.name}')),
-                    if (_selectedImage == null &&
-                        c['image_url']!.text.isNotEmpty)
+                        label: const Text('הוספת תמונות לגלריה')),
+                    if (_existingImages.isNotEmpty ||
+                        _selectedImages.isNotEmpty)
                       Padding(
-                          padding: const EdgeInsets.only(top: 10),
-                          child: ClipRRect(
-                              borderRadius: BorderRadius.circular(14),
-                              child: SizedBox(
-                                  height: 150,
-                                  child: c['image_url']!.text.startsWith('http')
-                                      ? Image.network(c['image_url']!.text,
-                                          fit: BoxFit.cover)
-                                      : Image.asset(c['image_url']!.text,
-                                          fit: BoxFit.cover)))),
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Wrap(spacing: 8, runSpacing: 8, children: [
+                          for (final entry in _existingImages.indexed)
+                            Stack(children: [
+                              ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: SizedBox(
+                                      width: 92,
+                                      height: 72,
+                                      child: entry.$2.startsWith('http')
+                                          ? Image.network(entry.$2,
+                                              fit: BoxFit.cover)
+                                          : Image.asset(entry.$2,
+                                              fit: BoxFit.cover))),
+                              Positioned(
+                                  top: 2,
+                                  left: 2,
+                                  child: InkWell(
+                                      onTap: () => setState(() =>
+                                          _existingImages.removeAt(entry.$1)),
+                                      child: const CircleAvatar(
+                                          radius: 11,
+                                          child: Icon(Icons.close, size: 14)))),
+                            ]),
+                          for (final entry in _selectedImages.indexed)
+                            InputChip(
+                              avatar:
+                                  const Icon(Icons.image_outlined, size: 18),
+                              label: Text(entry.$2.name,
+                                  overflow: TextOverflow.ellipsis),
+                              onDeleted: () => setState(
+                                  () => _selectedImages.removeAt(entry.$1)),
+                            ),
+                        ]),
+                      ),
                     const SizedBox(height: 10),
                     ListTile(
                         contentPadding: EdgeInsets.zero,
@@ -507,7 +555,7 @@ class _CouponEditorScreenState extends State<_CouponEditorScreen> {
                           final d = await showDatePicker(
                               context: context,
                               initialDate: _validUntil,
-                              firstDate: DateTime.now(),
+                              firstDate: DateTime(2020),
                               lastDate: DateTime(2035));
                           if (d != null) setState(() => _validUntil = d);
                         }),

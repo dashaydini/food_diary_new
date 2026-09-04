@@ -341,13 +341,7 @@ class _CouponPresentationScreen extends StatelessWidget {
                 constraints: const BoxConstraints(maxWidth: 520),
                 child: Column(
                   children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(22),
-                      child: AspectRatio(
-                        aspectRatio: 16 / 10,
-                        child: _couponImage(coupon.imageUrl),
-                      ),
-                    ),
+                    _CouponGallery(images: coupon.images),
                     const SizedBox(height: 22),
                     Container(
                       width: 82,
@@ -488,6 +482,66 @@ class _CouponPresentationScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _CouponGallery extends StatefulWidget {
+  final List<String> images;
+
+  const _CouponGallery({required this.images});
+
+  @override
+  State<_CouponGallery> createState() => _CouponGalleryState();
+}
+
+class _CouponGalleryState extends State<_CouponGallery> {
+  int _current = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.images.isEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: AspectRatio(
+          aspectRatio: 16 / 10,
+          child: _couponImage(''),
+        ),
+      );
+    }
+
+    return Column(children: [
+      ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: AspectRatio(
+          aspectRatio: 16 / 10,
+          child: PageView.builder(
+            itemCount: widget.images.length,
+            onPageChanged: (index) => setState(() => _current = index),
+            itemBuilder: (_, index) => _couponImage(widget.images[index]),
+          ),
+        ),
+      ),
+      if (widget.images.length > 1) ...[
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 7,
+          children: List.generate(widget.images.length, (index) {
+            final selected = index == _current;
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: selected ? 22 : 7,
+              height: 7,
+              decoration: BoxDecoration(
+                color: selected
+                    ? AppColors.champagne
+                    : AppColors.textMuted.withValues(alpha: 0.45),
+                borderRadius: BorderRadius.circular(8),
+              ),
+            );
+          }),
+        ),
+      ],
+    ]);
   }
 }
 

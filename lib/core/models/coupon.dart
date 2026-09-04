@@ -11,6 +11,7 @@ class Coupon {
   final double? longitude;
   final String? placeId;
   final String imageUrl;
+  final List<String> galleryImages;
   final bool isUnlimited;
   final bool isPublished;
 
@@ -27,6 +28,7 @@ class Coupon {
     required this.longitude,
     required this.placeId,
     required this.imageUrl,
+    this.galleryImages = const [],
     required this.isUnlimited,
     required this.isPublished,
   });
@@ -44,9 +46,17 @@ class Coupon {
         longitude: (json['longitude'] as num?)?.toDouble(),
         placeId: json['place_id']?.toString(),
         imageUrl: json['image_url']?.toString() ?? '',
+        galleryImages: (json['gallery_images'] as List? ?? const [])
+            .map((image) => image.toString())
+            .where((image) => image.isNotEmpty)
+            .toList(),
         isUnlimited: json['is_unlimited'] != false,
         isPublished: json['is_published'] == true,
       );
+
+  List<String> get images => galleryImages.isEmpty
+      ? (imageUrl.isEmpty ? const [] : [imageUrl])
+      : galleryImages;
 
   String get validUntilLabel =>
       '${validUntil.day.toString().padLeft(2, '0')}.${validUntil.month.toString().padLeft(2, '0')}.${validUntil.year}';
