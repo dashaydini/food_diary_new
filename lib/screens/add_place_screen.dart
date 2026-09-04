@@ -219,32 +219,50 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
         _latitude = position.latitude;
         _longitude = position.longitude;
         _usingCurrentLocation = true;
-        _loadingLocation = false;
       });
 
-      try {
-        final placemarks = await placemarkFromCoordinates(
-          position.latitude,
-          position.longitude,
-        );
+      String? resolvedAddress;
+      if (!kIsWeb) {
+        try {
+          final placemarks = await placemarkFromCoordinates(
+            position.latitude,
+            position.longitude,
+          );
 
-        if (placemarks.isNotEmpty && mounted) {
-          final place = placemarks.first;
+          if (placemarks.isNotEmpty && mounted) {
+            final place = placemarks.first;
 
-          final parts = <String>[
-            if ((place.street ?? '').trim().isNotEmpty) place.street!.trim(),
-            if ((place.locality ?? '').trim().isNotEmpty)
-              place.locality!.trim(),
-            if ((place.country ?? '').trim().isNotEmpty) place.country!.trim(),
-          ];
+            final parts = <String>[
+              if ((place.street ?? '').trim().isNotEmpty) place.street!.trim(),
+              if ((place.locality ?? '').trim().isNotEmpty)
+                place.locality!.trim(),
+              if ((place.country ?? '').trim().isNotEmpty)
+                place.country!.trim(),
+            ];
 
-          if (parts.isNotEmpty) {
-            _addressController.text = parts.join(', ');
+            if (parts.isNotEmpty) {
+              resolvedAddress = parts.join(', ');
+            }
           }
+        } catch (_) {
+          // Fall back to the web-compatible reverse geocoder below.
         }
-      } catch (_) {
-        // המיקום נשמר גם אם לא הצלחנו להפיק כתובת.
       }
+
+      resolvedAddress ??= await _reverseGeocodeWithNominatim(
+        position.latitude,
+        position.longitude,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _loadingLocation = false;
+        if (resolvedAddress?.isNotEmpty == true) {
+          _addressController.text = resolvedAddress!;
+        } else {
+          _error = 'המיקום נבחר, אך לא נמצאה כתובת. אפשר להזין אותה ידנית.';
+        }
+      });
     } catch (e) {
       if (!mounted) return;
 
@@ -253,6 +271,65 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
         _usingCurrentLocation = false;
         _error = 'לא ניתן לקבל את המיקום הנוכחי';
       });
+    }
+  }
+
+  Future<String?> _reverseGeocodeWithNominatim(
+    double latitude,
+    double longitude,
+  ) async {
+    try {
+      final uri = Uri.https(
+        'nominatim.openstreetmap.org',
+        '/reverse',
+        {
+          'lat': latitude.toString(),
+          'lon': longitude.toString(),
+          'format': 'jsonv2',
+          'addressdetails': '1',
+          'accept-language': 'he',
+          'zoom': '18',
+        },
+      );
+      final response = await http.get(
+        uri,
+        headers: const {'User-Agent': 'FoodDiary/1.0'},
+      );
+      if (response.statusCode != 200) return null;
+
+      final result = jsonDecode(response.body) as Map<String, dynamic>;
+      final address = result['address'];
+      if (address is Map) {
+        final road = (address['road'] ??
+                address['pedestrian'] ??
+                address['footway'] ??
+                address['neighbourhood'])
+            ?.toString()
+            .trim();
+        final houseNumber = address['house_number']?.toString().trim();
+        final city = (address['city'] ??
+                address['town'] ??
+                address['village'] ??
+                address['municipality'])
+            ?.toString()
+            .trim();
+        final locality =
+            (address['suburb'] ?? address['quarter'])?.toString().trim();
+        final parts = <String>[
+          if (road?.isNotEmpty == true)
+            [road, if (houseNumber?.isNotEmpty == true) houseNumber]
+                .whereType<String>()
+                .join(' '),
+          if (locality?.isNotEmpty == true && locality != city) locality!,
+          if (city?.isNotEmpty == true) city!,
+        ];
+        if (parts.isNotEmpty) return parts.join(', ');
+      }
+
+      final displayName = result['display_name']?.toString().trim();
+      return displayName?.isNotEmpty == true ? displayName : null;
+    } catch (_) {
+      return null;
     }
   }
 

@@ -23,6 +23,7 @@ import 'places_on_route_screen.dart';
 import 'settings_screen.dart';
 import 'guided_search_screen.dart';
 import 'free_search_screen.dart';
+import 'my_coupons_screen.dart';
 
 class PlaceCategory {
   final String id;
@@ -660,6 +661,13 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
               case 'journal':
                 _openJournal();
                 break;
+              case 'coupons':
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const MyCouponsScreen(),
+                  ),
+                );
+                break;
               case 'advanced_filter':
                 Navigator.of(context).push(
                   MaterialPageRoute(
@@ -721,6 +729,16 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                   Icon(Icons.menu_book_outlined),
                   SizedBox(width: 10),
                   Text('יומן אישי'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'coupons',
+              child: Row(
+                children: [
+                  Icon(Icons.confirmation_number_outlined),
+                  SizedBox(width: 10),
+                  Text('הקופונים שלי'),
                 ],
               ),
             ),

@@ -50,6 +50,7 @@ flutter:
   assets:
     - assets/branding/bite_the_way_logo_master.png
     - assets/logo/bite_the_way_logo.svg
+    - assets/coupons/rosh_hashanah_gift_basket.jpeg
 
 # Configuration for automatic launcher icon generation.
 
