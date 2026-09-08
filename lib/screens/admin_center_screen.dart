@@ -10,6 +10,7 @@ import 'admin_notifications_screen.dart';
 import 'admin_statistics_screen.dart';
 import 'admin_users_screen.dart';
 import 'admin_coupons_screen.dart';
+import 'admin_place_managers_screen.dart';
 
 class AdminCenterScreen extends StatefulWidget {
   const AdminCenterScreen({super.key});
@@ -184,6 +185,15 @@ class _AdminCenterScreenState extends State<AdminCenterScreen> {
                             subtitle: 'חסימה, מחיקה ושליחת הודעה',
                             value: '$_users',
                             onTap: () => _open(const AdminUsersScreen()),
+                            enabled: Permissions.canManageUsers,
+                          ),
+                          _AdminCard(
+                            icon: Icons.storefront_rounded,
+                            title: 'מנהלי מקומות',
+                            subtitle: 'שיוך משתמש והרשאות נפרדות לכל מקום',
+                            value: 'ניהול',
+                            onTap: () =>
+                                _open(const AdminPlaceManagersScreen()),
                             enabled: Permissions.canManageUsers,
                           ),
                           _AdminCard(
