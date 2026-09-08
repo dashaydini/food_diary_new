@@ -284,12 +284,13 @@ class _AdminCouponsScreenState extends State<AdminCouponsScreen> {
                     icon: const Icon(Icons.add),
                     label: const Text('קופון חדש'))
                 : null,
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
         body: _loading
             ? const Center(child: CircularProgressIndicator())
             : RefreshIndicator(
                 onRefresh: _load,
                 child: ListView.builder(
-                  padding: const EdgeInsets.all(18),
+                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 110),
                   itemCount: _coupons.length,
                   itemBuilder: (context, index) {
                     final coupon = _coupons[index];
@@ -667,11 +668,9 @@ class _CouponEditorScreenState extends State<CouponEditorScreen> {
                     if (widget.managedPlace != null) ...[
                       ListTile(
                         contentPadding: EdgeInsets.zero,
-                        leading: const Icon(Icons.auto_awesome_outlined),
-                        title: const Text('קטגוריה ואזור נקבעים אוטומטית'),
-                        subtitle: Text(
-                          '${_categories.where((item) => _categoryIds.contains(item['id']?.toString())).map((item) => item['title']).join(', ')} · ${_notificationRegion ?? ''}',
-                        ),
+                        title: Text(
+                            'קטגוריה: ${_categories.where((item) => _categoryIds.contains(item['id']?.toString())).map((item) => item['title']).join(', ')}'),
+                        subtitle: Text('איזור: ${_notificationRegion ?? ''}'),
                       ),
                     ] else ...[
                       Text('תחומי עניין לקופון',
@@ -695,7 +694,7 @@ class _CouponEditorScreenState extends State<CouponEditorScreen> {
                       DropdownButtonFormField<String>(
                         initialValue: _notificationRegion,
                         decoration:
-                            const InputDecoration(labelText: 'אזור הקופון'),
+                            const InputDecoration(labelText: 'איזור הקופון'),
                         items: _regions
                             .map((region) => DropdownMenuItem(
                                 value: region, child: Text(region)))

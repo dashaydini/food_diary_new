@@ -320,7 +320,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             const SizedBox(height: 12),
                             const Align(
                                 alignment: Alignment.centerRight,
-                                child: Text('אזורים מועדפים')),
+                                child: Text('איזורים מועדפים')),
                             const SizedBox(height: 8),
                             Wrap(spacing: 8, runSpacing: 6, children: [
                               for (final region in _couponRegions)
@@ -340,7 +340,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             const Padding(
                               padding: EdgeInsets.only(top: 8),
                               child: Text(
-                                  'ללא בחירה יתקבלו קופונים מכל התחומים והאזורים.',
+                                  'ללא בחירה יתקבלו קופונים מכל התחומים והאיזורים.',
                                   style: TextStyle(color: AppColors.textMuted)),
                             ),
                             const Divider(),

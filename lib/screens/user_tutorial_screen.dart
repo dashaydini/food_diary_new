@@ -18,7 +18,7 @@ class _UserTutorialScreenState extends State<UserTutorialScreen> {
       title: 'מוצאים את המקום הבא',
       text:
           'במסך הבית בוחרים תחום, מחפשים מקום בשם או משתמשים במפה ובסינון המתקדם.',
-      tip: 'אפשר לשלב אזור, סוג מקום והעדפות כדי לצמצם את התוצאות.',
+      tip: 'אפשר לשלב איזור, סוג מקום והעדפות כדי לצמצם את התוצאות.',
     ),
     _TutorialStep(
       icon: Icons.storefront_outlined,
@@ -47,7 +47,7 @@ class _UserTutorialScreenState extends State<UserTutorialScreen> {
       text:
           'במסך „הקופונים שלי” רואים הטבות פעילות. נכנסים לקופון ומציגים את הקוד בבית העסק.',
       tip:
-          'בהגדרות ניתן לבחור תחומי עניין ואזורים עבור התראות על קופונים חדשים.',
+          'בהגדרות ניתן לבחור תחומי עניין ואיזורים עבור התראות על קופונים חדשים.',
     ),
     _TutorialStep(
       icon: Icons.ios_share_rounded,

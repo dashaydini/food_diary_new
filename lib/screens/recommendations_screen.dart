@@ -629,7 +629,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
                     icon: Icons.near_me_outlined,
                     text: _hasLocation
                         ? 'לא נמצאו כרגע מקומות מתאימים בטווח של 20 ק״מ.'
-                        : 'כדי לקבל המלצות באזור שלך, יש לאפשר גישה למיקום.',
+                        : 'כדי לקבל המלצות באיזור שלך, יש לאפשר גישה למיקום.',
                   )
                 else
                   ...nearby.take(4).map(_recommendationCard),

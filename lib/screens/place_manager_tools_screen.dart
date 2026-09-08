@@ -21,6 +21,7 @@ class PlaceMenuManagerScreen extends StatefulWidget {
 
 class _PlaceMenuManagerScreenState extends State<PlaceMenuManagerScreen> {
   final _note = TextEditingController();
+  final _imagePicker = ImagePicker();
   bool _loading = true;
   bool _saving = false;
   Uint8List? _pickedBytes;
@@ -51,18 +52,85 @@ class _PlaceMenuManagerScreenState extends State<PlaceMenuManagerScreen> {
     }
   }
 
-  Future<void> _pickFile() async {
-    final file = await FilePicker.pickFile(
-      type: FileType.custom,
-      allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp', 'pdf'],
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final file = await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 88,
+        maxWidth: 2200,
+      );
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        _pickedBytes = bytes;
+        _pickedName = file.name;
+      });
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('לא ניתן לפתוח את בחירת התמונות')),
+        );
+      }
+    }
+  }
+
+  Future<void> _pickPdf() async {
+    try {
+      final file = await FilePicker.pickFile(
+        type: FileType.custom,
+        allowedExtensions: const ['pdf'],
+      );
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        _pickedBytes = bytes;
+        _pickedName = file.name;
+      });
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('לא ניתן לפתוח את בחירת קובצי ה־PDF')),
+        );
+      }
+    }
+  }
+
+  Future<void> _showFileOptions() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(
+            leading: const Icon(Icons.photo_library_outlined),
+            title: const Text('בחירת תמונה מהגלריה'),
+            onTap: () {
+              Navigator.pop(sheetContext);
+              _pickImage(ImageSource.gallery);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.camera_alt_outlined),
+            title: const Text('צילום תפריט'),
+            onTap: () {
+              Navigator.pop(sheetContext);
+              _pickImage(ImageSource.camera);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.picture_as_pdf_outlined),
+            title: const Text('בחירת קובץ PDF'),
+            onTap: () {
+              Navigator.pop(sheetContext);
+              _pickPdf();
+            },
+          ),
+          const SizedBox(height: 8),
+        ]),
+      ),
     );
-    if (file == null) return;
-    final bytes = await file.readAsBytes();
-    if (!mounted) return;
-    setState(() {
-      _pickedBytes = bytes;
-      _pickedName = file.name;
-    });
   }
 
   Future<void> _save() async {
@@ -161,7 +229,7 @@ class _PlaceMenuManagerScreenState extends State<PlaceMenuManagerScreen> {
                             'הקובץ החדש יחליף את התפריט הקיים בשמירה'),
                       ),
                     OutlinedButton.icon(
-                      onPressed: _saving ? null : _pickFile,
+                      onPressed: _saving ? null : _showFileOptions,
                       icon: const Icon(Icons.upload_file_rounded),
                       label: Text(_fileUrl == null
                           ? 'העלאת תמונת תפריט או PDF'
@@ -219,7 +287,7 @@ class _PlaceOpeningHoursManagerScreenState
         {
           'day': i,
           'label': _days[i],
-          'open': i < 6,
+          'open': false,
           'from': '08:00',
           'to': i == 5 ? '14:00' : '20:00'
         }
@@ -251,6 +319,10 @@ class _PlaceOpeningHoursManagerScreenState
       context: context,
       initialTime:
           TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1])),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
+        child: child!,
+      ),
     );
     if (value != null && mounted) {
       setState(() => _schedule[index][key] =
@@ -637,30 +709,6 @@ class _PlaceRepliesManagerScreenState extends State<PlaceRepliesManagerScreen> {
     }
   }
 
-  Future<void> _deleteVisit(Map<String, dynamic> visit) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('מחיקת החוויה'),
-        content: const Text('הפעולה תמחק את החוויה לצמיתות. להמשיך?'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('ביטול')),
-          FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('מחיקה')),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-    await Supabase.instance.client
-        .from('visits')
-        .delete()
-        .eq('id', visit['id']);
-    await _load();
-  }
-
   @override
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: AppColors.background,
@@ -714,12 +762,6 @@ class _PlaceRepliesManagerScreenState extends State<PlaceRepliesManagerScreen> {
                               icon: const Icon(Icons.flag_outlined),
                               label: const Text('דיווח על החוויה'),
                             ),
-                            if (Permissions.canManageContent)
-                              OutlinedButton.icon(
-                                onPressed: () => _deleteVisit(visit),
-                                icon: const Icon(Icons.delete_forever_outlined),
-                                label: const Text('מחיקת החוויה'),
-                              ),
                           ]),
                         ]),
                   ));
