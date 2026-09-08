@@ -11,6 +11,7 @@ import 'admin_statistics_screen.dart';
 import 'admin_users_screen.dart';
 import 'admin_coupons_screen.dart';
 import 'admin_place_managers_screen.dart';
+import 'user_tutorial_screen.dart';
 
 class AdminCenterScreen extends StatefulWidget {
   const AdminCenterScreen({super.key});
@@ -195,6 +196,13 @@ class _AdminCenterScreenState extends State<AdminCenterScreen> {
                             onTap: () =>
                                 _open(const AdminPlaceManagersScreen()),
                             enabled: Permissions.canManageUsers,
+                          ),
+                          _AdminCard(
+                            icon: Icons.school_outlined,
+                            title: 'מדריך למשתמש',
+                            subtitle: 'הצגה ובדיקה של מדריך האפליקציה',
+                            value: 'הפעלה',
+                            onTap: () => _open(const UserTutorialScreen()),
                           ),
                           _AdminCard(
                             icon: Icons.query_stats_rounded,
