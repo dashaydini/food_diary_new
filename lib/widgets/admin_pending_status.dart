@@ -79,6 +79,13 @@ class _AdminPendingStatusState extends State<AdminPendingStatus>
                 .select('id')
                 .inFilter('status', ['new', 'in_progress']).limit(1)
             : Future.value([]),
+        widget.canManageContent
+            ? client
+                .from('visit_reports')
+                .select('id')
+                .eq('status', 'new')
+                .limit(1)
+            : Future.value([]),
       ]);
       if (mounted &&
           generation == _generation &&

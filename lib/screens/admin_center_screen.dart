@@ -56,6 +56,12 @@ class _AdminCenterScreenState extends State<AdminCenterScreen> {
                 .select('id')
                 .inFilter('status', ['new', 'in_progress'])
             : Future<List<dynamic>>.value(const []),
+        Permissions.canManageContent
+            ? Supabase.instance.client
+                .from('visit_reports')
+                .select('id')
+                .eq('status', 'new')
+            : Future<List<dynamic>>.value(const []),
       ]);
       final response = results[2] as FunctionResponse?;
       final data = response == null
@@ -63,7 +69,9 @@ class _AdminCenterScreenState extends State<AdminCenterScreen> {
           : Map<String, dynamic>.from(response.data as Map);
       if (!mounted) return;
       setState(() {
-        _reports = (results[0] as List).length + (results[3] as List).length;
+        _reports = (results[0] as List).length +
+            (results[3] as List).length +
+            (results[4] as List).length;
         _categories = (results[1] as List).length;
         _users = (data['users'] as List? ?? const []).length;
         _loading = false;

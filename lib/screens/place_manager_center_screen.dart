@@ -126,18 +126,12 @@ class _PlaceManagerCenterScreenState extends State<PlaceManagerCenterScreen> {
         return;
       case 'menu':
         await Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => PlaceTextManagerScreen(
-            place: place,
-            openingHours: false,
-          ),
+          builder: (_) => PlaceMenuManagerScreen(place: place),
         ));
         return;
       case 'hours':
         await Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => PlaceTextManagerScreen(
-            place: place,
-            openingHours: true,
-          ),
+          builder: (_) => PlaceOpeningHoursManagerScreen(place: place),
         ));
         return;
       case 'gallery':

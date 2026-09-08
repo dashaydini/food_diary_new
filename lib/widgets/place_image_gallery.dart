@@ -231,9 +231,18 @@ class _GalleryScreenState extends State<_GalleryScreen> {
 
       if (!context.mounted) return;
 
+      widget.images.removeWhere((item) => item.id == image.id);
+      if (widget.images.isEmpty) {
+        Navigator.of(context).pop();
+      } else {
+        setState(() {
+          _currentIndex = _currentIndex.clamp(0, widget.images.length - 1);
+        });
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('הדיווח התקבל, תודה'),
+          content: Text('הדיווח התקבל והתמונה הוסתרה עד לבדיקת מנהל'),
         ),
       );
     } catch (_) {

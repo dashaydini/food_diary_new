@@ -17,6 +17,7 @@ class AdminNotificationsScreen extends StatefulWidget {
 
 class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
   int _reportsCount = 0;
+  int _visitReportsCount = 0;
   int _supportRequestsCount = 0;
   bool _loading = true;
 
@@ -50,6 +51,12 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
                 .select('id')
                 .inFilter('status', ['new', 'in_progress'])
             : Future<List<dynamic>>.value(const []),
+        Permissions.canManageContent
+            ? Supabase.instance.client
+                .from('visit_reports')
+                .select('id')
+                .eq('status', 'new')
+            : Future<List<dynamic>>.value(const []),
       ]);
 
       if (!mounted) return;
@@ -57,6 +64,7 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
       setState(() {
         _reportsCount = results[0].length;
         _supportRequestsCount = results[1].length;
+        _visitReportsCount = results[2].length;
         _loading = false;
       });
     } catch (_) {
@@ -65,6 +73,7 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
       setState(() {
         _reportsCount = 0;
         _supportRequestsCount = 0;
+        _visitReportsCount = 0;
         _loading = false;
       });
     }
@@ -92,6 +101,13 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
     if (mounted) {
       _loadCounts();
     }
+  }
+
+  Future<void> _openVisitReports() async {
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => const _AdminVisitReportsScreen(),
+    ));
+    if (mounted) _loadCounts();
   }
 
   @override
@@ -156,9 +172,16 @@ class _AdminNotificationsScreenState extends State<AdminNotificationsScreen> {
                     if (Permissions.canManageContent) ...[
                       _NotificationCategory(
                         icon: Icons.flag_outlined,
-                        title: 'דיווחים',
+                        title: 'דיווחים על תמונות',
                         count: _reportsCount,
                         onTap: _openReports,
+                      ),
+                      const SizedBox(height: 11),
+                      _NotificationCategory(
+                        icon: Icons.rate_review_outlined,
+                        title: 'דיווחים על חוויות',
+                        count: _visitReportsCount,
+                        onTap: _openVisitReports,
                       ),
                       const SizedBox(height: 11),
                     ],
@@ -293,6 +316,127 @@ class _NotificationCategory extends StatelessWidget {
       ),
     );
   }
+}
+
+class _AdminVisitReportsScreen extends StatefulWidget {
+  const _AdminVisitReportsScreen();
+
+  @override
+  State<_AdminVisitReportsScreen> createState() =>
+      _AdminVisitReportsScreenState();
+}
+
+class _AdminVisitReportsScreenState extends State<_AdminVisitReportsScreen> {
+  List<Map<String, dynamic>> _reports = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final rows = await Supabase.instance.client
+          .from('visit_reports')
+          .select(
+              'id,visit_id,reason,created_at,visits(id,notes,rating,place_id,profiles(display_name),places(name))')
+          .eq('status', 'new')
+          .order('created_at', ascending: false);
+      if (mounted) {
+        setState(() {
+          _reports = List<Map<String, dynamic>>.from(rows);
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _handle(Map<String, dynamic> report,
+      {required bool remove}) async {
+    final client = Supabase.instance.client;
+    if (remove) {
+      await client.from('visits').delete().eq('id', report['visit_id']);
+    } else {
+      await client.from('visit_reports').update({
+        'status': 'handled',
+        'handled_at': DateTime.now().toUtc().toIso8601String(),
+        'handled_by': client.auth.currentUser!.id,
+      }).eq('id', report['id']);
+    }
+    await _load();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+            title: const Text('דיווחים על חוויות'),
+            actions: const [HomeButton()]),
+        body: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : RefreshIndicator(
+                onRefresh: _load,
+                child: _reports.isEmpty
+                    ? ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        children: const [
+                            SizedBox(height: 180),
+                            Center(child: Text('אין דיווחים חדשים'))
+                          ])
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(18),
+                        itemCount: _reports.length,
+                        itemBuilder: (context, index) {
+                          final report = _reports[index];
+                          final visit = report['visits'] as Map? ?? const {};
+                          final place = visit['places'] as Map? ?? const {};
+                          return Card(
+                              child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Text(place['name']?.toString() ?? 'מקום',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium),
+                                  const SizedBox(height: 6),
+                                  Text(visit['notes']
+                                              ?.toString()
+                                              .trim()
+                                              .isNotEmpty ==
+                                          true
+                                      ? visit['notes'].toString()
+                                      : 'חוויה ללא מלל'),
+                                  const Divider(),
+                                  Text('סיבת הדיווח: ${report['reason']}'),
+                                  const SizedBox(height: 10),
+                                  Wrap(spacing: 8, children: [
+                                    FilledButton.icon(
+                                      onPressed: () =>
+                                          _handle(report, remove: false),
+                                      icon:
+                                          const Icon(Icons.visibility_outlined),
+                                      label: const Text('טופל — החזרה לפרסום'),
+                                    ),
+                                    OutlinedButton.icon(
+                                      onPressed: () =>
+                                          _handle(report, remove: true),
+                                      icon: const Icon(
+                                          Icons.delete_forever_outlined),
+                                      label: const Text('מחיקת החוויה'),
+                                    ),
+                                  ]),
+                                ]),
+                          ));
+                        },
+                      ),
+              ),
+      );
 }
 
 class _AdminReportsScreen extends StatefulWidget {

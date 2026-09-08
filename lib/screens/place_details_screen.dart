@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../models/content_filter.dart';
 
@@ -41,8 +42,12 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
   DateTime? _placeCreatedAt;
   String? _businessMenu;
   String? _openingHours;
+  String? _menuFileUrl;
+  String? _menuFileName;
+  String? _menuFileType;
+  List<Map<String, dynamic>> _openingSchedule = [];
   List<Map<String, dynamic>> _businessGallery = [];
-  Map<String, String> _officialReplies = {};
+  Map<String, Map<String, dynamic>> _officialReplies = {};
   bool _canReplyOfficially = false;
 
   @override
@@ -62,12 +67,12 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
       final results = await Future.wait([
         client
             .from('place_menus')
-            .select('content')
+            .select('content,file_url,file_name,file_type')
             .eq('place_id', placeId)
             .maybeSingle(),
         client
             .from('place_opening_hours')
-            .select('content')
+            .select('content,schedule')
             .eq('place_id', placeId)
             .maybeSingle(),
         client
@@ -77,7 +82,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
             .order('created_at', ascending: false),
         client
             .from('place_official_replies')
-            .select('visit_id,body')
+            .select('id,visit_id,body,created_by')
             .eq('place_id', placeId),
       ]);
       var canReply = Permissions.isAdmin;
@@ -96,10 +101,20 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
       setState(() {
         _businessMenu = (results[0] as Map?)?['content']?.toString();
         _openingHours = (results[1] as Map?)?['content']?.toString();
+        _menuFileUrl = (results[0] as Map?)?['file_url']?.toString();
+        _menuFileName = (results[0] as Map?)?['file_name']?.toString();
+        _menuFileType = (results[0] as Map?)?['file_type']?.toString();
+        final schedule = (results[1] as Map?)?['schedule'];
+        _openingSchedule = schedule is List
+            ? [
+                for (final item in schedule)
+                  Map<String, dynamic>.from(item as Map)
+              ]
+            : [];
         _businessGallery = List<Map<String, dynamic>>.from(results[2] as List);
         _officialReplies = {
           for (final row in List<Map<String, dynamic>>.from(results[3] as List))
-            row['visit_id'].toString(): row['body'].toString(),
+            row['visit_id'].toString(): row,
         };
         _canReplyOfficially = canReply;
       });
@@ -110,7 +125,8 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
 
   Future<void> _editOfficialReply(Map<String, dynamic> visit) async {
     final visitId = visit['id'].toString();
-    final controller = TextEditingController(text: _officialReplies[visitId]);
+    final controller = TextEditingController(
+        text: _officialReplies[visitId]?['body']?.toString());
     final save = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -138,6 +154,32 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
       await _loadBusinessContent();
     }
     controller.dispose();
+  }
+
+  Future<void> _deleteOfficialReply(String visitId) async {
+    final reply = _officialReplies[visitId];
+    if (reply == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('מחיקת תגובה רשמית'),
+        content: const Text('למחוק את התגובה מהחוויה?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('ביטול')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('מחיקה')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await Supabase.instance.client
+        .from('place_official_replies')
+        .delete()
+        .eq('id', reply['id']);
+    await _loadBusinessContent();
   }
 
   Future<void> _loadAttribution() async {
@@ -662,16 +704,27 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                       ],
                     ),
                   ],
-                  if (_openingHours?.trim().isNotEmpty == true ||
+                  if (_openingSchedule.isNotEmpty ||
+                      _openingHours?.trim().isNotEmpty == true ||
+                      _menuFileUrl?.trim().isNotEmpty == true ||
                       _businessMenu?.trim().isNotEmpty == true) ...[
                     const SizedBox(height: 18),
-                    if (_openingHours?.trim().isNotEmpty == true)
+                    if (_openingSchedule.isNotEmpty)
+                      _OpeningHoursCard(schedule: _openingSchedule)
+                    else if (_openingHours?.trim().isNotEmpty == true)
                       _BusinessInfoCard(
                         title: 'שעות פתיחה',
                         icon: Icons.schedule_rounded,
                         content: _openingHours!,
                       ),
-                    if (_businessMenu?.trim().isNotEmpty == true)
+                    if (_menuFileUrl?.trim().isNotEmpty == true)
+                      _MenuFileCard(
+                        url: _menuFileUrl!,
+                        name: _menuFileName,
+                        type: _menuFileType,
+                        note: _businessMenu,
+                      )
+                    else if (_businessMenu?.trim().isNotEmpty == true)
                       _BusinessInfoCard(
                         title: 'תפריט',
                         icon: Icons.restaurant_menu_rounded,
@@ -830,9 +883,16 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
         return VisitCard(
           visit: visit,
           place: widget.place,
-          officialReply: _officialReplies[visit['id']?.toString()],
+          officialReply:
+              _officialReplies[visit['id']?.toString()]?['body']?.toString(),
           canReply: _canReplyOfficially,
           onReply: () => _editOfficialReply(visit),
+          canDeleteOfficialReply: Permissions.canManageContent ||
+              _officialReplies[visit['id']?.toString()]?['created_by']
+                      ?.toString() ==
+                  Supabase.instance.client.auth.currentUser?.id,
+          onDeleteOfficialReply: () =>
+              _deleteOfficialReply(visit['id'].toString()),
           onChanged: () async {
             if (!mounted) return;
 
@@ -846,6 +906,87 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
       }).toList(),
     );
   }
+}
+
+class _OpeningHoursCard extends StatelessWidget {
+  final List<Map<String, dynamic>> schedule;
+  const _OpeningHoursCard({required this.schedule});
+
+  @override
+  Widget build(BuildContext context) => Card(
+        margin: const EdgeInsets.only(bottom: 10),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            const Row(textDirection: TextDirection.rtl, children: [
+              Icon(Icons.schedule_rounded,
+                  color: AppColors.champagne, size: 20),
+              SizedBox(width: 8),
+              Text('שעות פתיחה', style: TextStyle(fontWeight: FontWeight.w700)),
+            ]),
+            const SizedBox(height: 10),
+            for (final day in schedule)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Row(textDirection: TextDirection.rtl, children: [
+                  Expanded(child: Text(day['label']?.toString() ?? '')),
+                  Text(
+                      day['open'] == true
+                          ? '${day['from']}–${day['to']}'
+                          : 'סגור',
+                      style: TextStyle(
+                          color: day['open'] == true
+                              ? AppColors.textPrimary
+                              : AppColors.textMuted)),
+                ]),
+              ),
+          ]),
+        ),
+      );
+}
+
+class _MenuFileCard extends StatelessWidget {
+  final String url;
+  final String? name;
+  final String? type;
+  final String? note;
+  const _MenuFileCard({required this.url, this.name, this.type, this.note});
+
+  @override
+  Widget build(BuildContext context) => Card(
+        margin: const EdgeInsets.only(bottom: 10),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            const Row(textDirection: TextDirection.rtl, children: [
+              Icon(Icons.restaurant_menu_rounded,
+                  color: AppColors.champagne, size: 20),
+              SizedBox(width: 8),
+              Text('תפריט', style: TextStyle(fontWeight: FontWeight.w700)),
+            ]),
+            const SizedBox(height: 10),
+            if (type == 'image')
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(url, height: 300, fit: BoxFit.contain),
+              )
+            else
+              FilledButton.icon(
+                onPressed: () => launchUrl(Uri.parse(url),
+                    mode: LaunchMode.externalApplication),
+                icon: const Icon(Icons.picture_as_pdf_outlined),
+                label: Text(
+                    name?.trim().isNotEmpty == true ? name! : 'פתיחת התפריט'),
+              ),
+            if (note?.trim().isNotEmpty == true) ...[
+              const SizedBox(height: 8),
+              Text(note!, textAlign: TextAlign.right),
+            ],
+          ]),
+        ),
+      );
 }
 
 class _BusinessInfoCard extends StatelessWidget {

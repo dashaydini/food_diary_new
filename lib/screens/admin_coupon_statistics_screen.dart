@@ -25,7 +25,9 @@ class _AdminCouponStatisticsScreenState
   bool _loading = true;
   String? _error;
   List<Map<String, dynamic>> _events = [];
+  List<Map<String, dynamic>> _visits = [];
   Map<String, Map<String, dynamic>> _usersById = {};
+  int _periodDays = 30;
 
   @override
   void initState() {
@@ -43,9 +45,23 @@ class _AdminCouponStatisticsScreenState
       _error = null;
     });
     try {
+      final from = DateTime.now()
+          .subtract(Duration(days: _periodDays))
+          .toUtc()
+          .toIso8601String();
+      if (widget.placeId != null) {
+        final visitRows = await Supabase.instance.client
+            .from('visits')
+            .select('id,user_id,rating,visit_date')
+            .eq('place_id', widget.placeId!)
+            .gte('visit_date', from)
+            .order('visit_date', ascending: false);
+        _visits = List<Map<String, dynamic>>.from(visitRows);
+      }
       var eventQuery = Supabase.instance.client
           .from('coupon_events')
-          .select('coupon_id,event_type,user_id,created_at');
+          .select('coupon_id,event_type,user_id,created_at')
+          .gte('created_at', from);
       if (widget.placeId != null) {
         final couponRows = await Supabase.instance.client
             .from('coupons')
@@ -60,6 +76,7 @@ class _AdminCouponStatisticsScreenState
             setState(() {
               _events = [];
               _usersById = {};
+              _loading = false;
             });
           }
           return;
@@ -111,6 +128,7 @@ class _AdminCouponStatisticsScreenState
     final codeViews =
         _events.where((e) => e['event_type'] == 'code_view').length;
     final users = _events.map((e) => e['user_id']).whereType<String>().toSet();
+    final visitors = _visits.map((e) => e['user_id']).whereType<String>().toSet();
     final today = DateTime.now();
     final todayViews = _events.where((event) {
       final date =
@@ -145,6 +163,20 @@ class _AdminCouponStatisticsScreenState
                   child: Text(_error!, textAlign: TextAlign.center),
                 )
               else ...[
+                if (widget.placeId != null) ...[
+                  Wrap(spacing: 8, runSpacing: 8, children: [
+                    for (final option in const [(7, 'שבוע'), (30, 'חודש'), (90, '3 חודשים'), (365, 'שנה')])
+                      ChoiceChip(
+                        label: Text(option.$2),
+                        selected: _periodDays == option.$1,
+                        onSelected: (_) {
+                          setState(() => _periodDays = option.$1);
+                          _load();
+                        },
+                      ),
+                  ]),
+                  const SizedBox(height: 14),
+                ],
                 Wrap(
                   spacing: 12,
                   runSpacing: 12,
@@ -155,6 +187,10 @@ class _AdminCouponStatisticsScreenState
                         'משתמשים ייחודיים', users.length, Icons.people_outline),
                     _StatTile(
                         'הצגות קוד היום', todayViews, Icons.today_outlined),
+                    if (widget.placeId != null)
+                      _StatTile('ביקורים שתועדו', _visits.length, Icons.store_mall_directory_outlined),
+                    if (widget.placeId != null)
+                      _StatTile('מבקרים ייחודיים', visitors.length, Icons.groups_outlined),
                   ],
                 ),
                 const SizedBox(height: 22),

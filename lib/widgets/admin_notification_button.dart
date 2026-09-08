@@ -52,10 +52,14 @@ class _AdminNotificationButtonState extends State<AdminNotificationButton> {
                 .select('id')
                 .inFilter('status', ['new', 'in_progress'])
             : Future<List<dynamic>>.value(const []),
+        Permissions.canManageContent
+            ? client.from('visit_reports').select('id').eq('status', 'new')
+            : Future<List<dynamic>>.value(const []),
       ]);
       if (!mounted) return;
       setState(() {
-        _pendingCount = results[0].length + results[1].length;
+        _pendingCount =
+            results[0].length + results[1].length + results[2].length;
         _loading = false;
       });
     } catch (_) {
@@ -67,6 +71,12 @@ class _AdminNotificationButtonState extends State<AdminNotificationButton> {
     if (_channel != null) return;
     _channel = Supabase.instance.client
         .channel('admin-pending-${identityHashCode(this)}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'visit_reports',
+          callback: (_) => _loadCount(),
+        )
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',

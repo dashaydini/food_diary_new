@@ -15,6 +15,8 @@ class VisitCard extends StatelessWidget {
   final String? officialReply;
   final bool canReply;
   final VoidCallback? onReply;
+  final bool canDeleteOfficialReply;
+  final VoidCallback? onDeleteOfficialReply;
 
   const VisitCard({
     super.key,
@@ -24,6 +26,8 @@ class VisitCard extends StatelessWidget {
     this.officialReply,
     this.canReply = false,
     this.onReply,
+    this.canDeleteOfficialReply = false,
+    this.onDeleteOfficialReply,
   });
 
   Future<void> _open(BuildContext context) async {
@@ -282,6 +286,17 @@ class VisitCard extends StatelessWidget {
                           label: Text(officialReply == null
                               ? 'תגובה רשמית'
                               : 'עריכת תגובה'),
+                        ),
+                      ),
+                    ],
+                    if (officialReply?.trim().isNotEmpty == true &&
+                        canDeleteOfficialReply) ...[
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: onDeleteOfficialReply,
+                          icon: const Icon(Icons.delete_outline, size: 18),
+                          label: const Text('מחיקת התגובה'),
                         ),
                       ),
                     ],

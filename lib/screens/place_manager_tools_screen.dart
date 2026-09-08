@@ -1,33 +1,33 @@
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../theme/colors.dart';
+import '../utils/permissions.dart';
 import '../widgets/home_button.dart';
 
-class PlaceTextManagerScreen extends StatefulWidget {
+class PlaceMenuManagerScreen extends StatefulWidget {
   final Map<String, dynamic> place;
-  final bool openingHours;
-
-  const PlaceTextManagerScreen({
-    super.key,
-    required this.place,
-    required this.openingHours,
-  });
+  const PlaceMenuManagerScreen({super.key, required this.place});
 
   @override
-  State<PlaceTextManagerScreen> createState() => _PlaceTextManagerScreenState();
+  State<PlaceMenuManagerScreen> createState() => _PlaceMenuManagerScreenState();
 }
 
-class _PlaceTextManagerScreenState extends State<PlaceTextManagerScreen> {
-  final _controller = TextEditingController();
+class _PlaceMenuManagerScreenState extends State<PlaceMenuManagerScreen> {
+  final _note = TextEditingController();
   bool _loading = true;
   bool _saving = false;
-
-  String get _table =>
-      widget.openingHours ? 'place_opening_hours' : 'place_menus';
-  String get _title => widget.openingHours ? 'שעות פתיחה' : 'תפריט';
+  Uint8List? _pickedBytes;
+  String? _pickedName;
+  String? _fileUrl;
+  String? _fileName;
+  String? _fileType;
 
   @override
   void initState() {
@@ -38,33 +38,82 @@ class _PlaceTextManagerScreenState extends State<PlaceTextManagerScreen> {
   Future<void> _load() async {
     try {
       final row = await Supabase.instance.client
-          .from(_table)
-          .select('content')
+          .from('place_menus')
+          .select('content,file_url,file_name,file_type')
           .eq('place_id', widget.place['id'])
           .maybeSingle();
-      _controller.text = row?['content']?.toString() ?? '';
+      _note.text = row?['content']?.toString() ?? '';
+      _fileUrl = row?['file_url']?.toString();
+      _fileName = row?['file_name']?.toString();
+      _fileType = row?['file_type']?.toString();
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
+  Future<void> _pickFile() async {
+    final file = await FilePicker.pickFile(
+      type: FileType.custom,
+      allowedExtensions: const ['jpg', 'jpeg', 'png', 'webp', 'pdf'],
+    );
+    if (file == null) return;
+    final bytes = await file.readAsBytes();
+    if (!mounted) return;
+    setState(() {
+      _pickedBytes = bytes;
+      _pickedName = file.name;
+    });
+  }
+
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
-      await Supabase.instance.client.from(_table).upsert({
+      var url = _fileUrl;
+      var name = _fileName;
+      var type = _fileType;
+      if (_pickedBytes != null && _pickedName != null) {
+        final extension = _pickedName!.split('.').last.toLowerCase();
+        final path =
+            '${Supabase.instance.client.auth.currentUser!.id}/${const Uuid().v4()}.$extension';
+        await Supabase.instance.client.storage
+            .from('place-menu-files')
+            .uploadBinary(path, _pickedBytes!,
+                fileOptions: FileOptions(
+                    upsert: false,
+                    contentType: extension == 'pdf'
+                        ? 'application/pdf'
+                        : 'image/${extension == 'jpg' ? 'jpeg' : extension}'));
+        url = Supabase.instance.client.storage
+            .from('place-menu-files')
+            .getPublicUrl(path);
+        name = _pickedName;
+        type = extension == 'pdf' ? 'pdf' : 'image';
+      }
+      if (url == null || url.isEmpty) {
+        throw StateError('menu_file_required');
+      }
+      await Supabase.instance.client.from('place_menus').upsert({
         'place_id': widget.place['id'],
-        'content': _controller.text.trim(),
+        'content': _note.text.trim(),
+        'file_url': url,
+        'file_name': name,
+        'file_type': type,
         'updated_by': Supabase.instance.client.auth.currentUser!.id,
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       });
+      _fileUrl = url;
+      _fileName = name;
+      _fileType = type;
+      _pickedBytes = null;
+      _pickedName = null;
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$_title נשמר')));
+            .showSnackBar(const SnackBar(content: Text('התפריט נשמר ופורסם')));
       }
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('לא ניתן לשמור את $_title')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('לא ניתן לשמור את התפריט')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -73,7 +122,7 @@ class _PlaceTextManagerScreenState extends State<PlaceTextManagerScreen> {
 
   @override
   void dispose() {
-    _controller.dispose();
+    _note.dispose();
     super.dispose();
   }
 
@@ -81,7 +130,7 @@ class _PlaceTextManagerScreenState extends State<PlaceTextManagerScreen> {
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
-            title: Text('$_title · ${widget.place['name']}'),
+            title: Text('תפריט · ${widget.place['name']}'),
             actions: const [HomeButton()]),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
@@ -89,17 +138,42 @@ class _PlaceTextManagerScreenState extends State<PlaceTextManagerScreen> {
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 680),
                   child: ListView(padding: const EdgeInsets.all(18), children: [
-                    TextField(
-                      controller: _controller,
-                      minLines: 10,
-                      maxLines: 20,
-                      decoration: InputDecoration(
-                        labelText: _title,
-                        hintText: widget.openingHours
-                            ? 'א׳–ה׳ 08:00–20:00\nו׳ 08:00–14:00\nשבת סגור'
-                            : 'הקלד כאן את פריטי התפריט, המחירים והערות',
-                        alignLabelWithHint: true,
+                    if (_fileUrl != null && _fileType == 'image')
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Image.network(_fileUrl!,
+                            height: 260, fit: BoxFit.contain),
                       ),
+                    if (_fileUrl != null && _fileType == 'pdf')
+                      Card(
+                          child: ListTile(
+                        leading: const Icon(Icons.picture_as_pdf_outlined),
+                        title: Text(_fileName ?? 'תפריט PDF'),
+                        trailing: const Icon(Icons.open_in_new),
+                        onTap: () => launchUrl(Uri.parse(_fileUrl!),
+                            mode: LaunchMode.externalApplication),
+                      )),
+                    if (_pickedName != null)
+                      ListTile(
+                        leading: const Icon(Icons.check_circle_outline),
+                        title: Text(_pickedName!),
+                        subtitle: const Text(
+                            'הקובץ החדש יחליף את התפריט הקיים בשמירה'),
+                      ),
+                    OutlinedButton.icon(
+                      onPressed: _saving ? null : _pickFile,
+                      icon: const Icon(Icons.upload_file_rounded),
+                      label: Text(_fileUrl == null
+                          ? 'העלאת תמונת תפריט או PDF'
+                          : 'החלפת תמונה או PDF'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _note,
+                      minLines: 2,
+                      maxLines: 4,
+                      decoration: const InputDecoration(
+                          labelText: 'הערה קצרה לתפריט (רשות)'),
                     ),
                     const SizedBox(height: 16),
                     FilledButton.icon(
@@ -109,6 +183,158 @@ class _PlaceTextManagerScreenState extends State<PlaceTextManagerScreen> {
                     ),
                   ]),
                 ),
+              ),
+      );
+}
+
+class PlaceOpeningHoursManagerScreen extends StatefulWidget {
+  final Map<String, dynamic> place;
+  const PlaceOpeningHoursManagerScreen({super.key, required this.place});
+
+  @override
+  State<PlaceOpeningHoursManagerScreen> createState() =>
+      _PlaceOpeningHoursManagerScreenState();
+}
+
+class _PlaceOpeningHoursManagerScreenState
+    extends State<PlaceOpeningHoursManagerScreen> {
+  static const _days = [
+    'ראשון',
+    'שני',
+    'שלישי',
+    'רביעי',
+    'חמישי',
+    'שישי',
+    'שבת'
+  ];
+  late List<Map<String, dynamic>> _schedule;
+  bool _loading = true;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _schedule = [
+      for (var i = 0; i < _days.length; i++)
+        {
+          'day': i,
+          'label': _days[i],
+          'open': i < 6,
+          'from': '08:00',
+          'to': i == 5 ? '14:00' : '20:00'
+        }
+    ];
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final row = await Supabase.instance.client
+          .from('place_opening_hours')
+          .select('schedule')
+          .eq('place_id', widget.place['id'])
+          .maybeSingle();
+      final saved = row?['schedule'];
+      if (saved is List && saved.length == 7) {
+        _schedule = [
+          for (final item in saved) Map<String, dynamic>.from(item as Map)
+        ];
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _pickTime(int index, String key) async {
+    final parts = (_schedule[index][key] as String).split(':');
+    final value = await showTimePicker(
+      context: context,
+      initialTime:
+          TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1])),
+    );
+    if (value != null && mounted) {
+      setState(() => _schedule[index][key] =
+          '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}');
+    }
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      await Supabase.instance.client.from('place_opening_hours').upsert({
+        'place_id': widget.place['id'],
+        'content': '',
+        'schedule': _schedule,
+        'updated_by': Supabase.instance.client.auth.currentUser!.id,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('שעות הפתיחה נשמרו ופורסמו')));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('לא ניתן לשמור את שעות הפתיחה')));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+            title: Text('שעות פתיחה · ${widget.place['name']}'),
+            actions: const [HomeButton()]),
+        body: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : Center(
+                child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 680),
+                    child: ListView(
+                      padding: const EdgeInsets.all(18),
+                      children: [
+                        for (var i = 0; i < _schedule.length; i++)
+                          Card(
+                              child: Padding(
+                                  padding: const EdgeInsets.all(10),
+                                  child: Column(children: [
+                                    SwitchListTile(
+                                      value: _schedule[i]['open'] == true,
+                                      title: Text('יום ${_days[i]}'),
+                                      subtitle: Text(
+                                          _schedule[i]['open'] == true
+                                              ? 'פתוח'
+                                              : 'סגור'),
+                                      onChanged: (value) => setState(
+                                          () => _schedule[i]['open'] = value),
+                                    ),
+                                    if (_schedule[i]['open'] == true)
+                                      Row(children: [
+                                        Expanded(
+                                            child: OutlinedButton(
+                                                onPressed: () =>
+                                                    _pickTime(i, 'from'),
+                                                child: Text(
+                                                    'משעה ${_schedule[i]['from']}'))),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                            child: OutlinedButton(
+                                                onPressed: () =>
+                                                    _pickTime(i, 'to'),
+                                                child: Text(
+                                                    'עד ${_schedule[i]['to']}'))),
+                                      ]),
+                                  ]))),
+                        const SizedBox(height: 10),
+                        FilledButton.icon(
+                            onPressed: _saving ? null : _save,
+                            icon: const Icon(Icons.save_outlined),
+                            label: Text(_saving ? 'שומר...' : 'שמירה ופרסום')),
+                      ],
+                    )),
               ),
       );
 }
@@ -289,7 +515,7 @@ class _PlaceRepliesManagerScreenState extends State<PlaceRepliesManagerScreen> {
           .order('visit_date', ascending: false),
       Supabase.instance.client
           .from('place_official_replies')
-          .select('id,visit_id,body')
+          .select('id,visit_id,body,created_by')
           .eq('place_id', widget.place['id']),
     ]);
     if (!mounted) return;
@@ -338,6 +564,103 @@ class _PlaceRepliesManagerScreenState extends State<PlaceRepliesManagerScreen> {
     controller.dispose();
   }
 
+  Future<void> _deleteReply(Map<String, dynamic> reply) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('מחיקת התגובה הרשמית'),
+        content: const Text('התגובה שלך תימחק מהחוויה. להמשיך?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('ביטול')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('מחיקה')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await Supabase.instance.client
+        .from('place_official_replies')
+        .delete()
+        .eq('id', reply['id']);
+    await _load();
+  }
+
+  Future<void> _reportVisit(Map<String, dynamic> visit) async {
+    final controller = TextEditingController();
+    final send = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('דיווח על חוויה לא הולמת'),
+        content: TextField(
+          controller: controller,
+          minLines: 3,
+          maxLines: 6,
+          decoration: const InputDecoration(
+            labelText: 'מה לא תקין בחוויה?',
+            hintText: 'הסבר קצר שיעזור למנהל לבדוק את הדיווח',
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('ביטול')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('שליחת דיווח')),
+        ],
+      ),
+    );
+    final reason = controller.text.trim();
+    controller.dispose();
+    if (send != true || reason.length < 2) return;
+    try {
+      await Supabase.instance.client.from('visit_reports').insert({
+        'visit_id': visit['id'],
+        'reporter_id': Supabase.instance.client.auth.currentUser!.id,
+        'reason': reason,
+      });
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('הדיווח נשלח והחוויה הוסתרה עד לבדיקת מנהל'),
+        ));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('החוויה כבר דווחה או שלא ניתן לשלוח את הדיווח'),
+        ));
+      }
+    }
+  }
+
+  Future<void> _deleteVisit(Map<String, dynamic> visit) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('מחיקת החוויה'),
+        content: const Text('הפעולה תמחק את החוויה לצמיתות. להמשיך?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('ביטול')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('מחיקה')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await Supabase.instance.client
+        .from('visits')
+        .delete()
+        .eq('id', visit['id']);
+    await _load();
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: AppColors.background,
@@ -352,17 +675,53 @@ class _PlaceRepliesManagerScreenState extends State<PlaceRepliesManagerScreen> {
                 itemBuilder: (context, index) {
                   final visit = _visits[index];
                   final reply = _replies[visit['id'].toString()];
+                  final ownsReply = reply?['created_by']?.toString() ==
+                      Supabase.instance.client.auth.currentUser?.id;
                   return Card(
-                      child: ListTile(
-                    title: Text(
-                        (visit['notes']?.toString().trim().isNotEmpty ?? false)
-                            ? visit['notes'].toString()
-                            : 'חוויה ללא מלל'),
-                    subtitle: reply == null
-                        ? const Text('אין תגובה רשמית')
-                        : Text('תגובת העסק: ${reply['body']}'),
-                    trailing: const Icon(Icons.reply_rounded),
-                    onTap: () => _editReply(visit),
+                      child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            (visit['notes']?.toString().trim().isNotEmpty ??
+                                    false)
+                                ? visit['notes'].toString()
+                                : 'חוויה ללא מלל',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 7),
+                          Text(reply == null
+                              ? 'אין תגובה רשמית'
+                              : 'תגובת העסק: ${reply['body']}'),
+                          const SizedBox(height: 10),
+                          Wrap(spacing: 8, runSpacing: 8, children: [
+                            OutlinedButton.icon(
+                              onPressed: () => _editReply(visit),
+                              icon: const Icon(Icons.reply_rounded),
+                              label:
+                                  Text(reply == null ? 'תגובה' : 'עריכת תגובה'),
+                            ),
+                            if (reply != null &&
+                                (ownsReply || Permissions.canManageContent))
+                              OutlinedButton.icon(
+                                onPressed: () => _deleteReply(reply),
+                                icon: const Icon(Icons.delete_outline),
+                                label: const Text('מחיקת התגובה'),
+                              ),
+                            OutlinedButton.icon(
+                              onPressed: () => _reportVisit(visit),
+                              icon: const Icon(Icons.flag_outlined),
+                              label: const Text('דיווח על החוויה'),
+                            ),
+                            if (Permissions.canManageContent)
+                              OutlinedButton.icon(
+                                onPressed: () => _deleteVisit(visit),
+                                icon: const Icon(Icons.delete_forever_outlined),
+                                label: const Text('מחיקת החוויה'),
+                              ),
+                          ]),
+                        ]),
                   ));
                 },
               ),

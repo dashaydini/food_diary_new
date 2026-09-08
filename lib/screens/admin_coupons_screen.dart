@@ -393,12 +393,15 @@ class _CouponEditorScreenState extends State<CouponEditorScreen> {
     _categoryIds = Set<String>.from(x?.categoryIds ?? const []);
     _notificationRegion = x?.notificationRegion;
     final managedPlace = widget.managedPlace;
-    if (x == null && managedPlace != null) {
+    if (managedPlace != null) {
       _selectedPlaceId = managedPlace['id']?.toString();
       _latitude = (managedPlace['latitude'] as num?)?.toDouble();
       _longitude = (managedPlace['longitude'] as num?)?.toDouble();
       c['business_name']!.text = managedPlace['name']?.toString() ?? '';
       c['address']!.text = managedPlace['address']?.toString() ?? '';
+      final categoryId = managedPlace['category_id']?.toString();
+      _categoryIds = categoryId == null ? <String>{} : {categoryId};
+      _notificationRegion = _regionForPlace(managedPlace);
     }
     if (widget.coupon == null) _generateCode();
     _loadCategories();
@@ -427,6 +430,24 @@ class _CouponEditorScreenState extends State<CouponEditorScreen> {
   String? _required(String? value) =>
       value == null || value.trim().isEmpty ? 'שדה חובה' : null;
 
+  String _regionForPlace(Map<String, dynamic> place) {
+    final address = (place['address']?.toString() ?? '').toLowerCase();
+    if (address.contains('ירושלים')) return 'ירושלים והסביבה';
+    if (address.contains('חיפה') || address.contains('קריות')) {
+      return 'חיפה והקריות';
+    }
+    if (address.contains('באר שבע') || address.contains('אילת')) return 'דרום';
+    final lat = (place['latitude'] as num?)?.toDouble();
+    final lon = (place['longitude'] as num?)?.toDouble();
+    if (lat != null) {
+      if (lat < 31.75) return 'דרום';
+      if (lat >= 32.55) return 'צפון';
+      if (lat >= 32.0 && lon != null && lon < 35.0) return 'חיפה והקריות';
+      if (lon != null && lon >= 35.05 && lat < 32.0) return 'ירושלים והסביבה';
+    }
+    return 'מרכז';
+  }
+
   void _generateCode() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     final random = Random.secure();
@@ -447,7 +468,7 @@ class _CouponEditorScreenState extends State<CouponEditorScreen> {
     try {
       final rows = await Supabase.instance.client
           .from('places')
-          .select('id,name,address,latitude,longitude')
+          .select('id,name,address,latitude,longitude,category_id')
           .ilike('name', '%$query%')
           .limit(6);
       if (mounted && sequence == _searchSequence) {
@@ -465,6 +486,9 @@ class _CouponEditorScreenState extends State<CouponEditorScreen> {
       _placeSuggestions = [];
       c['business_name']!.text = place['name']?.toString() ?? '';
       c['address']!.text = place['address']?.toString() ?? '';
+      final categoryId = place['category_id']?.toString();
+      if (categoryId != null) _categoryIds = {categoryId};
+      _notificationRegion = _regionForPlace(place);
     });
   }
 
@@ -640,35 +664,46 @@ class _CouponEditorScreenState extends State<CouponEditorScreen> {
                     _field('subtitle', 'מלל קצר'),
                     _field('description', 'תיאור', lines: 3),
                     const SizedBox(height: 6),
-                    Text('תחומי עניין לקופון',
-                        style: Theme.of(context).textTheme.titleMedium),
-                    const SizedBox(height: 8),
-                    Wrap(spacing: 8, runSpacing: 6, children: [
-                      for (final category in _categories)
-                        FilterChip(
-                          label: Text(category['title']?.toString() ?? ''),
-                          selected:
-                              _categoryIds.contains(category['id']?.toString()),
-                          onSelected: (selected) => setState(() {
-                            final id = category['id'].toString();
-                            selected
-                                ? _categoryIds.add(id)
-                                : _categoryIds.remove(id);
-                          }),
+                    if (widget.managedPlace != null) ...[
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.auto_awesome_outlined),
+                        title: const Text('קטגוריה ואזור נקבעים אוטומטית'),
+                        subtitle: Text(
+                          '${_categories.where((item) => _categoryIds.contains(item['id']?.toString())).map((item) => item['title']).join(', ')} · ${_notificationRegion ?? ''}',
                         ),
-                    ]),
-                    const SizedBox(height: 10),
-                    DropdownButtonFormField<String>(
-                      initialValue: _notificationRegion,
-                      decoration:
-                          const InputDecoration(labelText: 'אזור הקופון'),
-                      items: _regions
-                          .map((region) => DropdownMenuItem(
-                              value: region, child: Text(region)))
-                          .toList(),
-                      onChanged: (value) =>
-                          setState(() => _notificationRegion = value),
-                    ),
+                      ),
+                    ] else ...[
+                      Text('תחומי עניין לקופון',
+                          style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 8),
+                      Wrap(spacing: 8, runSpacing: 6, children: [
+                        for (final category in _categories)
+                          FilterChip(
+                            label: Text(category['title']?.toString() ?? ''),
+                            selected: _categoryIds
+                                .contains(category['id']?.toString()),
+                            onSelected: (selected) => setState(() {
+                              final id = category['id'].toString();
+                              selected
+                                  ? _categoryIds.add(id)
+                                  : _categoryIds.remove(id);
+                            }),
+                          ),
+                      ]),
+                      const SizedBox(height: 10),
+                      DropdownButtonFormField<String>(
+                        initialValue: _notificationRegion,
+                        decoration:
+                            const InputDecoration(labelText: 'אזור הקופון'),
+                        items: _regions
+                            .map((region) => DropdownMenuItem(
+                                value: region, child: Text(region)))
+                            .toList(),
+                        onChanged: (value) =>
+                            setState(() => _notificationRegion = value),
+                      ),
+                    ],
                     const SizedBox(height: 12),
                     _field('code', 'קוד קופון',
                         required: true,
