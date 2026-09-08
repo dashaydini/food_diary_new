@@ -114,8 +114,10 @@ class _AdminPlaceManagersScreenState extends State<AdminPlaceManagersScreen> {
     String? placeId = assignment?['place_id']?.toString();
     String? userId = assignment?['user_id']?.toString();
     var active = assignment?['status'] != 'suspended';
-    final selected = Set<String>.from(
-        assignment?['permissions'] as List? ?? const <String>[]);
+    final selected = assignment == null
+        ? permissionLabels.keys.toSet()
+        : Set<String>.from(
+            assignment['permissions'] as List? ?? const <String>[]);
     final saved = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
@@ -233,17 +235,30 @@ class _AdminPlaceManagersScreenState extends State<AdminPlaceManagersScreen> {
       'assigned_by': Supabase.instance.client.auth.currentUser!.id,
       'updated_at': DateTime.now().toUtc().toIso8601String(),
     };
-    if (assignment == null) {
-      await Supabase.instance.client
-          .from('place_managers')
-          .upsert(values, onConflict: 'place_id,user_id');
-    } else {
-      await Supabase.instance.client
-          .from('place_managers')
-          .update(values)
-          .eq('id', assignment['id']);
+    try {
+      if (assignment == null) {
+        await Supabase.instance.client
+            .from('place_managers')
+            .upsert(values, onConflict: 'place_id,user_id');
+      } else {
+        await Supabase.instance.client
+            .from('place_managers')
+            .update(values)
+            .eq('id', assignment['id']);
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('מנהל המקום וההרשאות נשמרו')),
+        );
+      }
+      await _load();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('השמירה נכשלה. נסה שוב.')),
+        );
+      }
     }
-    await _load();
   }
 
   Future<void> _remove(Map<String, dynamic> assignment) async {

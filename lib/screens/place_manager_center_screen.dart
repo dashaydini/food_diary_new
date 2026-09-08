@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/colors.dart';
+import '../utils/permissions.dart';
 import '../widgets/home_button.dart';
+import 'add_place_screen.dart';
+import 'admin_coupon_statistics_screen.dart';
+import 'admin_coupons_screen.dart';
 import 'place_details_screen.dart';
 
 class PlaceManagerCenterScreen extends StatefulWidget {
@@ -26,7 +30,7 @@ class _PlaceManagerCenterScreenState extends State<PlaceManagerCenterScreen> {
     ),
     (
       key: 'coupons',
-      title: 'קופונים ומבצעים',
+      title: 'יצירת קופונים ומבצעים',
       icon: Icons.card_giftcard_rounded
     ),
     (key: 'statistics', title: 'סטטיסטיקות', icon: Icons.query_stats_rounded),
@@ -84,15 +88,46 @@ class _PlaceManagerCenterScreenState extends State<PlaceManagerCenterScreen> {
     }
   }
 
-  void _openTool(Map<String, dynamic> place, String key) {
-    if (key == 'details') {
-      Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => PlaceDetailsScreen(place: place),
-      ));
-      return;
+  Future<void> _openTool(Map<String, dynamic> place, String key) async {
+    switch (key) {
+      case 'coupons':
+        final granted =
+            Set<String>.from(place['manager_permissions'] as List? ?? const []);
+        await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => AdminCouponsScreen(
+            managedPlace: place,
+            showStatistics:
+                Permissions.isFullAdmin || granted.contains('statistics'),
+          ),
+        ));
+        return;
+      case 'statistics':
+        await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => AdminCouponStatisticsScreen(
+            placeId: place['id']?.toString(),
+            placeName: place['name']?.toString(),
+          ),
+        ));
+        return;
+      case 'details':
+        await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => AddPlaceScreen(
+            categoryId: place['category_id']?.toString() ?? '',
+            categoryTitle: 'עריכת מקום',
+            place: place,
+          ),
+        ));
+        await _load();
+        return;
+      case 'replies':
+        await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => PlaceDetailsScreen(place: place),
+        ));
+        return;
     }
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('הכלי יתחבר למסך העריכה בשלב הבא')),
+      const SnackBar(content: Text('הכלי עדיין בהכנה')),
     );
   }
 
@@ -114,8 +149,11 @@ class _PlaceManagerCenterScreenState extends State<PlaceManagerCenterScreen> {
                       itemCount: _managedPlaces.length,
                       itemBuilder: (context, index) {
                         final place = _managedPlaces[index];
-                        final permissions = Set<String>.from(
-                            place['manager_permissions'] as List? ?? const []);
+                        final permissions = Permissions.isFullAdmin
+                            ? _tools.map((tool) => tool.key).toSet()
+                            : Set<String>.from(
+                                place['manager_permissions'] as List? ??
+                                    const []);
                         return Card(
                           margin: const EdgeInsets.only(bottom: 18),
                           child: Padding(

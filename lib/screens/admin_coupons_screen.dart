@@ -18,7 +18,14 @@ import 'admin_coupon_statistics_screen.dart';
 import 'my_coupons_screen.dart';
 
 class AdminCouponsScreen extends StatefulWidget {
-  const AdminCouponsScreen({super.key});
+  final Map<String, dynamic>? managedPlace;
+  final bool showStatistics;
+
+  const AdminCouponsScreen({
+    super.key,
+    this.managedPlace,
+    this.showStatistics = true,
+  });
   @override
   State<AdminCouponsScreen> createState() => _AdminCouponsScreenState();
 }
@@ -36,7 +43,10 @@ class _AdminCouponsScreenState extends State<AdminCouponsScreen> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final rows = await CouponService.list(includeDrafts: true);
+      final rows = await CouponService.list(
+        includeDrafts: true,
+        placeId: widget.managedPlace?['id']?.toString(),
+      );
       if (mounted) setState(() => _coupons = rows);
     } catch (_) {
       if (mounted) {
@@ -51,7 +61,10 @@ class _AdminCouponsScreenState extends State<AdminCouponsScreen> {
 
   Future<void> _edit([Coupon? coupon]) async {
     await Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => _CouponEditorScreen(coupon: coupon),
+      builder: (_) => CouponEditorScreen(
+        coupon: coupon,
+        managedPlace: widget.managedPlace,
+      ),
     ));
     await _load();
   }
@@ -246,22 +259,31 @@ class _AdminCouponsScreenState extends State<AdminCouponsScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: AppColors.background,
-        appBar: AppBar(title: const Text('ניהול קופונים'), actions: [
-          IconButton(
-            tooltip: 'סטטיסטיקה',
-            icon: const Icon(Icons.query_stats_rounded),
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-              builder: (_) => const AdminCouponStatisticsScreen(),
-            )),
-          ),
-          const HomeButton(),
-        ]),
-        floatingActionButton: Permissions.canManageContent
-            ? FloatingActionButton.extended(
-                onPressed: () => _edit(),
-                icon: const Icon(Icons.add),
-                label: const Text('קופון חדש'))
-            : null,
+        appBar: AppBar(
+            title: Text(widget.managedPlace == null
+                ? 'ניהול קופונים'
+                : 'קופונים · ${widget.managedPlace!['name']}'),
+            actions: [
+              if (widget.showStatistics)
+                IconButton(
+                  tooltip: 'סטטיסטיקה',
+                  icon: const Icon(Icons.query_stats_rounded),
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => AdminCouponStatisticsScreen(
+                      placeId: widget.managedPlace?['id']?.toString(),
+                      placeName: widget.managedPlace?['name']?.toString(),
+                    ),
+                  )),
+                ),
+              const HomeButton(),
+            ]),
+        floatingActionButton:
+            (Permissions.canManageContent || widget.managedPlace != null)
+                ? FloatingActionButton.extended(
+                    onPressed: () => _edit(),
+                    icon: const Icon(Icons.add),
+                    label: const Text('קופון חדש'))
+                : null,
         body: _loading
             ? const Center(child: CircularProgressIndicator())
             : RefreshIndicator(
@@ -311,14 +333,16 @@ class _AdminCouponsScreenState extends State<AdminCouponsScreen> {
       );
 }
 
-class _CouponEditorScreen extends StatefulWidget {
+class CouponEditorScreen extends StatefulWidget {
   final Coupon? coupon;
-  const _CouponEditorScreen({this.coupon});
+  final Map<String, dynamic>? managedPlace;
+
+  const CouponEditorScreen({super.key, this.coupon, this.managedPlace});
   @override
-  State<_CouponEditorScreen> createState() => _CouponEditorScreenState();
+  State<CouponEditorScreen> createState() => _CouponEditorScreenState();
 }
 
-class _CouponEditorScreenState extends State<_CouponEditorScreen> {
+class _CouponEditorScreenState extends State<CouponEditorScreen> {
   static const _regions = [
     'צפון',
     'חיפה והקריות',
@@ -368,6 +392,14 @@ class _CouponEditorScreenState extends State<_CouponEditorScreen> {
     _existingImages = List<String>.from(x?.images ?? const []);
     _categoryIds = Set<String>.from(x?.categoryIds ?? const []);
     _notificationRegion = x?.notificationRegion;
+    final managedPlace = widget.managedPlace;
+    if (x == null && managedPlace != null) {
+      _selectedPlaceId = managedPlace['id']?.toString();
+      _latitude = (managedPlace['latitude'] as num?)?.toDouble();
+      _longitude = (managedPlace['longitude'] as num?)?.toDouble();
+      c['business_name']!.text = managedPlace['name']?.toString() ?? '';
+      c['address']!.text = managedPlace['address']?.toString() ?? '';
+    }
     if (widget.coupon == null) _generateCode();
     _loadCategories();
   }
@@ -649,8 +681,11 @@ class _CouponEditorScreenState extends State<_CouponEditorScreen> {
                         required: true,
                         helper:
                             'התחל להקליד ובחר עסק קיים כדי למלא את הכתובת והמיקום',
-                        onChanged: _searchPlaces),
-                    if (_placeSuggestions.isNotEmpty)
+                        readOnly: widget.managedPlace != null,
+                        onChanged:
+                            widget.managedPlace == null ? _searchPlaces : null),
+                    if (widget.managedPlace == null &&
+                        _placeSuggestions.isNotEmpty)
                       Container(
                         margin: const EdgeInsets.only(bottom: 12),
                         decoration: BoxDecoration(
@@ -668,19 +703,23 @@ class _CouponEditorScreenState extends State<_CouponEditorScreen> {
                             )
                         ]),
                       ),
-                    _field('address', 'כתובת'),
-                    OutlinedButton.icon(
-                      onPressed: _loadingLocation ? null : _useCurrentLocation,
-                      icon: _loadingLocation
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.my_location_rounded),
-                      label: Text(_loadingLocation
-                          ? 'מאתר מיקום...'
-                          : 'שימוש במיקום שלי'),
-                    ),
+                    _field('address', 'כתובת',
+                        readOnly: widget.managedPlace != null),
+                    if (widget.managedPlace == null)
+                      OutlinedButton.icon(
+                        onPressed:
+                            _loadingLocation ? null : _useCurrentLocation,
+                        icon: _loadingLocation
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2))
+                            : const Icon(Icons.my_location_rounded),
+                        label: Text(_loadingLocation
+                            ? 'מאתר מיקום...'
+                            : 'שימוש במיקום שלי'),
+                      ),
                     if (_selectedPlaceId != null ||
                         (_latitude != null && _longitude != null))
                       const Padding(
@@ -780,12 +819,14 @@ class _CouponEditorScreenState extends State<_CouponEditorScreen> {
           int lines = 1,
           String? helper,
           Widget? suffix,
+          bool readOnly = false,
           ValueChanged<String>? onChanged}) =>
       Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: TextFormField(
             controller: c[key],
             maxLines: lines,
+            readOnly: readOnly,
             onChanged: onChanged,
             validator: required ? _required : null,
             decoration: InputDecoration(

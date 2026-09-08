@@ -6,7 +6,14 @@ import '../utils/permissions.dart';
 import '../widgets/home_button.dart';
 
 class AdminCouponStatisticsScreen extends StatefulWidget {
-  const AdminCouponStatisticsScreen({super.key});
+  final String? placeId;
+  final String? placeName;
+
+  const AdminCouponStatisticsScreen({
+    super.key,
+    this.placeId,
+    this.placeName,
+  });
 
   @override
   State<AdminCouponStatisticsScreen> createState() =>
@@ -27,7 +34,7 @@ class _AdminCouponStatisticsScreenState
   }
 
   Future<void> _load() async {
-    if (!Permissions.isAdmin) {
+    if (!Permissions.isAdmin && widget.placeId == null) {
       setState(() => _loading = false);
       return;
     }
@@ -36,11 +43,31 @@ class _AdminCouponStatisticsScreenState
       _error = null;
     });
     try {
-      final rows = await Supabase.instance.client
+      var eventQuery = Supabase.instance.client
           .from('coupon_events')
-          .select('coupon_id,event_type,user_id,created_at')
-          .order('created_at', ascending: false)
-          .limit(5000);
+          .select('coupon_id,event_type,user_id,created_at');
+      if (widget.placeId != null) {
+        final couponRows = await Supabase.instance.client
+            .from('coupons')
+            .select('id')
+            .eq('place_id', widget.placeId!);
+        final couponIds = List<Map<String, dynamic>>.from(couponRows)
+            .map((row) => row['id']?.toString())
+            .whereType<String>()
+            .toList();
+        if (couponIds.isEmpty) {
+          if (mounted) {
+            setState(() {
+              _events = [];
+              _usersById = {};
+            });
+          }
+          return;
+        }
+        eventQuery = eventQuery.inFilter('coupon_id', couponIds);
+      }
+      final rows =
+          await eventQuery.order('created_at', ascending: false).limit(5000);
       final userIds = List<Map<String, dynamic>>.from(rows)
           .map((row) => row['user_id']?.toString())
           .whereType<String>()
@@ -98,7 +125,9 @@ class _AdminCouponStatisticsScreenState
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('סטטיסטיקת קופונים'),
+        title: Text(widget.placeName == null
+            ? 'סטטיסטיקת קופונים'
+            : 'סטטיסטיקה · ${widget.placeName}'),
         actions: const [HomeButton()],
       ),
       body: Directionality(

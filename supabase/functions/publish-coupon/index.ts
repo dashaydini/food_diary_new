@@ -19,15 +19,23 @@ Deno.serve(async (req) => {
     if (!user || user.is_anonymous) throw new Error('Unauthorized')
     const { data: profile } = await userClient.from('profiles')
       .select('is_admin,admin_role').eq('id', user.id).single()
-    if (profile?.is_admin !== true ||
-        !['full_admin', 'content_admin'].includes(profile?.admin_role)) {
-      throw new Error('Forbidden')
-    }
-
     const { coupon_id, send_push = false, push_title, push_body } = await req.json()
     const admin = createClient(url, service)
     const { data: coupon, error: couponError } = await admin.from('coupons').select('*').eq('id', coupon_id).single()
     if (couponError) throw couponError
+    const isContentAdmin = profile?.is_admin === true &&
+      ['full_admin', 'content_admin'].includes(profile?.admin_role)
+    if (!isContentAdmin) {
+      if (!coupon.place_id) throw new Error('Forbidden')
+      const { data: managerAccess } = await userClient.from('place_managers')
+        .select('id')
+        .eq('place_id', coupon.place_id)
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .contains('permissions', ['coupons'])
+        .maybeSingle()
+      if (!managerAccess) throw new Error('Forbidden')
+    }
 
     let sent = 0
     let failed = 0

@@ -6,9 +6,13 @@ class CouponService {
   CouponService._();
   static final _client = Supabase.instance.client;
 
-  static Future<List<Coupon>> list({bool includeDrafts = false}) async {
+  static Future<List<Coupon>> list({
+    bool includeDrafts = false,
+    String? placeId,
+  }) async {
     dynamic query = _client.from('coupons').select();
     if (!includeDrafts) query = query.eq('is_published', true);
+    if (placeId != null) query = query.eq('place_id', placeId);
     final rows = await query.order('created_at', ascending: false);
     return List<Map<String, dynamic>>.from(rows).map(Coupon.fromJson).toList();
   }
