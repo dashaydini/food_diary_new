@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -339,22 +338,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final text = 'הצטרף אליי ל-Food Diary 👋\n$inviteUrl';
 
-    if (kIsWeb) {
-      await Clipboard.setData(ClipboardData(text: text));
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('קישור ההזמנה הועתק ללוח'),
+    try {
+      final box = context.findRenderObject() as RenderBox?;
+      await SharePlus.instance.share(
+        ShareParams(
+          text: text,
+          title: 'הזמנה ל-BITE THE WAY',
+          subject: 'הזמנה להצטרף ל-BITE THE WAY',
+          sharePositionOrigin:
+              box == null ? null : box.localToGlobal(Offset.zero) & box.size,
         ),
       );
-      return;
+    } catch (_) {
+      await Clipboard.setData(ClipboardData(text: text));
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('השיתוף אינו זמין כרגע; הקישור הועתק ללוח'),
+        ),
+      );
     }
-
-    await SharePlus.instance.share(
-      ShareParams(text: text),
-    );
   }
 
   Future<void> _googleLogin() async {
