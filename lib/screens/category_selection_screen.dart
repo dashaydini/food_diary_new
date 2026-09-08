@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/content_filter.dart';
+import '../core/services/app_install_service.dart';
 import '../theme/colors.dart';
 import '../theme/app_icons.dart';
 import '../utils/permissions.dart';
@@ -61,6 +62,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
   String _greetingName = 'אורח';
   StreamSubscription<AuthState>? _authSubscription;
   bool _handledInitialLink = false;
+  bool _handledInstallOffer = false;
 
   @override
   void initState() {
@@ -70,12 +72,79 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
     _loadCategories();
     _loadGreeting();
     WidgetsBinding.instance.addPostFrameCallback((_) => _openInitialLink());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _offerInstall());
 
     _authSubscription =
         Supabase.instance.client.auth.onAuthStateChange.listen((_) {
       _loadPermissions();
       _loadGreeting();
     });
+  }
+
+  Future<void> _offerInstall() async {
+    if (_handledInstallOffer) return;
+    _handledInstallOffer = true;
+    var status = await AppInstallService.status();
+    if (status == 'pending') {
+      await Future<void>.delayed(const Duration(milliseconds: 1800));
+      if (!mounted) return;
+      status = await AppInstallService.status();
+    }
+    if (!mounted || (status != 'android' && status != 'ios')) return;
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          icon: const Icon(Icons.install_mobile_rounded, size: 38),
+          title: const Text('להתקין את BITE THE WAY?'),
+          content: status == 'android'
+              ? const Text(
+                  'התקנה קצרה תוסיף את האפליקציה למסך הבית ותאפשר פתיחה מהירה כמו אפליקציה רגילה.')
+              : const Column(mainAxisSize: MainAxisSize.min, children: [
+                  _InstallStep(
+                    icon: Icons.ios_share_rounded,
+                    number: '1',
+                    text: 'לחצו על כפתור השיתוף בדפדפן',
+                  ),
+                  SizedBox(height: 14),
+                  _InstallStep(
+                    icon: Icons.add_box_outlined,
+                    number: '2',
+                    text: 'בחרו „הוספה למסך הבית” ואז „הוספה”',
+                  ),
+                ]),
+          actions: [
+            TextButton(
+              onPressed: () {
+                AppInstallService.dismiss();
+                Navigator.of(dialogContext).pop();
+              },
+              child: const Text('לא עכשיו'),
+            ),
+            if (status == 'android')
+              FilledButton.icon(
+                onPressed: () async {
+                  final installed = await AppInstallService.install();
+                  if (installed && dialogContext.mounted) {
+                    Navigator.of(dialogContext).pop();
+                  }
+                },
+                icon: const Icon(Icons.download_rounded),
+                label: const Text('התקנת האפליקציה'),
+              )
+            else
+              FilledButton(
+                onPressed: () {
+                  AppInstallService.dismiss();
+                  Navigator.of(dialogContext).pop();
+                },
+                child: const Text('הבנתי'),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _openInitialLink() async {
@@ -1322,4 +1391,31 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
       ),
     );
   }
+}
+
+class _InstallStep extends StatelessWidget {
+  final IconData icon;
+  final String number;
+  final String text;
+
+  const _InstallStep({
+    required this.icon,
+    required this.number,
+    required this.text,
+  });
+
+  @override
+  Widget build(BuildContext context) => Row(children: [
+        CircleAvatar(
+          radius: 20,
+          backgroundColor: AppColors.champagne.withValues(alpha: 0.14),
+          child: Text(number,
+              style: const TextStyle(
+                  color: AppColors.champagne, fontWeight: FontWeight.w700)),
+        ),
+        const SizedBox(width: 12),
+        Icon(icon, color: AppColors.champagne),
+        const SizedBox(width: 10),
+        Expanded(child: Text(text)),
+      ]);
 }

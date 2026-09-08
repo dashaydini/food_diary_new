@@ -29,6 +29,41 @@
 
 <body>
   <script>
+    let btwDeferredInstallPrompt = null;
+    window.addEventListener('beforeinstallprompt', (event) => {
+      event.preventDefault();
+      btwDeferredInstallPrompt = event;
+    });
+    window.addEventListener('appinstalled', () => {
+      btwDeferredInstallPrompt = null;
+      localStorage.setItem('btw_app_installed', 'true');
+    });
+    window.btwInstall = {
+      status: () => {
+        const standalone = window.matchMedia('(display-mode: standalone)').matches ||
+          window.navigator.standalone === true ||
+          localStorage.getItem('btw_app_installed') === 'true';
+        if (standalone) return 'installed';
+        const dismissedAt = Number(localStorage.getItem('btw_install_dismissed_at') || 0);
+        if (Date.now() - dismissedAt < 7 * 24 * 60 * 60 * 1000) return 'dismissed';
+        const ua = navigator.userAgent || '';
+        const isIOS = /iPad|iPhone|iPod/.test(ua) ||
+          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        if (isIOS) return 'ios';
+        if (/Android/i.test(ua)) {
+          return btwDeferredInstallPrompt ? 'android' : 'pending';
+        }
+        return 'none';
+      },
+      install: async () => {
+        if (!btwDeferredInstallPrompt) return false;
+        btwDeferredInstallPrompt.prompt();
+        const choice = await btwDeferredInstallPrompt.userChoice;
+        if (choice.outcome === 'accepted') btwDeferredInstallPrompt = null;
+        return choice.outcome === 'accepted';
+      },
+      dismiss: () => localStorage.setItem('btw_install_dismissed_at', String(Date.now())),
+    };
     window.btwPush = {
       isSupported: async () =>
         'serviceWorker' in navigator && 'PushManager' in window &&
