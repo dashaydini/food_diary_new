@@ -7,7 +7,7 @@ import '../widgets/home_button.dart';
 import 'add_place_screen.dart';
 import 'admin_coupon_statistics_screen.dart';
 import 'admin_coupons_screen.dart';
-import 'place_details_screen.dart';
+import 'place_manager_tools_screen.dart';
 
 class PlaceManagerCenterScreen extends StatefulWidget {
   const PlaceManagerCenterScreen({super.key});
@@ -121,14 +121,31 @@ class _PlaceManagerCenterScreenState extends State<PlaceManagerCenterScreen> {
         return;
       case 'replies':
         await Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => PlaceDetailsScreen(place: place),
+          builder: (_) => PlaceRepliesManagerScreen(place: place),
+        ));
+        return;
+      case 'menu':
+        await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => PlaceTextManagerScreen(
+            place: place,
+            openingHours: false,
+          ),
+        ));
+        return;
+      case 'hours':
+        await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => PlaceTextManagerScreen(
+            place: place,
+            openingHours: true,
+          ),
+        ));
+        return;
+      case 'gallery':
+        await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => PlaceGalleryManagerScreen(place: place),
         ));
         return;
     }
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('הכלי עדיין בהכנה')),
-    );
   }
 
   @override

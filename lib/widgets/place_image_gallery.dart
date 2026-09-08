@@ -43,6 +43,14 @@ class _PlaceImageGalleryState extends State<PlaceImageGallery> {
   }
 
   @override
+  void didUpdateWidget(covariant PlaceImageGallery oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.images.length != widget.images.length) {
+      _images = List<PlaceGalleryImage>.from(widget.images)..shuffle(Random());
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (_images.isEmpty) {
       return const SizedBox.shrink();
@@ -51,7 +59,7 @@ class _PlaceImageGalleryState extends State<PlaceImageGallery> {
     return CompactGalleryPreview(
       imageUrl: _images.first.imageUrl,
       title: 'גלריית המקום',
-      subtitle: 'מתוך חוויות במקום',
+      subtitle: 'תמונות מהמקום ומהחוויות',
       imageCount: _images.length,
       onTap: () => _openGallery(context, 0),
     );

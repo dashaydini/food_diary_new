@@ -39,6 +39,11 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
   String? _visitsError;
   String? _creatorName;
   DateTime? _placeCreatedAt;
+  String? _businessMenu;
+  String? _openingHours;
+  List<Map<String, dynamic>> _businessGallery = [];
+  Map<String, String> _officialReplies = {};
+  bool _canReplyOfficially = false;
 
   @override
   void initState() {
@@ -46,6 +51,93 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
     _loadVisits();
     _loadPreferences();
     _loadAttribution();
+    _loadBusinessContent();
+  }
+
+  Future<void> _loadBusinessContent() async {
+    final placeId = widget.place['id']?.toString();
+    if (placeId == null) return;
+    try {
+      final client = Supabase.instance.client;
+      final results = await Future.wait([
+        client
+            .from('place_menus')
+            .select('content')
+            .eq('place_id', placeId)
+            .maybeSingle(),
+        client
+            .from('place_opening_hours')
+            .select('content')
+            .eq('place_id', placeId)
+            .maybeSingle(),
+        client
+            .from('place_gallery_images')
+            .select('id,image_url,created_at')
+            .eq('place_id', placeId)
+            .order('created_at', ascending: false),
+        client
+            .from('place_official_replies')
+            .select('visit_id,body')
+            .eq('place_id', placeId),
+      ]);
+      var canReply = Permissions.isAdmin;
+      final user = client.auth.currentUser;
+      if (!canReply && user != null && !user.isAnonymous) {
+        final access = await client
+            .from('place_managers')
+            .select('id')
+            .eq('place_id', placeId)
+            .eq('user_id', user.id)
+            .eq('status', 'active')
+            .contains('permissions', ['replies']).maybeSingle();
+        canReply = access != null;
+      }
+      if (!mounted) return;
+      setState(() {
+        _businessMenu = (results[0] as Map?)?['content']?.toString();
+        _openingHours = (results[1] as Map?)?['content']?.toString();
+        _businessGallery = List<Map<String, dynamic>>.from(results[2] as List);
+        _officialReplies = {
+          for (final row in List<Map<String, dynamic>>.from(results[3] as List))
+            row['visit_id'].toString(): row['body'].toString(),
+        };
+        _canReplyOfficially = canReply;
+      });
+    } catch (_) {
+      // Business content is optional and must not block the place page.
+    }
+  }
+
+  Future<void> _editOfficialReply(Map<String, dynamic> visit) async {
+    final visitId = visit['id'].toString();
+    final controller = TextEditingController(text: _officialReplies[visitId]);
+    final save = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('תגובה רשמית של בית העסק'),
+        content: TextField(
+            controller: controller, minLines: 3, maxLines: 8, maxLength: 2000),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('ביטול')),
+          FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('פרסום תגובה')),
+        ],
+      ),
+    );
+    if (save == true && controller.text.trim().length >= 2) {
+      await Supabase.instance.client.from('place_official_replies').upsert({
+        'place_id': widget.place['id'],
+        'visit_id': visitId,
+        'body': controller.text.trim(),
+        'created_by': Supabase.instance.client.auth.currentUser!.id,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }, onConflict: 'visit_id');
+      await _loadBusinessContent();
+    }
+    controller.dispose();
   }
 
   Future<void> _loadAttribution() async {
@@ -570,6 +662,22 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                       ],
                     ),
                   ],
+                  if (_openingHours?.trim().isNotEmpty == true ||
+                      _businessMenu?.trim().isNotEmpty == true) ...[
+                    const SizedBox(height: 18),
+                    if (_openingHours?.trim().isNotEmpty == true)
+                      _BusinessInfoCard(
+                        title: 'שעות פתיחה',
+                        icon: Icons.schedule_rounded,
+                        content: _openingHours!,
+                      ),
+                    if (_businessMenu?.trim().isNotEmpty == true)
+                      _BusinessInfoCard(
+                        title: 'תפריט',
+                        icon: Icons.restaurant_menu_rounded,
+                        content: _businessMenu!,
+                      ),
+                  ],
                   if (galleryImages.isNotEmpty) ...[
                     SizedBox(height: mobile ? 18 : 24),
                     PlaceImageGallery(
@@ -627,6 +735,17 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
 
   List<PlaceGalleryImage> _buildPlaceGalleryImages() {
     final images = <PlaceGalleryImage>[];
+
+    for (final image in _businessGallery) {
+      final url = image['image_url']?.toString() ?? '';
+      if (url.isEmpty) continue;
+      images.add(PlaceGalleryImage(
+        id: image['id']?.toString() ?? '',
+        imageUrl: url,
+        author: 'בית העסק',
+        date: DateTime.tryParse(image['created_at']?.toString() ?? ''),
+      ));
+    }
 
     for (final visit in _visits) {
       final profile = visit['profiles'] as Map<String, dynamic>?;
@@ -711,6 +830,9 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
         return VisitCard(
           visit: visit,
           place: widget.place,
+          officialReply: _officialReplies[visit['id']?.toString()],
+          canReply: _canReplyOfficially,
+          onReply: () => _editOfficialReply(visit),
           onChanged: () async {
             if (!mounted) return;
 
@@ -724,6 +846,33 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
       }).toList(),
     );
   }
+}
+
+class _BusinessInfoCard extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final String content;
+
+  const _BusinessInfoCard(
+      {required this.title, required this.icon, required this.content});
+
+  @override
+  Widget build(BuildContext context) => Card(
+        margin: const EdgeInsets.only(bottom: 10),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Row(textDirection: TextDirection.rtl, children: [
+              Icon(icon, color: AppColors.champagne, size: 20),
+              const SizedBox(width: 8),
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+            ]),
+            const SizedBox(height: 8),
+            Text(content, textAlign: TextAlign.right),
+          ]),
+        ),
+      );
 }
 
 class _PlaceManagementButton extends StatelessWidget {

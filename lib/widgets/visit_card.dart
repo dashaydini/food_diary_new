@@ -12,12 +12,18 @@ class VisitCard extends StatelessWidget {
   final Map<String, dynamic> visit;
   final Map<String, dynamic> place;
   final VoidCallback? onChanged;
+  final String? officialReply;
+  final bool canReply;
+  final VoidCallback? onReply;
 
   const VisitCard({
     super.key,
     required this.visit,
     required this.place,
     this.onChanged,
+    this.officialReply,
+    this.canReply = false,
+    this.onReply,
   });
 
   Future<void> _open(BuildContext context) async {
@@ -235,6 +241,48 @@ class VisitCard extends StatelessWidget {
                         hashtags: hashtags,
                         onSelected: (tag) =>
                             HashtagSearchScreen.open(context, tag),
+                      ),
+                    ],
+                    if (officialReply?.trim().isNotEmpty == true) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.champagne.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppColors.champagne.withValues(alpha: 0.24),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            const Text(
+                              'תגובה רשמית של בית העסק',
+                              textAlign: TextAlign.right,
+                              style: TextStyle(
+                                color: AppColors.champagne,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(officialReply!, textAlign: TextAlign.right),
+                          ],
+                        ),
+                      ),
+                    ],
+                    if (canReply) ...[
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: onReply,
+                          icon: const Icon(Icons.reply_rounded, size: 18),
+                          label: Text(officialReply == null
+                              ? 'תגובה רשמית'
+                              : 'עריכת תגובה'),
+                        ),
                       ),
                     ],
                   ],
