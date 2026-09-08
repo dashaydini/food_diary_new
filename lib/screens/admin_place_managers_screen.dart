@@ -77,6 +77,12 @@ class _AdminPlaceManagersScreenState extends State<AdminPlaceManagersScreen> {
           .firstOrNull ??
       'מקום';
 
+  String _placeLabel(Map<String, dynamic> place) {
+    final name = place['name']?.toString().trim() ?? '';
+    final address = place['address']?.toString().trim() ?? '';
+    return address.isEmpty ? name : '$name - $address';
+  }
+
   String _userName(String? id) =>
       _users.where((user) => user['id']?.toString() == id).map((user) {
         final name = user['display_name']?.toString().trim();
@@ -84,6 +90,25 @@ class _AdminPlaceManagersScreenState extends State<AdminPlaceManagersScreen> {
         return name?.isNotEmpty == true ? name! : (email ?? 'משתמש');
       }).firstOrNull ??
       'משתמש';
+
+  String _userLabel(Map<String, dynamic> user) {
+    final name = user['display_name']?.toString().trim() ?? '';
+    final email = user['email']?.toString().trim() ?? '';
+    if (name.isEmpty) return email.isEmpty ? 'משתמש' : email;
+    return email.isEmpty ? name : '$name - $email';
+  }
+
+  Iterable<Map<String, dynamic>> _matches(
+    TextEditingValue value,
+    List<Map<String, dynamic>> source,
+    String Function(Map<String, dynamic>) label,
+  ) {
+    final query = value.text.trim().toLowerCase();
+    if (query.isEmpty) return source.take(8);
+    return source
+        .where((item) => label(item).toLowerCase().contains(query))
+        .take(8);
+  }
 
   Future<void> _edit([Map<String, dynamic>? assignment]) async {
     String? placeId = assignment?['place_id']?.toString();
@@ -103,34 +128,59 @@ class _AdminPlaceManagersScreenState extends State<AdminPlaceManagersScreen> {
               width: 520,
               child: SingleChildScrollView(
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  DropdownButtonFormField<String>(
-                    initialValue: placeId,
-                    decoration: const InputDecoration(labelText: 'בחירת מקום'),
-                    items: _places
-                        .map((place) => DropdownMenuItem(
-                              value: place['id'].toString(),
-                              child: Text(place['name']?.toString() ?? ''),
-                            ))
-                        .toList(),
-                    onChanged: assignment == null
-                        ? (value) => setDialogState(() => placeId = value)
-                        : null,
+                  Autocomplete<Map<String, dynamic>>(
+                    initialValue: TextEditingValue(
+                        text: placeId == null ? '' : _placeName(placeId)),
+                    displayStringForOption: _placeLabel,
+                    optionsBuilder: (value) =>
+                        _matches(value, _places, _placeLabel),
+                    onSelected: (place) =>
+                        setDialogState(() => placeId = place['id']?.toString()),
+                    fieldViewBuilder:
+                        (context, controller, focusNode, onSubmitted) =>
+                            TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      readOnly: assignment != null,
+                      onChanged: assignment == null
+                          ? (_) => setDialogState(() => placeId = null)
+                          : null,
+                      decoration: const InputDecoration(
+                        labelText: 'חיפוש מקום',
+                        hintText: 'הקלד שם או כתובת',
+                        prefixIcon: Icon(Icons.search_rounded),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: userId,
-                    decoration: const InputDecoration(labelText: 'בחירת משתמש'),
-                    items: _users
-                        .where((user) => user['is_anonymous'] != true)
-                        .map((user) => DropdownMenuItem(
-                              value: user['id'].toString(),
-                              child: Text(_userName(user['id']?.toString()),
-                                  overflow: TextOverflow.ellipsis),
-                            ))
-                        .toList(),
-                    onChanged: assignment == null
-                        ? (value) => setDialogState(() => userId = value)
-                        : null,
+                  Autocomplete<Map<String, dynamic>>(
+                    initialValue: TextEditingValue(
+                        text: userId == null ? '' : _userName(userId)),
+                    displayStringForOption: _userLabel,
+                    optionsBuilder: (value) => _matches(
+                      value,
+                      _users
+                          .where((user) => user['is_anonymous'] != true)
+                          .toList(),
+                      _userLabel,
+                    ),
+                    onSelected: (user) =>
+                        setDialogState(() => userId = user['id']?.toString()),
+                    fieldViewBuilder:
+                        (context, controller, focusNode, onSubmitted) =>
+                            TextField(
+                      controller: controller,
+                      focusNode: focusNode,
+                      readOnly: assignment != null,
+                      onChanged: assignment == null
+                          ? (_) => setDialogState(() => userId = null)
+                          : null,
+                      decoration: const InputDecoration(
+                        labelText: 'חיפוש משתמש',
+                        hintText: 'הקלד שם או כתובת מייל',
+                        prefixIcon: Icon(Icons.person_search_outlined),
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 14),
                   const Align(
@@ -139,7 +189,7 @@ class _AdminPlaceManagersScreenState extends State<AdminPlaceManagersScreen> {
                         style: TextStyle(fontWeight: FontWeight.w700)),
                   ),
                   for (final permission in permissionLabels.entries)
-                    CheckboxListTile(
+                    SwitchListTile.adaptive(
                       dense: true,
                       contentPadding: EdgeInsets.zero,
                       value: selected.contains(permission.key),
@@ -164,7 +214,9 @@ class _AdminPlaceManagersScreenState extends State<AdminPlaceManagersScreen> {
                 child: const Text('ביטול'),
               ),
               FilledButton(
-                onPressed: () => Navigator.pop(dialogContext, true),
+                onPressed: placeId != null && userId != null
+                    ? () => Navigator.pop(dialogContext, true)
+                    : null,
                 child: const Text('שמירה'),
               ),
             ],
