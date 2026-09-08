@@ -25,6 +25,7 @@ import 'settings_screen.dart';
 import 'guided_search_screen.dart';
 import 'free_search_screen.dart';
 import 'my_coupons_screen.dart';
+import 'place_manager_center_screen.dart';
 
 class PlaceCategory {
   final String id;
@@ -63,6 +64,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
   StreamSubscription<AuthState>? _authSubscription;
   bool _handledInitialLink = false;
   bool _handledInstallOffer = false;
+  bool _hasManagedPlaces = false;
 
   @override
   void initState() {
@@ -71,6 +73,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
     _loadPermissions();
     _loadCategories();
     _loadGreeting();
+    _loadManagerAccess();
     WidgetsBinding.instance.addPostFrameCallback((_) => _openInitialLink());
     WidgetsBinding.instance.addPostFrameCallback((_) => _offerInstall());
 
@@ -78,7 +81,28 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
         Supabase.instance.client.auth.onAuthStateChange.listen((_) {
       _loadPermissions();
       _loadGreeting();
+      _loadManagerAccess();
     });
+  }
+
+  Future<void> _loadManagerAccess() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null || user.isAnonymous) {
+      if (mounted) setState(() => _hasManagedPlaces = false);
+      return;
+    }
+    try {
+      final row = await Supabase.instance.client
+          .from('place_managers')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .limit(1)
+          .maybeSingle();
+      if (mounted) setState(() => _hasManagedPlaces = row != null);
+    } catch (_) {
+      if (mounted) setState(() => _hasManagedPlaces = false);
+    }
   }
 
   Future<void> _offerInstall() async {
@@ -761,6 +785,11 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
               case 'profile':
                 _openProfile();
                 break;
+              case 'business_manager':
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => const PlaceManagerCenterScreen(),
+                ));
+                break;
               case 'admin':
                 Navigator.of(context)
                     .push(
@@ -770,6 +799,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                 )
                     .then((_) {
                   refreshAdminStatus();
+                  _loadManagerAccess();
                 });
                 break;
               case 'settings':
@@ -886,6 +916,17 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                 ],
               ),
             ),
+            if (_hasManagedPlaces)
+              const PopupMenuItem(
+                value: 'business_manager',
+                child: Row(
+                  children: [
+                    Icon(Icons.storefront_rounded, color: AppColors.champagne),
+                    SizedBox(width: 10),
+                    Text('ניהול העסק שלי'),
+                  ],
+                ),
+              ),
             if (Permissions.isAdmin) ...[
               const PopupMenuDivider(),
               PopupMenuItem(
