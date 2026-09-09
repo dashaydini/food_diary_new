@@ -42,9 +42,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
   DateTime? _placeCreatedAt;
   String? _businessMenu;
   String? _openingHours;
-  String? _menuFileUrl;
-  String? _menuFileName;
-  String? _menuFileType;
+  List<Map<String, dynamic>> _menuFiles = [];
   List<Map<String, dynamic>> _openingSchedule = [];
   List<Map<String, dynamic>> _businessGallery = [];
   Map<String, Map<String, dynamic>> _officialReplies = {};
@@ -67,7 +65,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
       final results = await Future.wait([
         client
             .from('place_menus')
-            .select('content,file_url,file_name,file_type')
+            .select('content,files,file_url,file_name,file_type')
             .eq('place_id', placeId)
             .maybeSingle(),
         client
@@ -101,9 +99,22 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
       setState(() {
         _businessMenu = (results[0] as Map?)?['content']?.toString();
         _openingHours = (results[1] as Map?)?['content']?.toString();
-        _menuFileUrl = (results[0] as Map?)?['file_url']?.toString();
-        _menuFileName = (results[0] as Map?)?['file_name']?.toString();
-        _menuFileType = (results[0] as Map?)?['file_type']?.toString();
+        final menuRow = results[0] as Map?;
+        final savedMenuFiles = menuRow?['files'];
+        _menuFiles = savedMenuFiles is List
+            ? [
+                for (final item in savedMenuFiles)
+                  if (item is Map) Map<String, dynamic>.from(item)
+              ]
+            : menuRow?['file_url']?.toString().trim().isNotEmpty == true
+                ? [
+                    {
+                      'url': menuRow!['file_url'],
+                      'name': menuRow['file_name'],
+                      'type': menuRow['file_type'],
+                    }
+                  ]
+                : [];
         final schedule = (results[1] as Map?)?['schedule'];
         _openingSchedule = schedule is List
             ? [
@@ -706,7 +717,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                   ],
                   if (_openingSchedule.isNotEmpty ||
                       _openingHours?.trim().isNotEmpty == true ||
-                      _menuFileUrl?.trim().isNotEmpty == true ||
+                      _menuFiles.isNotEmpty ||
                       _businessMenu?.trim().isNotEmpty == true) ...[
                     const SizedBox(height: 18),
                     if (_openingSchedule.isNotEmpty)
@@ -717,11 +728,9 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                         icon: Icons.schedule_rounded,
                         content: _openingHours!,
                       ),
-                    if (_menuFileUrl?.trim().isNotEmpty == true)
-                      _MenuFileCard(
-                        url: _menuFileUrl!,
-                        name: _menuFileName,
-                        type: _menuFileType,
+                    if (_menuFiles.isNotEmpty)
+                      _MenuFilesCard(
+                        files: _menuFiles,
                         note: _businessMenu,
                       )
                     else if (_businessMenu?.trim().isNotEmpty == true)
@@ -946,12 +955,47 @@ class _OpeningHoursCard extends StatelessWidget {
       );
 }
 
-class _MenuFileCard extends StatelessWidget {
-  final String url;
-  final String? name;
-  final String? type;
+class _MenuFilesCard extends StatelessWidget {
+  final List<Map<String, dynamic>> files;
   final String? note;
-  const _MenuFileCard({required this.url, this.name, this.type, this.note});
+  const _MenuFilesCard({required this.files, this.note});
+
+  Future<void> _openPdf(BuildContext context, String url) async {
+    final opened = await launchUrl(
+      Uri.parse(url),
+      mode: LaunchMode.platformDefault,
+      webOnlyWindowName: '_blank',
+    );
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('לא ניתן לפתוח את קובץ ה־PDF')),
+      );
+    }
+  }
+
+  void _openImage(BuildContext context, String url) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog.fullscreen(
+        backgroundColor: Colors.black,
+        child: Stack(children: [
+          Positioned.fill(
+            child: InteractiveViewer(
+              minScale: 0.8,
+              maxScale: 5,
+              child: Center(child: Image.network(url, fit: BoxFit.contain)),
+            ),
+          ),
+          SafeArea(
+            child: IconButton.filled(
+              onPressed: () => Navigator.pop(dialogContext),
+              icon: const Icon(Icons.close),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) => Card(
@@ -967,21 +1011,34 @@ class _MenuFileCard extends StatelessWidget {
               Text('תפריט', style: TextStyle(fontWeight: FontWeight.w700)),
             ]),
             const SizedBox(height: 10),
-            if (type == 'image')
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.network(url, height: 300, fit: BoxFit.contain),
-              )
-            else
-              FilledButton.icon(
-                onPressed: () => launchUrl(Uri.parse(url),
-                    mode: LaunchMode.externalApplication),
-                icon: const Icon(Icons.picture_as_pdf_outlined),
-                label: Text(
-                    name?.trim().isNotEmpty == true ? name! : 'פתיחת התפריט'),
-              ),
+            for (final file in files) ...[
+              if (file['type']?.toString() == 'image')
+                Semantics(
+                  button: true,
+                  label: 'פתיחת תמונת תפריט',
+                  child: InkWell(
+                    onTap: () => _openImage(context, file['url'].toString()),
+                    borderRadius: BorderRadius.circular(12),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(file['url'].toString(),
+                          height: 300, fit: BoxFit.contain),
+                    ),
+                  ),
+                )
+              else
+                FilledButton.icon(
+                  onPressed: () => _openPdf(context, file['url'].toString()),
+                  icon: const Icon(Icons.picture_as_pdf_outlined),
+                  label: Text(
+                    file['name']?.toString().trim().isNotEmpty == true
+                        ? file['name'].toString()
+                        : 'פתיחת התפריט',
+                  ),
+                ),
+              const SizedBox(height: 10),
+            ],
             if (note?.trim().isNotEmpty == true) ...[
-              const SizedBox(height: 8),
               Text(note!, textAlign: TextAlign.right),
             ],
           ]),

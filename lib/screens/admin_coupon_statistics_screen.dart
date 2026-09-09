@@ -51,18 +51,19 @@ class _AdminCouponStatisticsScreenState
           .toIso8601String();
       var visitQuery = Supabase.instance.client
           .from('visits')
-          .select('id,user_id,rating,visit_date')
-          .gte('visit_date', from);
+          .select('id,user_id,rating,visit_date,created_at')
+          .gte('created_at', from);
       if (widget.placeId != null) {
         visitQuery = visitQuery.eq('place_id', widget.placeId!);
       }
       final visitRows =
-          await visitQuery.order('visit_date', ascending: false).limit(5000);
+          await visitQuery.order('created_at', ascending: false).limit(5000);
       _visits = List<Map<String, dynamic>>.from(visitRows);
       var eventQuery = Supabase.instance.client
           .from('coupon_events')
           .select('coupon_id,event_type,user_id,created_at')
           .gte('created_at', from);
+      var loadCouponEvents = true;
       if (widget.placeId != null) {
         final couponRows = await Supabase.instance.client
             .from('coupons')
@@ -73,20 +74,17 @@ class _AdminCouponStatisticsScreenState
             .whereType<String>()
             .toList();
         if (couponIds.isEmpty) {
-          if (mounted) {
-            setState(() {
-              _events = [];
-              _usersById = {};
-              _loading = false;
-            });
-          }
-          return;
+          loadCouponEvents = false;
+        } else {
+          eventQuery = eventQuery.inFilter('coupon_id', couponIds);
         }
-        eventQuery = eventQuery.inFilter('coupon_id', couponIds);
       }
-      final rows =
-          await eventQuery.order('created_at', ascending: false).limit(5000);
-      final userIds = List<Map<String, dynamic>>.from(rows)
+      final rows = loadCouponEvents
+          ? List<Map<String, dynamic>>.from(await eventQuery
+              .order('created_at', ascending: false)
+              .limit(5000))
+          : <Map<String, dynamic>>[];
+      final userIds = rows
           .map((row) => row['user_id']?.toString())
           .whereType<String>()
           .toSet()
@@ -113,7 +111,7 @@ class _AdminCouponStatisticsScreenState
       }
       if (!mounted) return;
       setState(() {
-        _events = List<Map<String, dynamic>>.from(rows);
+        _events = rows;
         _usersById = usersById;
       });
     } catch (_) {

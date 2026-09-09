@@ -11,6 +11,18 @@ import '../theme/colors.dart';
 import '../utils/permissions.dart';
 import '../widgets/home_button.dart';
 
+class _PendingMenuFile {
+  final Uint8List bytes;
+  final String name;
+  final String type;
+
+  const _PendingMenuFile({
+    required this.bytes,
+    required this.name,
+    required this.type,
+  });
+}
+
 class PlaceMenuManagerScreen extends StatefulWidget {
   final Map<String, dynamic> place;
   const PlaceMenuManagerScreen({super.key, required this.place});
@@ -24,11 +36,8 @@ class _PlaceMenuManagerScreenState extends State<PlaceMenuManagerScreen> {
   final _imagePicker = ImagePicker();
   bool _loading = true;
   bool _saving = false;
-  Uint8List? _pickedBytes;
-  String? _pickedName;
-  String? _fileUrl;
-  String? _fileName;
-  String? _fileType;
+  List<Map<String, dynamic>> _files = [];
+  final List<_PendingMenuFile> _pendingFiles = [];
 
   @override
   void initState() {
@@ -40,13 +49,25 @@ class _PlaceMenuManagerScreenState extends State<PlaceMenuManagerScreen> {
     try {
       final row = await Supabase.instance.client
           .from('place_menus')
-          .select('content,file_url,file_name,file_type')
+          .select('content,files,file_url,file_name,file_type')
           .eq('place_id', widget.place['id'])
           .maybeSingle();
       _note.text = row?['content']?.toString() ?? '';
-      _fileUrl = row?['file_url']?.toString();
-      _fileName = row?['file_name']?.toString();
-      _fileType = row?['file_type']?.toString();
+      final savedFiles = row?['files'];
+      if (savedFiles is List) {
+        _files = [
+          for (final item in savedFiles)
+            if (item is Map) Map<String, dynamic>.from(item)
+        ];
+      } else if (row?['file_url']?.toString().trim().isNotEmpty == true) {
+        _files = [
+          {
+            'url': row!['file_url'],
+            'name': row['file_name'],
+            'type': row['file_type'],
+          }
+        ];
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -54,18 +75,28 @@ class _PlaceMenuManagerScreenState extends State<PlaceMenuManagerScreen> {
 
   Future<void> _pickImage(ImageSource source) async {
     try {
-      final file = await _imagePicker.pickImage(
-        source: source,
-        imageQuality: 88,
-        maxWidth: 2200,
-      );
-      if (file == null) return;
-      final bytes = await file.readAsBytes();
+      final images = source == ImageSource.camera
+          ? [
+              if (await _imagePicker.pickImage(
+                      source: source, imageQuality: 88, maxWidth: 2200)
+                  case final image?)
+                image
+            ]
+          : await _imagePicker.pickMultiImage(
+              imageQuality: 88,
+              maxWidth: 2200,
+            );
+      if (images.isEmpty) return;
+      final pending = <_PendingMenuFile>[];
+      for (final image in images) {
+        pending.add(_PendingMenuFile(
+          bytes: await image.readAsBytes(),
+          name: image.name,
+          type: 'image',
+        ));
+      }
       if (!mounted) return;
-      setState(() {
-        _pickedBytes = bytes;
-        _pickedName = file.name;
-      });
+      setState(() => _pendingFiles.addAll(pending));
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -77,17 +108,21 @@ class _PlaceMenuManagerScreenState extends State<PlaceMenuManagerScreen> {
 
   Future<void> _pickPdf() async {
     try {
-      final file = await FilePicker.pickFile(
+      final files = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: const ['pdf'],
       );
-      if (file == null) return;
-      final bytes = await file.readAsBytes();
+      if (files.isEmpty) return;
+      final pending = <_PendingMenuFile>[];
+      for (final file in files) {
+        pending.add(_PendingMenuFile(
+          bytes: await file.readAsBytes(),
+          name: file.name,
+          type: 'pdf',
+        ));
+      }
       if (!mounted) return;
-      setState(() {
-        _pickedBytes = bytes;
-        _pickedName = file.name;
-      });
+      setState(() => _pendingFiles.addAll(pending));
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -136,44 +171,43 @@ class _PlaceMenuManagerScreenState extends State<PlaceMenuManagerScreen> {
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
-      var url = _fileUrl;
-      var name = _fileName;
-      var type = _fileType;
-      if (_pickedBytes != null && _pickedName != null) {
-        final extension = _pickedName!.split('.').last.toLowerCase();
+      final nextFiles = [
+        for (final file in _files) {...file}
+      ];
+      for (final file in _pendingFiles) {
+        final extension = file.name.split('.').last.toLowerCase();
         final path =
-            '${Supabase.instance.client.auth.currentUser!.id}/${const Uuid().v4()}.$extension';
+            '${widget.place['id']}/${Supabase.instance.client.auth.currentUser!.id}/${const Uuid().v4()}.$extension';
         await Supabase.instance.client.storage
             .from('place-menu-files')
-            .uploadBinary(path, _pickedBytes!,
+            .uploadBinary(path, file.bytes,
                 fileOptions: FileOptions(
                     upsert: false,
                     contentType: extension == 'pdf'
                         ? 'application/pdf'
                         : 'image/${extension == 'jpg' ? 'jpeg' : extension}'));
-        url = Supabase.instance.client.storage
+        final url = Supabase.instance.client.storage
             .from('place-menu-files')
             .getPublicUrl(path);
-        name = _pickedName;
-        type = extension == 'pdf' ? 'pdf' : 'image';
-      }
-      if (url == null || url.isEmpty) {
-        throw StateError('menu_file_required');
+        nextFiles.add({
+          'url': url,
+          'path': path,
+          'name': file.name,
+          'type': file.type,
+        });
       }
       await Supabase.instance.client.from('place_menus').upsert({
         'place_id': widget.place['id'],
         'content': _note.text.trim(),
-        'file_url': url,
-        'file_name': name,
-        'file_type': type,
+        'files': nextFiles,
+        'file_url': null,
+        'file_name': null,
+        'file_type': null,
         'updated_by': Supabase.instance.client.auth.currentUser!.id,
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       });
-      _fileUrl = url;
-      _fileName = name;
-      _fileType = type;
-      _pickedBytes = null;
-      _pickedName = null;
+      _files = nextFiles;
+      _pendingFiles.clear();
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('התפריט נשמר ופורסם')));
@@ -187,6 +221,138 @@ class _PlaceMenuManagerScreenState extends State<PlaceMenuManagerScreen> {
       if (mounted) setState(() => _saving = false);
     }
   }
+
+  String? _storagePath(Map<String, dynamic> file) {
+    final saved = file['path']?.toString().trim();
+    if (saved?.isNotEmpty == true) return saved;
+    final url = file['url']?.toString() ?? '';
+    const marker = '/place-menu-files/';
+    final markerIndex = url.indexOf(marker);
+    return markerIndex < 0 ? null : url.substring(markerIndex + marker.length);
+  }
+
+  Future<void> _removeFile(Map<String, dynamic> file) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('מחיקת קובץ מהתפריט'),
+        content: Text('למחוק את ${file['name'] ?? 'הקובץ'}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('ביטול'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('מחיקה'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    setState(() => _saving = true);
+    try {
+      final nextFiles = _files.where((item) => !identical(item, file)).toList();
+      final path = _storagePath(file);
+      if (path != null) {
+        await Supabase.instance.client.storage
+            .from('place-menu-files')
+            .remove([path]);
+      }
+      await Supabase.instance.client.from('place_menus').update({
+        'files': nextFiles,
+        'updated_by': Supabase.instance.client.auth.currentUser!.id,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      }).eq('place_id', widget.place['id']);
+      if (!mounted) return;
+      setState(() => _files = nextFiles);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('לא ניתן למחוק את הקובץ כרגע')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _openPdf(String url) async {
+    final opened = await launchUrl(
+      Uri.parse(url),
+      mode: LaunchMode.platformDefault,
+      webOnlyWindowName: '_blank',
+    );
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('לא ניתן לפתוח את קובץ ה־PDF')),
+      );
+    }
+  }
+
+  void _openImage(String url) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => Dialog.fullscreen(
+        backgroundColor: Colors.black,
+        child: Stack(children: [
+          Positioned.fill(
+            child: InteractiveViewer(
+              minScale: 0.8,
+              maxScale: 5,
+              child: Center(child: Image.network(url, fit: BoxFit.contain)),
+            ),
+          ),
+          SafeArea(
+            child: IconButton.filled(
+              onPressed: () => Navigator.pop(dialogContext),
+              icon: const Icon(Icons.close),
+            ),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  Widget _existingFileTile(Map<String, dynamic> file) {
+    final url = file['url']?.toString() ?? '';
+    final isImage = file['type']?.toString() == 'image';
+    return Card(
+      child: ListTile(
+        leading: isImage
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(url,
+                    width: 58, height: 58, fit: BoxFit.cover),
+              )
+            : const Icon(Icons.picture_as_pdf_outlined, size: 34),
+        title: Text(file['name']?.toString() ??
+            (isImage ? 'תמונת תפריט' : 'תפריט PDF')),
+        subtitle: Text(isImage ? 'לחיצה לפתיחת התמונה' : 'לחיצה לפתיחת PDF'),
+        onTap: () => isImage ? _openImage(url) : _openPdf(url),
+        trailing: IconButton(
+          tooltip: 'מחיקה',
+          onPressed: _saving ? null : () => _removeFile(file),
+          icon: const Icon(Icons.delete_outline, color: AppColors.danger),
+        ),
+      ),
+    );
+  }
+
+  Widget _pendingFileTile(int index, _PendingMenuFile file) => ListTile(
+        leading: Icon(file.type == 'pdf'
+            ? Icons.picture_as_pdf_outlined
+            : Icons.image_outlined),
+        title: Text(file.name),
+        subtitle: const Text('יצורף לתפריט לאחר שמירה'),
+        trailing: IconButton(
+          tooltip: 'הסרה',
+          onPressed: _saving
+              ? null
+              : () => setState(() => _pendingFiles.removeAt(index)),
+          icon: const Icon(Icons.close),
+        ),
+      );
 
   @override
   void dispose() {
@@ -206,34 +372,18 @@ class _PlaceMenuManagerScreenState extends State<PlaceMenuManagerScreen> {
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 680),
                   child: ListView(padding: const EdgeInsets.all(18), children: [
-                    if (_fileUrl != null && _fileType == 'image')
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Image.network(_fileUrl!,
-                            height: 260, fit: BoxFit.contain),
+                    if (_files.isEmpty && _pendingFiles.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 14),
+                        child: Text('עדיין לא נוספו קובצי תפריט'),
                       ),
-                    if (_fileUrl != null && _fileType == 'pdf')
-                      Card(
-                          child: ListTile(
-                        leading: const Icon(Icons.picture_as_pdf_outlined),
-                        title: Text(_fileName ?? 'תפריט PDF'),
-                        trailing: const Icon(Icons.open_in_new),
-                        onTap: () => launchUrl(Uri.parse(_fileUrl!),
-                            mode: LaunchMode.externalApplication),
-                      )),
-                    if (_pickedName != null)
-                      ListTile(
-                        leading: const Icon(Icons.check_circle_outline),
-                        title: Text(_pickedName!),
-                        subtitle: const Text(
-                            'הקובץ החדש יחליף את התפריט הקיים בשמירה'),
-                      ),
+                    for (final file in _files) _existingFileTile(file),
+                    for (var index = 0; index < _pendingFiles.length; index++)
+                      _pendingFileTile(index, _pendingFiles[index]),
                     OutlinedButton.icon(
                       onPressed: _saving ? null : _showFileOptions,
                       icon: const Icon(Icons.upload_file_rounded),
-                      label: Text(_fileUrl == null
-                          ? 'העלאת תמונת תפריט או PDF'
-                          : 'החלפת תמונה או PDF'),
+                      label: const Text('הוספת תמונות או קובצי PDF'),
                     ),
                     const SizedBox(height: 12),
                     TextField(
