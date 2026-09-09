@@ -129,7 +129,8 @@ Deno.serve(async (req) => {
         sent++
       } catch (error) {
         failed++
-        if (error?.statusCode === 404 || error?.statusCode === 410) {
+        const statusCode = (error as { statusCode?: number })?.statusCode
+        if (statusCode === 404 || statusCode === 410) {
           await admin.from('push_subscriptions').delete().eq('id', row.id)
         }
       }

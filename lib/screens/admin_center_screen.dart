@@ -12,6 +12,7 @@ import 'admin_users_screen.dart';
 import 'admin_coupons_screen.dart';
 import 'admin_place_managers_screen.dart';
 import 'user_tutorial_screen.dart';
+import 'admin_system_notifications_screen.dart';
 
 class AdminCenterScreen extends StatefulWidget {
   const AdminCenterScreen({super.key});
@@ -219,12 +220,14 @@ class _AdminCenterScreenState extends State<AdminCenterScreen> {
                             value: 'צפייה',
                             onTap: () => _open(const AdminStatisticsScreen()),
                           ),
-                          const _AdminCard(
+                          _AdminCard(
                             icon: Icons.campaign_outlined,
                             title: 'הודעות מערכת',
-                            subtitle: 'שליחת עדכונים למשתמשים',
-                            value: 'בהכנה',
-                            enabled: false,
+                            subtitle: 'שליחת עדכוני פוש לכל המשתמשים',
+                            value: 'שליחה',
+                            enabled: Permissions.isFullAdmin,
+                            onTap: () =>
+                                _open(const AdminSystemNotificationsScreen()),
                           ),
                         ],
                       ),

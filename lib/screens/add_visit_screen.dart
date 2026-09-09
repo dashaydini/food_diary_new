@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -1113,10 +1114,10 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
         final visitId = visit['id'] as String;
         newVisitId = visitId;
 
-        await NotificationDispatchService.send(
+        unawaited(NotificationDispatchService.send(
           eventType: 'new_experience',
           resourceId: visitId,
-        );
+        ));
 
         if (imageUrls.isNotEmpty) {
           await Supabase.instance.client.from('visit_images').insert(
