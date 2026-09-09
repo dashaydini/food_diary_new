@@ -7,6 +7,7 @@ import 'core/services/premium_service.dart';
 import 'core/services/auth_service.dart';
 import 'core/services/registration_service.dart';
 import 'features/authentication/widgets/registration_gate.dart';
+import 'features/authentication/widgets/guest_signup_prompt.dart';
 import 'features/authentication/screens/login_screen.dart';
 import 'features/authentication/screens/register_screen.dart';
 import 'features/authentication/screens/reset_password_screen.dart';
@@ -267,7 +268,9 @@ class _AuthGateState extends State<AuthGate> {
     }
 
     if (session == null || session.user.isAnonymous) {
-      return const CategorySelectionScreen();
+      return const GuestSignupPrompt(
+        child: CategorySelectionScreen(),
+      );
     }
 
     return FutureBuilder<void>(
