@@ -11,6 +11,7 @@ import 'public_profile_screen.dart';
 import '../widgets/visit_image_gallery.dart';
 import '../widgets/shared_visit_panel.dart';
 import '../core/services/shared_visit_service.dart';
+import '../core/services/notification_dispatch_service.dart';
 
 class AddVisitScreen extends StatefulWidget {
   final Map<String, dynamic> place;
@@ -1111,6 +1112,11 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
 
         final visitId = visit['id'] as String;
         newVisitId = visitId;
+
+        await NotificationDispatchService.send(
+          eventType: 'new_experience',
+          resourceId: visitId,
+        );
 
         if (imageUrls.isNotEmpty) {
           await Supabase.instance.client.from('visit_images').insert(

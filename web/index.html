@@ -65,9 +65,16 @@
       dismiss: () => localStorage.setItem('btw_install_dismissed_at', String(Date.now())),
     };
     window.btwPush = {
-      isSupported: async () =>
-        'serviceWorker' in navigator && 'PushManager' in window &&
-        'Notification' in window,
+      isSupported: async () => {
+        const supported = 'serviceWorker' in navigator &&
+          'PushManager' in window && 'Notification' in window;
+        const ua = navigator.userAgent || '';
+        const isIOS = /iPad|iPhone|iPod/.test(ua) ||
+          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const standalone = window.matchMedia('(display-mode: standalone)').matches ||
+          window.navigator.standalone === true;
+        return supported && (!isIOS || standalone);
+      },
       isSubscribed: async () => {
         const registration = await navigator.serviceWorker.getRegistration('/');
         return !!(registration && await registration.pushManager.getSubscription());

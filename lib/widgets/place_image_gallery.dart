@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/colors.dart';
+import '../core/services/notification_dispatch_service.dart';
 import 'compact_gallery_preview.dart';
 
 class PlaceGalleryImage {
@@ -223,11 +224,19 @@ class _GalleryScreenState extends State<_GalleryScreen> {
         return;
       }
 
-      await Supabase.instance.client.from('visit_image_reports').insert({
-        'image_id': image.id,
-        'reporter_id': user.id,
-        'reason': reason,
-      });
+      final report = await Supabase.instance.client
+          .from('visit_image_reports')
+          .insert({
+            'image_id': image.id,
+            'reporter_id': user.id,
+            'reason': reason,
+          })
+          .select('id')
+          .single();
+      await NotificationDispatchService.send(
+        eventType: 'image_report',
+        resourceId: report['id'].toString(),
+      );
 
       if (!context.mounted) return;
 

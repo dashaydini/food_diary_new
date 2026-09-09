@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/colors.dart';
 import '../widgets/home_button.dart';
+import '../core/services/notification_dispatch_service.dart';
 
 const supportCategoryLabels = <String, String>{
   'general': 'פנייה כללית',
@@ -99,12 +100,20 @@ class _SupportRequestsScreenState extends State<SupportRequestsScreen> {
     FocusScope.of(context).unfocus();
     setState(() => _submitting = true);
     try {
-      await Supabase.instance.client.from('support_requests').insert({
-        'user_id': user.id,
-        'category': _category,
-        'subject': _subjectController.text.trim(),
-        'message': _messageController.text.trim(),
-      });
+      final request = await Supabase.instance.client
+          .from('support_requests')
+          .insert({
+            'user_id': user.id,
+            'category': _category,
+            'subject': _subjectController.text.trim(),
+            'message': _messageController.text.trim(),
+          })
+          .select('id')
+          .single();
+      await NotificationDispatchService.send(
+        eventType: 'support_request',
+        resourceId: request['id'].toString(),
+      );
       _subjectController.clear();
       _messageController.clear();
       if (!mounted) return;

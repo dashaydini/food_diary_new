@@ -26,6 +26,8 @@ import 'guided_search_screen.dart';
 import 'free_search_screen.dart';
 import 'my_coupons_screen.dart';
 import 'place_manager_center_screen.dart';
+import 'place_manager_tools_screen.dart';
+import 'admin_notifications_screen.dart';
 
 class PlaceCategory {
   final String id;
@@ -174,10 +176,44 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
   Future<void> _openInitialLink() async {
     if (!mounted || _handledInitialLink) return;
     _handledInitialLink = true;
-    if (Uri.base.queryParameters['open'] != 'coupons') return;
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const MyCouponsScreen()),
-    );
+    final target = Uri.base.queryParameters['open'];
+    switch (target) {
+      case 'coupons':
+        await Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const MyCouponsScreen()),
+        );
+        return;
+      case 'admin-notifications':
+        await Permissions.load();
+        if (!mounted || !Permissions.isAdmin) return;
+        await Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const AdminNotificationsScreen()),
+        );
+        return;
+      case 'manager-experience':
+        final placeId = Uri.base.queryParameters['place_id'];
+        if (placeId == null || placeId.isEmpty) return;
+        try {
+          final place = await Supabase.instance.client
+              .from('places')
+              .select(
+                  'id,name,address,image_url,category_id,latitude,longitude')
+              .eq('id', placeId)
+              .single();
+          if (!mounted) return;
+          await Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => PlaceRepliesManagerScreen(
+              place: Map<String, dynamic>.from(place),
+            ),
+          ));
+        } catch (_) {
+          if (!mounted) return;
+          await Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const PlaceManagerCenterScreen()),
+          );
+        }
+        return;
+    }
   }
 
   Future<void> _loadPermissions() async {

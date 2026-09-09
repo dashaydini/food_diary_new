@@ -5,6 +5,7 @@ class AppPreferences {
   static const themeModeKey = 'theme_mode';
   static const maximumRouteDetourKmKey = 'maximum_route_detour_km';
   static const routeCategoryIdsKey = 'route_category_ids';
+  static const pushPermissionPromptedKey = 'push_permission_prompted';
 
   static const defaultMaximumRouteDetourKm = 20.0;
 
@@ -58,5 +59,15 @@ class AppPreferences {
   static Future<void> setThemeMode(String mode) async {
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString(themeModeKey, mode);
+  }
+
+  static Future<bool> pushPermissionPrompted(String userId) async {
+    final preferences = await SharedPreferences.getInstance();
+    return preferences.getBool('${pushPermissionPromptedKey}_$userId') ?? false;
+  }
+
+  static Future<void> setPushPermissionPrompted(String userId) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setBool('${pushPermissionPromptedKey}_$userId', true);
   }
 }

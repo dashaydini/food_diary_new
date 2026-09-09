@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/services/registration_service.dart';
 import '../screens/complete_registration_screen.dart';
+import 'push_permission_prompt_gate.dart';
 
 /// Key this widget by authenticated user ID so account changes cannot reuse
 /// another user's completed onboarding state.
@@ -61,7 +62,7 @@ class _RegistrationGateState extends State<RegistrationGate> {
             return CompleteRegistrationScreen(
                 profile: snapshot.data!, onCompleted: _reload);
           }
-          return widget.child;
+          return PushPermissionPromptGate(child: widget.child);
         },
       );
 }

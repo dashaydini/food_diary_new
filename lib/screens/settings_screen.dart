@@ -32,6 +32,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _pushSupported = false;
   bool _pushEnabled = false;
   bool _changingPush = false;
+  bool _hasManagedPlaces = false;
+  bool _managerNewExperienceNotifications = true;
+  bool _savingManagerNotifications = false;
   double _maximumRouteDetourKm = AppPreferences.defaultMaximumRouteDetourKm;
   Set<String> _selectedCategoryIds = {};
   Set<String> _couponCategoryIds = {};
@@ -71,7 +74,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _refreshLocationStatus(),
       _loadPushStatus(),
       _loadCouponNotificationPreferences(),
+      _loadManagerNotificationPreference(),
     ]);
+  }
+
+  Future<void> _loadManagerNotificationPreference() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null || user.isAnonymous) return;
+    try {
+      final results = await Future.wait<dynamic>([
+        Supabase.instance.client
+            .from('place_managers')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('status', 'active')
+            .limit(1),
+        Supabase.instance.client
+            .from('notification_preferences')
+            .select('manager_new_experience')
+            .eq('user_id', user.id)
+            .maybeSingle(),
+      ]);
+      if (!mounted) return;
+      final assignments = results[0] as List;
+      final preference = results[1] as Map<String, dynamic>?;
+      setState(() {
+        _hasManagedPlaces = assignments.isNotEmpty;
+        _managerNewExperienceNotifications =
+            preference?['manager_new_experience'] != false;
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _toggleManagerNotifications(bool enabled) async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null || user.isAnonymous) return;
+    setState(() {
+      _savingManagerNotifications = true;
+      _managerNewExperienceNotifications = enabled;
+    });
+    try {
+      await Supabase.instance.client.from('notification_preferences').upsert({
+        'user_id': user.id,
+        'manager_new_experience': enabled,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      });
+      _showMessage(enabled
+          ? 'התראות על חוויות חדשות הופעלו'
+          : 'התראות על חוויות חדשות כובו');
+    } catch (_) {
+      if (mounted) {
+        setState(() => _managerNewExperienceNotifications = !enabled);
+      }
+      _showMessage('לא ניתן לשמור את ההעדפה כרגע');
+    } finally {
+      if (mounted) setState(() => _savingManagerNotifications = false);
+    }
   }
 
   Future<void> _loadCouponNotificationPreferences() async {
@@ -129,8 +187,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         await PushNotificationService.disable();
       }
       if (mounted) setState(() => _pushEnabled = enabled);
-      _showMessage(
-          enabled ? 'התראות על קופונים חדשים הופעלו' : 'התראות הפוש כובו');
+      _showMessage(enabled ? 'התראות בטלפון הופעלו' : 'התראות בטלפון כובו');
     } catch (_) {
       _showMessage(
           'לא ניתן להפעיל התראות. באייפון יש לפתוח את האפליקציה ממסך הבית.');
@@ -283,7 +340,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               value: _pushEnabled,
                               secondary: const Icon(
                                   Icons.notifications_active_outlined),
-                              title: const Text('התראות על קופונים ועדכונים'),
+                              title: const Text('קבלת התראות בטלפון'),
                               subtitle: Text(_pushSupported
                                   ? 'קבלת התראה גם כשהאפליקציה סגורה'
                                   : 'באייפון: יש להוסיף את האפליקציה למסך הבית תחילה'),
@@ -291,6 +348,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   ? null
                                   : _togglePush,
                             ),
+                            if (_hasManagedPlaces) ...[
+                              const Divider(),
+                              SwitchListTile.adaptive(
+                                contentPadding: EdgeInsets.zero,
+                                value: _managerNewExperienceNotifications,
+                                secondary:
+                                    const Icon(Icons.rate_review_outlined),
+                                title: const Text('חוויה חדשה במקום שבניהולי'),
+                                subtitle: Text(_pushEnabled
+                                    ? 'התראה נפרדת בכל פעם שנוספת חוויה חדשה'
+                                    : 'ההעדפה תישמר, אך יש להפעיל גם קבלת התראות בטלפון'),
+                                onChanged: _savingManagerNotifications
+                                    ? null
+                                    : _toggleManagerNotifications,
+                              ),
+                            ],
                             const Divider(),
                             Align(
                               alignment: Alignment.centerRight,

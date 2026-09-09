@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../theme/colors.dart';
+import '../core/services/notification_dispatch_service.dart';
 import '../utils/permissions.dart';
 import '../widgets/home_button.dart';
 
@@ -839,11 +840,19 @@ class _PlaceRepliesManagerScreenState extends State<PlaceRepliesManagerScreen> {
     controller.dispose();
     if (send != true || reason.length < 2) return;
     try {
-      await Supabase.instance.client.from('visit_reports').insert({
-        'visit_id': visit['id'],
-        'reporter_id': Supabase.instance.client.auth.currentUser!.id,
-        'reason': reason,
-      });
+      final report = await Supabase.instance.client
+          .from('visit_reports')
+          .insert({
+            'visit_id': visit['id'],
+            'reporter_id': Supabase.instance.client.auth.currentUser!.id,
+            'reason': reason,
+          })
+          .select('id')
+          .single();
+      await NotificationDispatchService.send(
+        eventType: 'visit_report',
+        resourceId: report['id'].toString(),
+      );
       await _load();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
