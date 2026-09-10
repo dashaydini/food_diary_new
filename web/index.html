@@ -128,6 +128,40 @@
         return endpoint;
       },
     };
+    window.btwAdsense = {
+      mountHomeBanner: (container) => {
+        container.style.width = '100%';
+        container.style.height = '100%';
+        container.style.display = 'flex';
+        container.style.alignItems = 'center';
+        container.style.justifyContent = 'center';
+
+        const ad = document.createElement('ins');
+        ad.className = 'adsbygoogle';
+        ad.style.display = 'block';
+        ad.style.width = '100%';
+        ad.style.height = '100%';
+        ad.setAttribute('data-ad-client', 'ca-pub-4954700760640290');
+        ad.setAttribute('data-ad-slot', '7674598545');
+        ad.setAttribute('data-ad-format', 'horizontal');
+        ad.setAttribute('data-full-width-responsive', 'true');
+        container.replaceChildren(ad);
+
+        const requestAd = () => {
+          if (!ad.isConnected) {
+            window.requestAnimationFrame(requestAd);
+            return;
+          }
+          try {
+            window.adsbygoogle = window.adsbygoogle || [];
+            window.adsbygoogle.push({});
+          } catch (error) {
+            console.warn('BITE THE WAY: AdSense banner was not loaded.', error);
+          }
+        };
+        window.requestAnimationFrame(requestAd);
+      },
+    };
   </script>
 
   <script src="flutter_bootstrap.js" async></script>

@@ -10,7 +10,7 @@ import '../theme/colors.dart';
 import '../theme/app_icons.dart';
 import '../utils/permissions.dart';
 import '../widgets/admin_pending_status.dart';
-import '../widgets/test_ad_banner.dart';
+import '../widgets/adsense_banner.dart';
 import '../widgets/visit_notification_button.dart';
 import '../features/authentication/screens/register_screen.dart';
 import '../main.dart' show AuthGate;
@@ -750,7 +750,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                         _buildHeader(mobile: mobile),
                         SizedBox(height: mobile ? 22 : 30),
                         if (_showTestAd) ...[
-                          const TestAdBanner(),
+                          const AdsenseBanner(),
                           SizedBox(height: mobile ? 18 : 24),
                         ],
                         _buildTitle(mobile: mobile),
