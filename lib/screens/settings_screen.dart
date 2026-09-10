@@ -527,6 +527,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             const Divider(),
                             ListTile(
                               contentPadding: EdgeInsets.zero,
+                              leading: const Icon(Icons.cookie_outlined),
+                              title: const Text('פרטיות ועוגיות'),
+                              subtitle: const Text('ניהול הסכמה לפרסום ומדידה'),
+                              trailing: const Icon(
+                                Icons.arrow_back_ios_new_rounded,
+                                size: 15,
+                              ),
+                              onTap: () => Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      const PrivacyConsentSettingsScreen(),
+                                ),
+                              ),
+                            ),
+                            ListTile(
+                              contentPadding: EdgeInsets.zero,
                               leading: const Icon(Icons.privacy_tip_outlined),
                               title: const Text('מדיניות פרטיות'),
                               trailing: const Icon(

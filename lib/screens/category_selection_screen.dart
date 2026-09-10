@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/content_filter.dart';
 import '../core/services/app_install_service.dart';
+import '../core/services/privacy_consent_service.dart';
 import '../theme/colors.dart';
 import '../theme/app_icons.dart';
 import '../utils/permissions.dart';
@@ -749,10 +750,21 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                       children: [
                         _buildHeader(mobile: mobile),
                         SizedBox(height: mobile ? 22 : 30),
-                        if (_showTestAd) ...[
-                          const AdsenseBanner(),
-                          SizedBox(height: mobile ? 18 : 24),
-                        ],
+                        if (_showTestAd)
+                          ValueListenableBuilder<PrivacyConsentChoice>(
+                            valueListenable: PrivacyConsentService.choice,
+                            builder: (context, choice, _) {
+                              if (choice != PrivacyConsentChoice.accepted) {
+                                return const SizedBox.shrink();
+                              }
+                              return Column(
+                                children: [
+                                  const AdsenseBanner(),
+                                  SizedBox(height: mobile ? 18 : 24),
+                                ],
+                              );
+                            },
+                          ),
                         _buildTitle(mobile: mobile),
                         SizedBox(height: mobile ? 14 : 22),
                         Expanded(

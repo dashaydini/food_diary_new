@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/colors.dart';
+import '../core/services/privacy_consent_service.dart';
 import '../widgets/home_button.dart';
 import 'support_requests_screen.dart';
 
@@ -32,7 +33,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
         _LegalSection(
           title: 'שירותים חיצוניים',
           body:
-              'האפליקציה נעזרת ב־Supabase לצורכי אימות, מסד נתונים ואחסון; ב־OpenStreetMap ובשירותיו להצגת מפות וחיפוש כתובות; ובשירותי Apple או Google כאשר המשתמש בוחר להתחבר באמצעותם. שימוש בתכונת AI עשוי להעביר ל־OpenAI את התוכן שהמשתמש שולח אליה.',
+              'האפליקציה נעזרת ב־Supabase לצורכי אימות, מסד נתונים ואחסון; ב־OpenStreetMap ובשירותיו להצגת מפות וחיפוש כתובות; ובשירותי Apple או Google כאשר המשתמש בוחר להתחבר באמצעותם. שימוש בתכונת AI עשוי להעביר ל־OpenAI את התוכן שהמשתמש שולח אליה. Google AdSense משמש להצגת פרסומות רק לאחר קבלת הסכמה מתאימה.',
         ),
         _LegalSection(
           title: 'שמירה ומחיקה',
@@ -47,7 +48,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
         _LegalSection(
           title: 'מידע הנשמר במכשיר',
           body:
-              'חלק מההעדפות נשמרות מקומית במכשיר. אם המשתמש מזין מפתח API אישי עבור תכונת AI, המפתח נשמר מקומית במכשיר ומשמש לפנייה ישירה לשירות ה־AI.',
+              'האפליקציה משתמשת באחסון מקומי הכרחי לצורך התחברות, אבטחה, העדפות והתקנה. לאחר אישור לפרסום, Google עשויה להשתמש בעוגיות, באחסון מקומי ובמזהים לצורך הצגת פרסומות ומדידתן. ניתן לדחות שימוש זה או לשנות את הבחירה במסך פרטיות ועוגיות. אם המשתמש מזין מפתח API אישי עבור תכונת AI, המפתח נשמר מקומית במכשיר ומשמש לפנייה ישירה לשירות ה־AI.',
         ),
         _LegalSection(
           title: 'עדכונים למדיניות',
@@ -56,6 +57,95 @@ class PrivacyPolicyScreen extends StatelessWidget {
         ),
       ],
       contactCategory: 'privacy',
+    );
+  }
+}
+
+class PrivacyConsentSettingsScreen extends StatefulWidget {
+  const PrivacyConsentSettingsScreen({super.key});
+
+  @override
+  State<PrivacyConsentSettingsScreen> createState() =>
+      _PrivacyConsentSettingsScreenState();
+}
+
+class _PrivacyConsentSettingsScreenState
+    extends State<PrivacyConsentSettingsScreen> {
+  bool _saving = false;
+
+  Future<void> _setAdvertising(bool allowed) async {
+    setState(() => _saving = true);
+    await PrivacyConsentService.setAdvertisingAllowed(allowed);
+    if (!mounted) return;
+    setState(() => _saving = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(allowed
+            ? 'פרסום ומדידת פרסומות אושרו'
+            : 'פרסום ומדידת פרסומות נחסמו'),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text('פרטיות ועוגיות'),
+        centerTitle: true,
+        actions: const [HomeButton()],
+      ),
+      body: Directionality(
+        textDirection: TextDirection.rtl,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760),
+            child: ListView(
+              padding: const EdgeInsets.all(18),
+              children: [
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        const SwitchListTile.adaptive(
+                          contentPadding: EdgeInsets.zero,
+                          value: true,
+                          onChanged: null,
+                          title: Text('אחסון הכרחי'),
+                          subtitle: Text(
+                            'נדרש להפעלת החשבון, אבטחה והעדפות בסיסיות ולא ניתן לכיבוי',
+                          ),
+                        ),
+                        const Divider(),
+                        ValueListenableBuilder<PrivacyConsentChoice>(
+                          valueListenable: PrivacyConsentService.choice,
+                          builder: (context, choice, _) =>
+                              SwitchListTile.adaptive(
+                            contentPadding: EdgeInsets.zero,
+                            value: choice == PrivacyConsentChoice.accepted,
+                            onChanged: _saving ? null : _setAdvertising,
+                            title: const Text('פרסום ומדידת פרסומות'),
+                            subtitle: const Text(
+                              'שימוש של Google במזהים ובאחסון בדפדפן לצורך פרסום',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'שינוי ההעדפה חל על בקשות פרסום חדשות. אחסון שכבר נוצר על ידי ספק חיצוני עשוי להישאר עד למחיקתו לפי מדיניות הספק או הדפדפן.',
+                  style: TextStyle(color: AppColors.textMuted, height: 1.5),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

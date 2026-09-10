@@ -6,8 +6,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/services/premium_service.dart';
 import 'core/services/auth_service.dart';
 import 'core/services/registration_service.dart';
+import 'core/services/privacy_consent_service.dart';
 import 'features/authentication/widgets/registration_gate.dart';
 import 'features/authentication/widgets/guest_signup_prompt.dart';
+import 'features/privacy/widgets/privacy_consent_prompt_gate.dart';
 import 'features/authentication/screens/login_screen.dart';
 import 'features/authentication/screens/register_screen.dart';
 import 'features/authentication/screens/reset_password_screen.dart';
@@ -33,6 +35,7 @@ Future<void> main() async {
   );
 
   await AuthService.initializeGuestMode();
+  await PrivacyConsentService.initialize();
   await Permissions.load();
   await PremiumService.load();
 
@@ -57,7 +60,7 @@ class FoodDiaryApp extends StatelessWidget {
           child: child ?? const SizedBox.shrink(),
         );
       },
-      home: const AuthGate(),
+      home: const PrivacyConsentPromptGate(child: AuthGate()),
     );
   }
 }

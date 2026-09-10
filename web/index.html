@@ -17,10 +17,6 @@
   <meta name="description" content="גילוי מקומות, תיעוד חוויות והמלצות בדרך.">
   <meta name="theme-color" content="#0B0F15">
 
-  <script async
-    src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4954700760640290"
-    crossorigin="anonymous"></script>
-
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="BITE THE WAY">
@@ -33,6 +29,49 @@
 
 <body>
   <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('consent', 'default', {
+      ad_storage: 'denied',
+      analytics_storage: 'denied',
+      ad_user_data: 'denied',
+      ad_personalization: 'denied',
+      wait_for_update: 500,
+    });
+
+    let btwAdsenseScriptPromise = null;
+    window.btwPrivacy = {
+      advertisingAllowed: false,
+      setConsent: (allowed) => {
+        window.btwPrivacy.advertisingAllowed = allowed === true;
+        gtag('consent', 'update', {
+          ad_storage: allowed ? 'granted' : 'denied',
+          analytics_storage: 'denied',
+          ad_user_data: allowed ? 'granted' : 'denied',
+          ad_personalization: allowed ? 'granted' : 'denied',
+        });
+      },
+      loadAdsense: () => {
+        if (!window.btwPrivacy.advertisingAllowed) {
+          return Promise.reject(new Error('advertising_consent_required'));
+        }
+        if (btwAdsenseScriptPromise) return btwAdsenseScriptPromise;
+        btwAdsenseScriptPromise = new Promise((resolve, reject) => {
+          const script = document.createElement('script');
+          script.async = true;
+          script.crossOrigin = 'anonymous';
+          script.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-4954700760640290';
+          script.onload = resolve;
+          script.onerror = () => {
+            btwAdsenseScriptPromise = null;
+            reject(new Error('adsense_script_failed'));
+          };
+          document.head.appendChild(script);
+        });
+        return btwAdsenseScriptPromise;
+      },
+    };
+
     let btwDeferredInstallPrompt = null;
     window.addEventListener('beforeinstallprompt', (event) => {
       event.preventDefault();
@@ -129,7 +168,13 @@
       },
     };
     window.btwAdsense = {
-      mountHomeBanner: (container) => {
+      mountHomeBanner: async (container) => {
+        try {
+          await window.btwPrivacy.loadAdsense();
+        } catch (error) {
+          console.warn('BITE THE WAY: AdSense requires advertising consent.', error);
+          return;
+        }
         container.style.width = '100%';
         container.style.height = '100%';
         container.style.display = 'flex';
