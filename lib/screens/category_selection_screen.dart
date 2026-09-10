@@ -749,12 +749,12 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                       children: [
                         _buildHeader(mobile: mobile),
                         SizedBox(height: mobile ? 22 : 30),
-                        _buildTitle(mobile: mobile),
-                        SizedBox(height: mobile ? 14 : 22),
                         if (_showTestAd) ...[
                           const TestAdBanner(),
-                          SizedBox(height: mobile ? 12 : 18),
+                          SizedBox(height: mobile ? 18 : 24),
                         ],
+                        _buildTitle(mobile: mobile),
+                        SizedBox(height: mobile ? 14 : 22),
                         Expanded(
                           child: _buildCategories(),
                         ),
