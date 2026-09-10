@@ -10,6 +10,7 @@ import '../theme/colors.dart';
 import '../theme/app_icons.dart';
 import '../utils/permissions.dart';
 import '../widgets/admin_pending_status.dart';
+import '../widgets/test_ad_banner.dart';
 import '../widgets/visit_notification_button.dart';
 import '../features/authentication/screens/register_screen.dart';
 import '../main.dart' show AuthGate;
@@ -67,6 +68,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
   bool _handledInitialLink = false;
   bool _handledInstallOffer = false;
   bool _hasManagedPlaces = false;
+  bool _showTestAd = false;
 
   @override
   void initState() {
@@ -76,6 +78,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
     _loadCategories();
     _loadGreeting();
     _loadManagerAccess();
+    _loadAdExperiment();
     WidgetsBinding.instance.addPostFrameCallback((_) => _openInitialLink());
     WidgetsBinding.instance.addPostFrameCallback((_) => _offerInstall());
 
@@ -84,7 +87,28 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
       _loadPermissions();
       _loadGreeting();
       _loadManagerAccess();
+      _loadAdExperiment();
     });
+  }
+
+  Future<void> _loadAdExperiment() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null || user.isAnonymous) {
+      if (mounted) setState(() => _showTestAd = false);
+      return;
+    }
+
+    try {
+      final row = await Supabase.instance.client
+          .from('ad_test_users')
+          .select('enabled')
+          .eq('user_id', user.id)
+          .eq('enabled', true)
+          .maybeSingle();
+      if (mounted) setState(() => _showTestAd = row != null);
+    } catch (_) {
+      if (mounted) setState(() => _showTestAd = false);
+    }
   }
 
   Future<void> _loadManagerAccess() async {
@@ -727,6 +751,10 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                         SizedBox(height: mobile ? 22 : 30),
                         _buildTitle(mobile: mobile),
                         SizedBox(height: mobile ? 14 : 22),
+                        if (_showTestAd) ...[
+                          const TestAdBanner(),
+                          SizedBox(height: mobile ? 12 : 18),
+                        ],
                         Expanded(
                           child: _buildCategories(),
                         ),
