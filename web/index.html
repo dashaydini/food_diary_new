@@ -173,7 +173,7 @@
           await window.btwPrivacy.loadAdsense();
         } catch (error) {
           console.warn('BITE THE WAY: AdSense requires advertising consent.', error);
-          return;
+          return false;
         }
         container.style.width = '100%';
         container.style.height = '100%';
@@ -192,6 +192,29 @@
         ad.setAttribute('data-full-width-responsive', 'true');
         container.replaceChildren(ad);
 
+        const statusPromise = new Promise((resolve) => {
+          let completed = false;
+          const finish = (filled) => {
+            if (completed) return;
+            completed = true;
+            observer.disconnect();
+            resolve(filled);
+          };
+          const readStatus = () => {
+            const status = ad.getAttribute('data-ad-status');
+            if (status === 'filled') finish(true);
+            if (status === 'unfilled' || status === 'unfill-optimized') {
+              finish(false);
+            }
+          };
+          const observer = new MutationObserver(readStatus);
+          observer.observe(ad, {
+            attributes: true,
+            attributeFilter: ['data-ad-status'],
+          });
+          window.setTimeout(() => finish(false), 20000);
+        });
+
         const requestAd = () => {
           if (!ad.isConnected) {
             window.requestAnimationFrame(requestAd);
@@ -205,6 +228,7 @@
           }
         };
         window.requestAnimationFrame(requestAd);
+        return statusPromise;
       },
     };
   </script>

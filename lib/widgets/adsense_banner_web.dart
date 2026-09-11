@@ -6,13 +6,26 @@ import 'package:web/web.dart' as web;
 import '../theme/colors.dart';
 
 @JS('btwAdsense.mountHomeBanner')
-external void _mountHomeBanner(web.HTMLElement container);
+external JSPromise<JSBoolean> _mountHomeBanner(web.HTMLElement container);
 
-class AdsenseBanner extends StatelessWidget {
+class AdsenseBanner extends StatefulWidget {
   const AdsenseBanner({super.key});
 
   @override
+  State<AdsenseBanner> createState() => _AdsenseBannerState();
+}
+
+class _AdsenseBannerState extends State<AdsenseBanner> {
+  bool _hide = false;
+
+  Future<void> _mount(web.HTMLElement element) async {
+    final filled = (await _mountHomeBanner(element).toDart).toDart;
+    if (!filled && mounted) setState(() => _hide = true);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_hide) return const SizedBox.shrink();
     final mobile = MediaQuery.sizeOf(context).width < 700;
 
     return Semantics(
@@ -38,7 +51,7 @@ class AdsenseBanner extends StatelessWidget {
             child: HtmlElementView.fromTagName(
               tagName: 'div',
               onElementCreated: (element) {
-                _mountHomeBanner(element as web.HTMLElement);
+                _mount(element as web.HTMLElement);
               },
             ),
           ),
