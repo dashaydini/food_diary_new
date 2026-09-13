@@ -8,10 +8,17 @@ class CouponService {
 
   static Future<List<Coupon>> list({
     bool includeDrafts = false,
+    bool includeExpired = false,
     String? placeId,
   }) async {
     dynamic query = _client.from('coupons').select();
     if (!includeDrafts) query = query.eq('is_published', true);
+    if (!includeExpired) {
+      final now = DateTime.now();
+      final today =
+          '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+      query = query.gte('valid_until', today);
+    }
     if (placeId != null) query = query.eq('place_id', placeId);
     final rows = await query.order('created_at', ascending: false);
     return List<Map<String, dynamic>>.from(rows).map(Coupon.fromJson).toList();
@@ -33,6 +40,12 @@ class CouponService {
 
   static Future<void> remove(String id) async {
     await _client.from('coupons').delete().eq('id', id);
+  }
+
+  static Future<void> restore(String id, DateTime validUntil) async {
+    final date =
+        '${validUntil.year.toString().padLeft(4, '0')}-${validUntil.month.toString().padLeft(2, '0')}-${validUntil.day.toString().padLeft(2, '0')}';
+    await save({'valid_until': date}, id: id);
   }
 
   static Future<Map<String, dynamic>> publish(

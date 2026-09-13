@@ -46,6 +46,7 @@ class _AdminCouponsScreenState extends State<AdminCouponsScreen> {
     try {
       final rows = await CouponService.list(
         includeDrafts: true,
+        includeExpired: true,
         placeId: widget.managedPlace?['id']?.toString(),
       );
       if (mounted) setState(() => _coupons = rows);
@@ -257,6 +258,88 @@ class _AdminCouponsScreenState extends State<AdminCouponsScreen> {
     );
   }
 
+  Future<void> _restoreCoupon(Coupon coupon) async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final newExpiry = await showDatePicker(
+      context: context,
+      initialDate: today.add(const Duration(days: 30)),
+      firstDate: today,
+      lastDate: DateTime(today.year + 10, 12, 31),
+      helpText: 'בחירת תוקף חדש',
+      cancelText: 'ביטול',
+      confirmText: 'שחזור הקופון',
+    );
+    if (newExpiry == null) return;
+
+    try {
+      await CouponService.restore(coupon.id, newExpiry);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(coupon.isPublished
+              ? 'הקופון שוחזר וחזר לרשימת הקופונים הפעילים'
+              : 'הקופון שוחזר כטיוטה עם תוקף חדש'),
+        ),
+      );
+      await _load();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('לא ניתן לשחזר את הקופון. נסה שוב.')),
+        );
+      }
+    }
+  }
+
+  Widget _couponCard(Coupon coupon, {required bool expired}) => Card(
+        margin: const EdgeInsets.only(bottom: 12),
+        child: ListTile(
+          contentPadding: const EdgeInsets.all(14),
+          leading: Icon(
+            expired
+                ? Icons.history_rounded
+                : coupon.isPublished
+                    ? Icons.campaign
+                    : Icons.edit_note,
+            color: expired
+                ? AppColors.textMuted
+                : coupon.isPublished
+                    ? AppColors.success
+                    : AppColors.champagne,
+          ),
+          title: Text(coupon.title),
+          subtitle: Text(
+            expired
+                ? '${coupon.businessName} · פג תוקף ב־${coupon.validUntilLabel}'
+                : '${coupon.businessName} · ${coupon.isPublished ? 'פורסם' : 'טיוטה'} · עד ${coupon.validUntilLabel}',
+          ),
+          onTap: () => _view(coupon),
+          trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+            IconButton(
+              tooltip: 'עריכת הקופון',
+              onPressed: () => _edit(coupon),
+              icon: const Icon(Icons.edit_outlined),
+            ),
+            if (expired)
+              IconButton(
+                tooltip: 'שחזור ושינוי תוקף',
+                onPressed: () => _restoreCoupon(coupon),
+                icon: const Icon(Icons.restore_rounded),
+              )
+            else
+              IconButton(
+                tooltip:
+                    coupon.isPublished ? 'אפשרויות פרסום ופוש' : 'פרסום הקופון',
+                onPressed: () => _showPublishActions(coupon),
+                icon: Icon(coupon.isPublished
+                    ? Icons.send_rounded
+                    : Icons.campaign_outlined),
+              ),
+          ]),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: AppColors.background,
@@ -290,47 +373,52 @@ class _AdminCouponsScreenState extends State<AdminCouponsScreen> {
             ? const Center(child: CircularProgressIndicator())
             : RefreshIndicator(
                 onRefresh: _load,
-                child: ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 110),
-                  itemCount: _coupons.length,
-                  itemBuilder: (context, index) {
-                    final coupon = _coupons[index];
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      child: ListTile(
-                        contentPadding: const EdgeInsets.all(14),
-                        leading: Icon(
-                            coupon.isPublished
-                                ? Icons.campaign
-                                : Icons.edit_note,
-                            color: coupon.isPublished
-                                ? AppColors.success
-                                : AppColors.champagne),
-                        title: Text(coupon.title),
-                        subtitle: Text(
-                            '${coupon.businessName} · ${coupon.validUntil.isBefore(DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day)) ? 'פג תוקף — חסום למשתמשים' : coupon.isPublished ? 'פורסם' : 'טיוטה'}'),
-                        onTap: () => _view(coupon),
-                        trailing:
-                            Row(mainAxisSize: MainAxisSize.min, children: [
-                          IconButton(
-                            tooltip: 'עריכת הקופון',
-                            onPressed: () => _edit(coupon),
-                            icon: const Icon(Icons.edit_outlined),
+                child: Builder(builder: (context) {
+                  final active =
+                      _coupons.where((coupon) => !coupon.isExpired).toList();
+                  final expired =
+                      _coupons.where((coupon) => coupon.isExpired).toList();
+                  return ListView(
+                    padding: const EdgeInsets.fromLTRB(18, 18, 18, 110),
+                    children: [
+                      if (active.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 28),
+                          child: Text(
+                            'אין כרגע קופונים פעילים או טיוטות בתוקף',
+                            textAlign: TextAlign.center,
                           ),
-                          IconButton(
-                            tooltip: coupon.isPublished
-                                ? 'אפשרויות פרסום ופוש'
-                                : 'פרסום הקופון',
-                            onPressed: () => _showPublishActions(coupon),
-                            icon: Icon(coupon.isPublished
-                                ? Icons.send_rounded
-                                : Icons.campaign_outlined),
-                          ),
-                        ]),
+                        )
+                      else
+                        for (final coupon in active)
+                          _couponCard(coupon, expired: false),
+                      const SizedBox(height: 8),
+                      Card(
+                        clipBehavior: Clip.antiAlias,
+                        child: ExpansionTile(
+                          leading: const Icon(Icons.inventory_2_outlined),
+                          title: const Text('קופונים שעבר זמנם'),
+                          subtitle: Text(expired.isEmpty
+                              ? 'אין קופונים שפג תוקפם'
+                              : '${expired.length} קופונים'),
+                          childrenPadding:
+                              const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                          children: expired.isEmpty
+                              ? const [
+                                  Padding(
+                                    padding: EdgeInsets.all(18),
+                                    child: Text('קופונים שפג תוקפם יופיעו כאן'),
+                                  ),
+                                ]
+                              : [
+                                  for (final coupon in expired)
+                                    _couponCard(coupon, expired: true),
+                                ],
+                        ),
                       ),
-                    );
-                  },
-                ),
+                    ],
+                  );
+                }),
               ),
       );
 }

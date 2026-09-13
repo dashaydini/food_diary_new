@@ -69,6 +69,15 @@ class Coupon {
   String get validUntilLabel =>
       '${validUntil.day.toString().padLeft(2, '0')}.${validUntil.month.toString().padLeft(2, '0')}.${validUntil.year}';
 
+  bool get isExpired => isExpiredOn(DateTime.now());
+
+  bool isExpiredOn(DateTime now) {
+    final today = DateTime(now.year, now.month, now.day);
+    final expiryDate =
+        DateTime(validUntil.year, validUntil.month, validUntil.day);
+    return expiryDate.isBefore(today);
+  }
+
   Map<String, dynamic> get navigationPlace => {
         'name': businessName,
         'address': address,
