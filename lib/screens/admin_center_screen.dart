@@ -208,8 +208,8 @@ class _AdminCenterScreenState extends State<AdminCenterScreen> {
                           ),
                           _AdminCard(
                             icon: Icons.school_outlined,
-                            title: 'מדריך למשתמש',
-                            subtitle: 'הצגה ובדיקה של מדריך האפליקציה',
+                            title: 'מסך היכרות',
+                            subtitle: 'תצוגה מקדימה של סיפור האפליקציה',
                             value: 'הפעלה',
                             onTap: () => _open(const UserTutorialScreen()),
                           ),
