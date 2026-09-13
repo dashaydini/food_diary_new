@@ -22,6 +22,7 @@ class _PrivacyPolicyConsentGateState extends State<PrivacyPolicyConsentGate> {
   late Future<bool> _accepted;
   bool _checked = false;
   bool _saving = false;
+  bool _isPolicyUpdate = false;
 
   @override
   void initState() {
@@ -33,7 +34,13 @@ class _PrivacyPolicyConsentGateState extends State<PrivacyPolicyConsentGate> {
   Future<bool> _load() async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null || user.isAnonymous) return true;
-    return _service.hasAcceptedCurrentPrivacyPolicy(user.id);
+    final acceptedVersion =
+        await _service.acceptedPrivacyPolicyVersion(user.id);
+    final createdAt = DateTime.tryParse(user.createdAt);
+    _isPolicyUpdate = acceptedVersion != null ||
+        (createdAt != null &&
+            createdAt.isBefore(UserPreferencesService.privacyPolicyUpdatedAt));
+    return acceptedVersion == UserPreferencesService.privacyPolicyVersion;
   }
 
   Future<void> _accept() async {
@@ -82,6 +89,7 @@ class _PrivacyPolicyConsentGateState extends State<PrivacyPolicyConsentGate> {
           }
           if (snapshot.data == true) return widget.child;
           return PrivacyAcceptanceScreen(
+            isUpdate: _isPolicyUpdate,
             checked: _checked,
             saving: _saving,
             onChanged: (value) => setState(() => _checked = value),
@@ -94,12 +102,14 @@ class _PrivacyPolicyConsentGateState extends State<PrivacyPolicyConsentGate> {
 class PrivacyAcceptanceScreen extends StatelessWidget {
   const PrivacyAcceptanceScreen({
     super.key,
+    this.isUpdate = false,
     required this.checked,
     required this.saving,
     required this.onChanged,
     required this.onAccept,
   });
 
+  final bool isUpdate;
   final bool checked;
   final bool saving;
   final ValueChanged<bool> onChanged;
@@ -125,8 +135,10 @@ class PrivacyAcceptanceScreen extends StatelessWidget {
                     color: AppColors.champagne,
                   ),
                   const SizedBox(height: 18),
-                  const Text(
-                    'הפרטיות שלך חשובה לנו',
+                  Text(
+                    isUpdate
+                        ? 'מדיניות הפרטיות עודכנה'
+                        : 'הפרטיות שלך חשובה לנו',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: AppColors.textPrimary,
@@ -135,8 +147,10 @@ class PrivacyAcceptanceScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  const Text(
-                    'לפני שמתחילים, חשוב לקרוא ולאשר את מדיניות הפרטיות. תכונות המיקום וההתראות פעילות כברירת מחדל, בכפוף לאישור המכשיר, ואפשר לשנות אותן בכל רגע בהגדרות.',
+                  Text(
+                    isUpdate
+                        ? 'הוספנו למדיניות הקיימת הסבר ברור על שירותי המיקום ועל סוגי ההתראות. ההעדפות פעילות כברירת מחדל, בכפוף לאישור המכשיר, ואפשר לשנות אותן בכל רגע בהגדרות.'
+                        : 'לפני שמתחילים, חשוב לקרוא ולאשר את מדיניות הפרטיות. תכונות המיקום וההתראות פעילות כברירת מחדל, בכפוף לאישור המכשיר, ואפשר לשנות אותן בכל רגע בהגדרות.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: AppColors.textSecondary,

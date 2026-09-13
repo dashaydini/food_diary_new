@@ -270,6 +270,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               (value: '7d', label: '7 ימים'),
               (value: '30d', label: '30 ימים'),
               (value: '90d', label: '90 ימים'),
+              (value: '180d', label: 'חצי שנה'),
               (value: '365d', label: 'שנה'),
               (value: 'unlimited', label: 'ללא הגבלת זמן'),
               (value: 'remove', label: 'הסרת פרימיום'),

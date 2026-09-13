@@ -26,4 +26,22 @@ void main() {
 
     expect(find.text('המשך לאפליקציה'), findsOneWidget);
   });
+
+  testWidgets('existing users see that the privacy policy was updated',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: PrivacyAcceptanceScreen(
+          isUpdate: true,
+          checked: false,
+          saving: false,
+          onChanged: (_) {},
+          onAccept: () {},
+        ),
+      ),
+    );
+
+    expect(find.text('מדיניות הפרטיות עודכנה'), findsOneWidget);
+    expect(find.textContaining('הוספנו'), findsOneWidget);
+  });
 }

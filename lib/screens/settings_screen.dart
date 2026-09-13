@@ -198,15 +198,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
       } else {
         await PushNotificationService.disable();
       }
-      if (mounted) setState(() => _pushEnabled = enabled);
+      final updated = enabled
+          ? const UserNotificationPreferences()
+          : const UserNotificationPreferences(
+              enabled: false,
+              coupons: false,
+              tags: false,
+              newFollowers: false,
+              newPlacesAi: false,
+              systemMessages: false,
+              managerNewExperience: false,
+            );
+      if (mounted) {
+        setState(() {
+          _pushEnabled = enabled;
+          _notificationPreferences = updated;
+          _managerNewExperienceNotifications = updated.managerNewExperience;
+          _routeNotificationsEnabled = enabled;
+        });
+      }
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null && !user.isAnonymous) {
-        final updated = _notificationPreferences.copyWith(enabled: enabled);
         await UserPreferencesService(Supabase.instance.client)
             .saveNotificationPreferences(user.id, updated);
-        _notificationPreferences = updated;
       }
-      _showMessage(enabled ? 'התראות בטלפון הופעלו' : 'התראות בטלפון כובו');
+      await AppPreferences.setRouteNotificationsEnabled(enabled);
+      _showMessage(enabled ? 'התראות הפוש הופעלו' : 'התראות הפוש כובו');
     } catch (_) {
       _showMessage(
           'לא ניתן להפעיל התראות. באייפון יש לפתוח את האפליקציה ממסך הבית.');
@@ -349,7 +366,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await AppPreferences.resetRoutePreferences();
     if (!mounted) return;
     setState(() {
-      _routeNotificationsEnabled = false;
+      _routeNotificationsEnabled = true;
       _maximumRouteDetourKm = AppPreferences.defaultMaximumRouteDetourKm;
       _selectedCategoryIds.clear();
     });
@@ -361,6 +378,244 @@ class _SettingsScreenState extends State<SettingsScreen> {
       SnackBar(content: Text(message)),
     );
   }
+
+  Future<void> _openNotificationSettings() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (routeContext) => StatefulBuilder(
+          builder: (context, refresh) {
+            void repaint() {
+              if (routeContext.mounted) refresh(() {});
+            }
+
+            return Scaffold(
+              backgroundColor: AppColors.background,
+              appBar: AppBar(
+                title: const Text('התראות'),
+                centerTitle: true,
+                actions: const [HomeButton()],
+              ),
+              body: Directionality(
+                textDirection: TextDirection.rtl,
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 760),
+                    child: ListView(
+                      padding: const EdgeInsets.all(18),
+                      children: [
+                        _section(
+                          title: 'הגדרות התראות',
+                          child: _notificationSettingsContent(repaint),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
+  Widget _notificationSettingsContent(VoidCallback repaint) {
+    final pushActive = _pushEnabled && _notificationPreferences.enabled;
+    return Column(
+      children: [
+        SwitchListTile.adaptive(
+          contentPadding: EdgeInsets.zero,
+          value: pushActive,
+          secondary: const Icon(Icons.notifications_active_outlined),
+          title: const Text('התראות פוש'),
+          subtitle: Text(_pushSupported
+              ? 'התראות שיופיעו בטלפון גם כשהאפליקציה סגורה'
+              : 'באייפון: יש להוסיף את האפליקציה למסך הבית תחילה'),
+          onChanged: !_pushSupported || _changingPush
+              ? null
+              : (enabled) async {
+                  await _togglePush(enabled);
+                  repaint();
+                },
+        ),
+        const Divider(),
+        _notificationSwitch(
+          enabled: pushActive,
+          value: _notificationPreferences.coupons,
+          icon: Icons.confirmation_num_outlined,
+          title: 'קופונים ומבצעים',
+          subtitle: 'קופונים חדשים ועדכונים על קופונים פעילים',
+          onChanged: (enabled) async {
+            await _updateNotificationPreferences(
+              _notificationPreferences.copyWith(coupons: enabled),
+            );
+            repaint();
+          },
+        ),
+        _notificationSwitch(
+          enabled: pushActive,
+          value: _notificationPreferences.tags,
+          icon: Icons.alternate_email_rounded,
+          title: 'תיוגים',
+          subtitle: 'כשמשתמש אחר מתייג אותך בחוויה',
+          onChanged: (enabled) async {
+            await _updateNotificationPreferences(
+              _notificationPreferences.copyWith(tags: enabled),
+            );
+            repaint();
+          },
+        ),
+        _notificationSwitch(
+          enabled: pushActive,
+          value: _notificationPreferences.newFollowers,
+          icon: Icons.person_add_alt_rounded,
+          title: 'עוקבים חדשים',
+          subtitle: 'כשמשתמש חדש מתחיל לעקוב אחריך',
+          onChanged: (enabled) async {
+            await _updateNotificationPreferences(
+              _notificationPreferences.copyWith(newFollowers: enabled),
+            );
+            repaint();
+          },
+        ),
+        _notificationSwitch(
+          enabled: pushActive,
+          value: _notificationPreferences.newPlacesAi,
+          icon: Icons.auto_awesome_outlined,
+          title: 'מקומות חדשים בשבילי',
+          subtitle: 'המלצות AI על מקומות שמתאימים לטעם שלך',
+          onChanged: (enabled) async {
+            await _updateNotificationPreferences(
+              _notificationPreferences.copyWith(newPlacesAi: enabled),
+            );
+            repaint();
+          },
+        ),
+        _notificationSwitch(
+          enabled: pushActive,
+          value: _notificationPreferences.systemMessages,
+          icon: Icons.campaign_outlined,
+          title: 'הודעות ועדכוני מערכת',
+          subtitle: 'חידושים, הודעות חשובות ועדכוני שירות',
+          onChanged: (enabled) async {
+            await _updateNotificationPreferences(
+              _notificationPreferences.copyWith(systemMessages: enabled),
+            );
+            repaint();
+          },
+        ),
+        if (_hasManagedPlaces) ...[
+          const Divider(),
+          _notificationSwitch(
+            enabled: pushActive && !_savingManagerNotifications,
+            value: _managerNewExperienceNotifications,
+            icon: Icons.rate_review_outlined,
+            title: 'חוויה חדשה במקום שבניהולי',
+            subtitle: 'התראה נפרדת בכל פעם שנוספת חוויה חדשה',
+            onChanged: (enabled) async {
+              await _toggleManagerNotifications(enabled);
+              repaint();
+            },
+          ),
+        ],
+        const Divider(),
+        if (pushActive && _notificationPreferences.coupons) ...[
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              'קופונים שמעניינים אותי',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              for (final category in _categories)
+                FilterChip(
+                  label: Text(category['title']?.toString() ?? ''),
+                  selected:
+                      _couponCategoryIds.contains(category['id']?.toString()),
+                  onSelected: (selected) async {
+                    setState(() {
+                      final id = category['id'].toString();
+                      selected
+                          ? _couponCategoryIds.add(id)
+                          : _couponCategoryIds.remove(id);
+                    });
+                    await _saveCouponNotificationPreferences();
+                    repaint();
+                  },
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Align(
+            alignment: Alignment.centerRight,
+            child: Text('איזורים מועדפים'),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              for (final region in _couponRegions)
+                FilterChip(
+                  label: Text(region),
+                  selected: _couponRegionsSelected.contains(region),
+                  onSelected: (selected) async {
+                    setState(() => selected
+                        ? _couponRegionsSelected.add(region)
+                        : _couponRegionsSelected.remove(region));
+                    await _saveCouponNotificationPreferences();
+                    repaint();
+                  },
+                ),
+            ],
+          ),
+          const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: Text(
+              'ללא בחירה יתקבלו קופונים מכל התחומים והאיזורים.',
+              style: TextStyle(color: AppColors.textMuted),
+            ),
+          ),
+          const Divider(),
+        ],
+        _notificationSwitch(
+          enabled: pushActive,
+          value: _routeNotificationsEnabled,
+          icon: Icons.route_outlined,
+          title: 'התראות בדרך',
+          subtitle: 'התראה על מקום מומלץ בהמשך המסלול',
+          onChanged: (enabled) async {
+            setState(() => _routeNotificationsEnabled = enabled);
+            await AppPreferences.setRouteNotificationsEnabled(enabled);
+            repaint();
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _notificationSwitch({
+    required bool enabled,
+    required bool value,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required ValueChanged<bool> onChanged,
+  }) =>
+      SwitchListTile.adaptive(
+        contentPadding: EdgeInsets.zero,
+        value: value,
+        secondary: Icon(icon),
+        title: Text(title),
+        subtitle: Text(subtitle),
+        onChanged: enabled ? onChanged : null,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -383,190 +638,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       _section(
                         title: 'התראות',
-                        child: Column(
-                          children: [
-                            SwitchListTile.adaptive(
-                              contentPadding: EdgeInsets.zero,
-                              value: _pushEnabled,
-                              secondary: const Icon(
-                                  Icons.notifications_active_outlined),
-                              title: const Text('קבלת התראות בטלפון'),
-                              subtitle: Text(_pushSupported
-                                  ? 'קבלת התראה גם כשהאפליקציה סגורה'
-                                  : 'באייפון: יש להוסיף את האפליקציה למסך הבית תחילה'),
-                              onChanged: !_pushSupported || _changingPush
-                                  ? null
-                                  : _togglePush,
-                            ),
-                            const Divider(),
-                            SwitchListTile.adaptive(
-                              contentPadding: EdgeInsets.zero,
-                              value: _notificationPreferences.coupons,
-                              secondary:
-                                  const Icon(Icons.confirmation_num_outlined),
-                              title: const Text('קופונים ומבצעים'),
-                              subtitle: const Text(
-                                'קופונים חדשים ועדכונים על קופונים פעילים',
-                              ),
-                              onChanged: (enabled) =>
-                                  _updateNotificationPreferences(
-                                _notificationPreferences.copyWith(
-                                  coupons: enabled,
-                                ),
-                              ),
-                            ),
-                            SwitchListTile.adaptive(
-                              contentPadding: EdgeInsets.zero,
-                              value: _notificationPreferences.tags,
-                              secondary:
-                                  const Icon(Icons.alternate_email_rounded),
-                              title: const Text('תיוגים'),
-                              subtitle: const Text(
-                                'כשמשתמש אחר מתייג אותך בחוויה',
-                              ),
-                              onChanged: (enabled) =>
-                                  _updateNotificationPreferences(
-                                _notificationPreferences.copyWith(
-                                  tags: enabled,
-                                ),
-                              ),
-                            ),
-                            SwitchListTile.adaptive(
-                              contentPadding: EdgeInsets.zero,
-                              value: _notificationPreferences.newFollowers,
-                              secondary:
-                                  const Icon(Icons.person_add_alt_rounded),
-                              title: const Text('עוקבים חדשים'),
-                              subtitle: const Text(
-                                'כשמשתמש חדש מתחיל לעקוב אחריך',
-                              ),
-                              onChanged: (enabled) =>
-                                  _updateNotificationPreferences(
-                                _notificationPreferences.copyWith(
-                                  newFollowers: enabled,
-                                ),
-                              ),
-                            ),
-                            SwitchListTile.adaptive(
-                              contentPadding: EdgeInsets.zero,
-                              value: _notificationPreferences.newPlacesAi,
-                              secondary:
-                                  const Icon(Icons.auto_awesome_outlined),
-                              title: const Text('מקומות חדשים בשבילי'),
-                              subtitle: const Text(
-                                'המלצות AI על מקומות שמתאימים לטעם שלך',
-                              ),
-                              onChanged: (enabled) =>
-                                  _updateNotificationPreferences(
-                                _notificationPreferences.copyWith(
-                                  newPlacesAi: enabled,
-                                ),
-                              ),
-                            ),
-                            SwitchListTile.adaptive(
-                              contentPadding: EdgeInsets.zero,
-                              value: _notificationPreferences.systemMessages,
-                              secondary: const Icon(Icons.campaign_outlined),
-                              title: const Text('הודעות ועדכוני מערכת'),
-                              subtitle: const Text(
-                                'חידושים, הודעות חשובות ועדכוני שירות',
-                              ),
-                              onChanged: (enabled) =>
-                                  _updateNotificationPreferences(
-                                _notificationPreferences.copyWith(
-                                  systemMessages: enabled,
-                                ),
-                              ),
-                            ),
-                            if (_hasManagedPlaces) ...[
-                              const Divider(),
-                              SwitchListTile.adaptive(
-                                contentPadding: EdgeInsets.zero,
-                                value: _managerNewExperienceNotifications,
-                                secondary:
-                                    const Icon(Icons.rate_review_outlined),
-                                title: const Text('חוויה חדשה במקום שבניהולי'),
-                                subtitle: Text(_pushEnabled
-                                    ? 'התראה נפרדת בכל פעם שנוספת חוויה חדשה'
-                                    : 'ההעדפה תישמר, אך יש להפעיל גם קבלת התראות בטלפון'),
-                                onChanged: _savingManagerNotifications
-                                    ? null
-                                    : _toggleManagerNotifications,
-                              ),
-                            ],
-                            const Divider(),
-                            if (_notificationPreferences.coupons)
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: Text('קופונים שמעניינים אותי',
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium),
-                              ),
-                            if (_notificationPreferences.coupons) ...[
-                              const SizedBox(height: 8),
-                              Wrap(spacing: 8, runSpacing: 6, children: [
-                                for (final category in _categories)
-                                  FilterChip(
-                                    label: Text(
-                                        category['title']?.toString() ?? ''),
-                                    selected: _couponCategoryIds
-                                        .contains(category['id']?.toString()),
-                                    onSelected: (selected) {
-                                      setState(() {
-                                        final id = category['id'].toString();
-                                        selected
-                                            ? _couponCategoryIds.add(id)
-                                            : _couponCategoryIds.remove(id);
-                                      });
-                                      _saveCouponNotificationPreferences();
-                                    },
-                                  ),
-                              ]),
-                              const SizedBox(height: 12),
-                              const Align(
-                                  alignment: Alignment.centerRight,
-                                  child: Text('איזורים מועדפים')),
-                              const SizedBox(height: 8),
-                              Wrap(spacing: 8, runSpacing: 6, children: [
-                                for (final region in _couponRegions)
-                                  FilterChip(
-                                    label: Text(region),
-                                    selected:
-                                        _couponRegionsSelected.contains(region),
-                                    onSelected: (selected) {
-                                      setState(() => selected
-                                          ? _couponRegionsSelected.add(region)
-                                          : _couponRegionsSelected
-                                              .remove(region));
-                                      _saveCouponNotificationPreferences();
-                                    },
-                                  ),
-                              ]),
-                              const Padding(
-                                padding: EdgeInsets.only(top: 8),
-                                child: Text(
-                                    'ללא בחירה יתקבלו קופונים מכל התחומים והאיזורים.',
-                                    style:
-                                        TextStyle(color: AppColors.textMuted)),
-                              ),
-                            ],
-                            const Divider(),
-                            SwitchListTile.adaptive(
-                              contentPadding: EdgeInsets.zero,
-                              value: _routeNotificationsEnabled,
-                              title: const Text('התראות בדרך'),
-                              subtitle: const Text(
-                                  'התראה על מקום מומלץ בהמשך המסלול.'),
-                              onChanged: (enabled) async {
-                                setState(
-                                    () => _routeNotificationsEnabled = enabled);
-                                await AppPreferences
-                                    .setRouteNotificationsEnabled(enabled);
-                              },
-                            ),
-                          ],
-                        ),
+                        child: const SizedBox.shrink(),
                       ),
                       const SizedBox(height: 14),
                       _section(
@@ -861,6 +933,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _section({required String title, required Widget child}) {
+    if (title == 'התראות') {
+      return Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: AppColors.champagne.withValues(alpha: 0.16),
+          ),
+        ),
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 18,
+            vertical: 8,
+          ),
+          leading: const Icon(Icons.notifications_active_outlined),
+          title: const Text('התראות'),
+          subtitle: Text(
+            _pushEnabled && _notificationPreferences.enabled
+                ? 'התראות הפוש פעילות · לחצו לניהול'
+                : 'התראות הפוש כבויות · לחצו להגדרות',
+          ),
+          trailing: const Icon(Icons.arrow_back_ios_new_rounded, size: 15),
+          onTap: _openNotificationSettings,
+        ),
+      );
+    }
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(

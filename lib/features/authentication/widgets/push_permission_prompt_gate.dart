@@ -77,23 +77,29 @@ class _PushPermissionPromptGateState extends State<PushPermissionPromptGate> {
     final preferencesService = UserPreferencesService(Supabase.instance.client);
     if (accepted != true) {
       try {
-        final preferences =
-            await preferencesService.notificationPreferences(user.id);
         await preferencesService.saveNotificationPreferences(
           user.id,
-          preferences.copyWith(enabled: false),
+          const UserNotificationPreferences(
+            enabled: false,
+            coupons: false,
+            tags: false,
+            newFollowers: false,
+            newPlacesAi: false,
+            systemMessages: false,
+            managerNewExperience: false,
+          ),
         );
+        await AppPreferences.setRouteNotificationsEnabled(false);
       } catch (_) {}
       return;
     }
     try {
       await PushNotificationService.enable();
-      final preferences =
-          await preferencesService.notificationPreferences(user.id);
       await preferencesService.saveNotificationPreferences(
         user.id,
-        preferences.copyWith(enabled: true),
+        const UserNotificationPreferences(),
       );
+      await AppPreferences.setRouteNotificationsEnabled(true);
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

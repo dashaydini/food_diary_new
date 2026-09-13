@@ -40,7 +40,11 @@ class _MyCouponsScreenState extends State<MyCouponsScreen> {
   Future<void> _loadCoupons() async {
     try {
       final coupons = await CouponService.list();
-      if (mounted) setState(() => _coupons = coupons);
+      if (mounted) {
+        setState(() => _coupons = coupons
+            .where((coupon) => coupon.isPublished && !coupon.isExpired)
+            .toList());
+      }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

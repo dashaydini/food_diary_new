@@ -72,7 +72,7 @@ void main() {
             data = true;
           } else if (table == 'user_legal_consents') {
             data = [
-              {'privacy_policy_version': '2026-09-13'}
+              {'privacy_policy_version': '2026-09-13-v2'}
             ];
           }
           if (data is List &&

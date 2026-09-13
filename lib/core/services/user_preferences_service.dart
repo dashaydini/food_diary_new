@@ -65,19 +65,24 @@ class UserNotificationPreferences {
 }
 
 class UserPreferencesService {
-  static const privacyPolicyVersion = '2026-09-13';
+  static const privacyPolicyVersion = '2026-09-13-v2';
+  static final privacyPolicyUpdatedAt = DateTime.utc(2026, 9, 13, 8);
 
   final SupabaseClient client;
 
   const UserPreferencesService(this.client);
 
-  Future<bool> hasAcceptedCurrentPrivacyPolicy(String userId) async {
+  Future<String?> acceptedPrivacyPolicyVersion(String userId) async {
     final row = await client
         .from('user_legal_consents')
         .select('privacy_policy_version')
         .eq('user_id', userId)
         .maybeSingle();
-    return row?['privacy_policy_version'] == privacyPolicyVersion;
+    return row?['privacy_policy_version']?.toString();
+  }
+
+  Future<bool> hasAcceptedCurrentPrivacyPolicy(String userId) async {
+    return await acceptedPrivacyPolicyVersion(userId) == privacyPolicyVersion;
   }
 
   Future<void> acceptCurrentPrivacyPolicy(String userId) async {

@@ -12,7 +12,7 @@ class AppPreferences {
 
   static Future<bool> routeNotificationsEnabled() async {
     final preferences = await SharedPreferences.getInstance();
-    return preferences.getBool(routeNotificationsKey) ?? false;
+    return preferences.getBool(routeNotificationsKey) ?? true;
   }
 
   static Future<void> setRouteNotificationsEnabled(bool enabled) async {
