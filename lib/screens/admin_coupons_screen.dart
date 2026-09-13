@@ -13,6 +13,7 @@ import '../core/models/coupon.dart';
 import '../core/services/coupon_service.dart';
 import '../theme/colors.dart';
 import '../utils/permissions.dart';
+import '../utils/app_preferences.dart';
 import '../widgets/home_button.dart';
 import 'admin_coupon_statistics_screen.dart';
 import 'my_coupons_screen.dart';
@@ -496,6 +497,9 @@ class _CouponEditorScreenState extends State<CouponEditorScreen> {
   Future<void> _useCurrentLocation() async {
     setState(() => _loadingLocation = true);
     try {
+      if (!await AppPreferences.locationFeaturesEnabled()) {
+        throw StateError('app-location-disabled');
+      }
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();

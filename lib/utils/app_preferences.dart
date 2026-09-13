@@ -6,6 +6,7 @@ class AppPreferences {
   static const maximumRouteDetourKmKey = 'maximum_route_detour_km';
   static const routeCategoryIdsKey = 'route_category_ids';
   static const pushPermissionPromptedKey = 'push_permission_prompted';
+  static const locationFeaturesEnabledKey = 'location_features_enabled';
 
   static const defaultMaximumRouteDetourKm = 20.0;
 
@@ -69,5 +70,15 @@ class AppPreferences {
   static Future<void> setPushPermissionPrompted(String userId) async {
     final preferences = await SharedPreferences.getInstance();
     await preferences.setBool('${pushPermissionPromptedKey}_$userId', true);
+  }
+
+  static Future<bool> locationFeaturesEnabled() async {
+    final preferences = await SharedPreferences.getInstance();
+    return preferences.getBool(locationFeaturesEnabledKey) ?? true;
+  }
+
+  static Future<void> setLocationFeaturesEnabled(bool enabled) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setBool(locationFeaturesEnabledKey, enabled);
   }
 }

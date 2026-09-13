@@ -53,10 +53,20 @@ Deno.serve(async (req) => {
           .select('user_id,category_ids,regions').in('user_id', userIds)
         : { data: [], error: null }
       if (preferencesError) throw preferencesError
+      const { data: notificationPreferences, error: notificationPreferencesError } = userIds.length
+        ? await admin.from('notification_preferences')
+          .select('user_id,enabled,coupons').in('user_id', userIds)
+        : { data: [], error: null }
+      if (notificationPreferencesError) throw notificationPreferencesError
       const preferencesByUser = new Map((preferences ?? []).map((row) => [row.user_id, row]))
+      const notificationsByUser = new Map((notificationPreferences ?? []).map((row) => [row.user_id, row]))
       const couponCategories = Array.isArray(coupon.category_ids) ? coupon.category_ids : []
       const couponRegion = coupon.notification_region
       const eligibleSubscriptions = (subscriptions ?? []).filter((row) => {
+        const notificationPreference = notificationsByUser.get(row.user_id)
+        if (notificationPreference?.enabled === false || notificationPreference?.coupons === false) {
+          return false
+        }
         const preference = preferencesByUser.get(row.user_id)
         if (!preference) return true
         const wantedCategories = Array.isArray(preference.category_ids) ? preference.category_ids : []

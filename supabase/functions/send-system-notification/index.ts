@@ -40,7 +40,18 @@ Deno.serve(async (req) => {
     const { data: subscriptions, error: subscriptionError } = await admin
       .from('push_subscriptions').select('id,user_id,subscription')
     if (subscriptionError) throw subscriptionError
-    const recipientCount = new Set((subscriptions ?? []).map((row) => row.user_id)).size
+    const userIds = [...new Set((subscriptions ?? []).map((row) => row.user_id))]
+    const { data: preferences, error: preferencesError } = userIds.length
+      ? await admin.from('notification_preferences')
+        .select('user_id,enabled,system_messages').in('user_id', userIds)
+      : { data: [], error: null }
+    if (preferencesError) throw preferencesError
+    const disabledUsers = new Set((preferences ?? [])
+      .filter((row) => row.enabled === false || row.system_messages === false)
+      .map((row) => row.user_id))
+    const eligibleSubscriptions = (subscriptions ?? [])
+      .filter((row) => !disabledUsers.has(row.user_id))
+    const recipientCount = new Set(eligibleSubscriptions.map((row) => row.user_id)).size
     const { data: notification, error: createError } = await admin
       .from('system_notifications')
       .insert({
@@ -67,7 +78,7 @@ Deno.serve(async (req) => {
 
     let sent = 0
     let failed = 0
-    for (const row of subscriptions ?? []) {
+    for (const row of eligibleSubscriptions) {
       try {
         await webpush.sendNotification(row.subscription, payload)
         sent++

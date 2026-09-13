@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/services/push_notification_service.dart';
+import '../../../core/services/user_preferences_service.dart';
 import '../../../theme/colors.dart';
 import '../../../utils/app_preferences.dart';
 
@@ -73,9 +74,26 @@ class _PushPermissionPromptGateState extends State<PushPermissionPromptGate> {
       ),
     );
     await AppPreferences.setPushPermissionPrompted(user.id);
-    if (accepted != true) return;
+    final preferencesService = UserPreferencesService(Supabase.instance.client);
+    if (accepted != true) {
+      try {
+        final preferences =
+            await preferencesService.notificationPreferences(user.id);
+        await preferencesService.saveNotificationPreferences(
+          user.id,
+          preferences.copyWith(enabled: false),
+        );
+      } catch (_) {}
+      return;
+    }
     try {
       await PushNotificationService.enable();
+      final preferences =
+          await preferencesService.notificationPreferences(user.id);
+      await preferencesService.saveNotificationPreferences(
+        user.id,
+        preferences.copyWith(enabled: true),
+      );
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

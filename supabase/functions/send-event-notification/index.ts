@@ -96,6 +96,17 @@ Deno.serve(async (req) => {
     }
 
     recipientIds = [...new Set(recipientIds)]
+    if (recipientIds.length) {
+      const { data: masterPreferences, error: masterPreferenceError } = await admin
+        .from('notification_preferences')
+        .select('user_id,enabled')
+        .in('user_id', recipientIds)
+      if (masterPreferenceError) throw masterPreferenceError
+      const disabledUsers = new Set((masterPreferences ?? [])
+        .filter((row) => row.enabled === false)
+        .map((row) => row.user_id))
+      recipientIds = recipientIds.filter((id) => !disabledUsers.has(id))
+    }
     const { error: dispatchError } = await admin.from('notification_dispatches').insert({
       event_type: eventType,
       resource_id: resourceId,

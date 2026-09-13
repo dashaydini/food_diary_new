@@ -70,6 +70,10 @@ void main() {
             }
           } else if (table == 'apply_referral_code') {
             data = true;
+          } else if (table == 'user_legal_consents') {
+            data = [
+              {'privacy_policy_version': '2026-09-13'}
+            ];
           }
           if (data is List &&
               (request.headers['accept'] ?? '').contains('vnd.pgrst.object')) {

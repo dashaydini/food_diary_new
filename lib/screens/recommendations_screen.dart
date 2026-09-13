@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../theme/colors.dart';
 import '../core/services/experience_hashtag_service.dart';
 import '../utils/hashtag_taste_profile.dart';
+import '../utils/app_preferences.dart';
 import 'hashtag_search_screen.dart';
 import '../widgets/home_button.dart';
 import '../widgets/place_card.dart';
@@ -509,6 +510,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
 
   Future<Position?> _positionIfAlreadyAllowed() async {
     try {
+      if (!await AppPreferences.locationFeaturesEnabled()) return null;
       if (!await Geolocator.isLocationServiceEnabled()) return null;
       final permission = await Geolocator.checkPermission();
       if (permission != LocationPermission.always &&

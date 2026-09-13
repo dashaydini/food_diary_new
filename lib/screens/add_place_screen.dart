@@ -14,6 +14,7 @@ import 'package:uuid/uuid.dart';
 import '../theme/colors.dart';
 import '../widgets/home_button.dart';
 import '../utils/permissions.dart';
+import '../utils/app_preferences.dart';
 import 'place_details_screen.dart';
 
 class AddPlaceScreen extends StatefulWidget {
@@ -194,6 +195,9 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
     });
 
     try {
+      if (!await AppPreferences.locationFeaturesEnabled()) {
+        throw Exception('שירותי המיקום כבויים בהגדרות האפליקציה');
+      }
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
 
       if (!serviceEnabled) {

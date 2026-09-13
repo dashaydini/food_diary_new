@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/colors.dart';
+import '../utils/app_preferences.dart';
 import '../widgets/home_button.dart';
 import '../widgets/navigation_app_picker.dart';
 import '../widgets/place_card.dart';
@@ -201,6 +202,9 @@ class _PlacesOnRouteScreenState extends State<PlacesOnRouteScreen> {
   }
 
   Future<_GeoPoint> _currentLocation() async {
+    if (!await AppPreferences.locationFeaturesEnabled()) {
+      throw Exception('שירותי המיקום כבויים בהגדרות האפליקציה');
+    }
     if (!await Geolocator.isLocationServiceEnabled()) {
       throw Exception('שירותי המיקום כבויים במכשיר');
     }

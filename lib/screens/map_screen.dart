@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/colors.dart';
 import '../theme/app_icons.dart';
+import '../utils/app_preferences.dart';
 import '../widgets/home_button.dart';
 import 'place_details_screen.dart';
 
@@ -160,6 +161,7 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<Position?> _availablePosition() async {
     if (_currentPosition != null) return _currentPosition;
+    if (!await AppPreferences.locationFeaturesEnabled()) return null;
     if (!await Geolocator.isLocationServiceEnabled()) return null;
     final permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied ||
@@ -548,6 +550,9 @@ class _MapScreenState extends State<MapScreen> {
 
   Future<void> _goToCurrentLocation() async {
     try {
+      if (!await AppPreferences.locationFeaturesEnabled()) {
+        throw Exception('שירותי המיקום כבויים בהגדרות האפליקציה');
+      }
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
 
       if (!serviceEnabled) {

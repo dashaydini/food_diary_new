@@ -8,6 +8,7 @@ import 'add_place_screen.dart';
 import '../models/content_filter.dart';
 import '../core/services/experience_hashtag_service.dart';
 import '../utils/experience_hashtags.dart';
+import '../utils/app_preferences.dart';
 import '../theme/colors.dart';
 import '../widgets/home_button.dart';
 import '../widgets/place_card.dart';
@@ -227,7 +228,9 @@ class _PlacesScreenState extends State<PlacesScreen> {
           }).toList();
         } else if (filter == ContentFilter.nearby) {
           try {
-            final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+            final serviceEnabled =
+                await AppPreferences.locationFeaturesEnabled() &&
+                    await Geolocator.isLocationServiceEnabled();
 
             if (!serviceEnabled) {
               places = [];
@@ -784,6 +787,9 @@ class _PlacesScreenState extends State<PlacesScreen> {
     setState(() => _loadingLocation = true);
 
     try {
+      if (!await AppPreferences.locationFeaturesEnabled()) {
+        throw Exception('שירותי המיקום כבויים בהגדרות האפליקציה');
+      }
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         throw Exception('שירותי המיקום כבויים במכשיר');

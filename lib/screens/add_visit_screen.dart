@@ -1496,7 +1496,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
     TextEditingController controller,
     String label, {
     TextInputType? keyboardType,
-    int maxLines = 1,
+    int? maxLines = 1,
     String? suffixText,
   }) {
     return TextField(
@@ -1509,6 +1509,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
             },
       keyboardType: keyboardType,
       maxLines: maxLines,
+      minLines: maxLines == null ? 1 : null,
       style: const TextStyle(
         color: AppColors.textPrimary,
         fontSize: 14,
@@ -1954,11 +1955,13 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                     _textField(
                       _foodController,
                       'מה אכלתי?',
+                      maxLines: null,
                     ),
                     SizedBox(height: 14),
                     _textField(
                       _drinkController,
                       'מה שתיתי?',
+                      maxLines: null,
                     ),
                     SizedBox(height: 20),
                     Wrap(

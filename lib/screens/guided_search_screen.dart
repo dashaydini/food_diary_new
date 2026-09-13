@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/services/premium_service.dart';
 import '../core/services/experience_hashtag_service.dart';
 import '../utils/experience_hashtags.dart';
+import '../utils/app_preferences.dart';
 import '../theme/app_icons.dart';
 import '../theme/colors.dart';
 import '../widgets/home_button.dart';
@@ -441,6 +442,9 @@ class _GuidedSearchScreenState extends State<GuidedSearchScreen> {
   }
 
   Future<Position> _currentPosition() async {
+    if (!await AppPreferences.locationFeaturesEnabled()) {
+      throw Exception('שירותי המיקום כבויים בהגדרות האפליקציה');
+    }
     if (!await Geolocator.isLocationServiceEnabled()) {
       throw Exception('שירותי המיקום כבויים במכשיר');
     }
