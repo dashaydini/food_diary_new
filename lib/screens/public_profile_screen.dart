@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/colors.dart';
+import '../core/services/notification_dispatch_service.dart';
 import '../utils/supabase_image_url.dart';
 import '../widgets/home_button.dart';
 import 'add_visit_screen.dart';
@@ -164,6 +167,10 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
           'follower_id': currentUserId,
           'following_id': widget.userId,
         });
+        unawaited(NotificationDispatchService.send(
+          eventType: 'new_follower',
+          resourceId: widget.userId,
+        ));
 
         if (!mounted) return;
 

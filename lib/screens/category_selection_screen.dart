@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/content_filter.dart';
 import '../core/services/app_install_service.dart';
 import '../core/services/privacy_consent_service.dart';
+import '../core/services/shared_visit_service.dart';
 import '../theme/colors.dart';
 import '../theme/app_icons.dart';
 import '../utils/permissions.dart';
@@ -30,6 +31,9 @@ import 'my_coupons_screen.dart';
 import 'place_manager_center_screen.dart';
 import 'place_manager_tools_screen.dart';
 import 'admin_notifications_screen.dart';
+import 'place_details_screen.dart';
+import 'public_profile_screen.dart';
+import 'add_visit_screen.dart';
 
 class PlaceCategory {
   final String id;
@@ -237,6 +241,55 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
             MaterialPageRoute(builder: (_) => const PlaceManagerCenterScreen()),
           );
         }
+        return;
+      case 'tagged-experience':
+        final visitId = Uri.base.queryParameters['visit_id'];
+        if (visitId == null || visitId.isEmpty) return;
+        try {
+          final service = SharedVisitService(Supabase.instance.client);
+          final visit = await service.visit(visitId);
+          if (visit == null) return;
+          final place = await Supabase.instance.client
+              .from('places')
+              .select(
+                  'id,name,address,image_url,category_id,latitude,longitude')
+              .eq('id', visit['place_id'])
+              .single();
+          if (!mounted) return;
+          await Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => AddVisitScreen(
+              place: Map<String, dynamic>.from(place),
+              visit: visit,
+              viewOnly: true,
+            ),
+          ));
+        } catch (_) {}
+        return;
+      case 'user-profile':
+        final userId = Uri.base.queryParameters['user_id'];
+        if (userId == null || userId.isEmpty) return;
+        await Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => PublicProfileScreen(userId: userId),
+        ));
+        return;
+      case 'place':
+        final placeId = Uri.base.queryParameters['place_id'];
+        if (placeId == null || placeId.isEmpty) return;
+        try {
+          final place = await Supabase.instance.client
+              .from('places')
+              .select(
+                  'id,name,address,image_url,category_id,latitude,longitude')
+              .eq('id', placeId)
+              .single();
+          if (!mounted) return;
+          await Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => PlaceDetailsScreen(
+              place: Map<String, dynamic>.from(place),
+              filter: _contentFilter,
+            ),
+          ));
+        } catch (_) {}
         return;
     }
   }

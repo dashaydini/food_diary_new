@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -12,6 +13,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../theme/colors.dart';
+import '../core/services/notification_dispatch_service.dart';
 import '../widgets/home_button.dart';
 import '../utils/address_search.dart';
 import '../utils/image_upload_policy.dart';
@@ -620,6 +622,10 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
           'user_id': user.id,
           ...data,
         });
+        unawaited(NotificationDispatchService.send(
+          eventType: 'new_place',
+          resourceId: placeId,
+        ));
       }
 
       if (!mounted) return;

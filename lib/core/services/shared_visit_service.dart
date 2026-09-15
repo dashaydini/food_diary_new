@@ -1,4 +1,8 @@
+import 'dart:async';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'notification_dispatch_service.dart';
 
 /// Public experience content only. Never fetch another author's journal notes.
 class SharedVisitService {
@@ -83,11 +87,35 @@ class SharedVisitService {
         .toList();
   }
 
-  Future<void> syncParticipants(String visitId, Iterable<String> userIds,
-          {Iterable<String> previousUserIds = const []}) =>
-      client.rpc('sync_visit_user_tags', params: {
-        'p_visit_id': visitId,
-        'p_user_ids': userIds.toSet().toList(),
-        'p_previous_user_ids': previousUserIds.toSet().toList(),
-      });
+  Future<void> syncParticipants(
+    String visitId,
+    Iterable<String> userIds, {
+    Iterable<String> previousUserIds = const [],
+  }) async {
+    final selectedIds = userIds.toSet();
+    final newlySelectedIds = selectedIds.difference(previousUserIds.toSet());
+
+    await client.rpc('sync_visit_user_tags', params: {
+      'p_visit_id': visitId,
+      'p_user_ids': selectedIds.toList(),
+      'p_previous_user_ids': previousUserIds.toSet().toList(),
+    });
+
+    if (newlySelectedIds.isEmpty) return;
+    try {
+      final tags = await client
+          .from('visit_user_tags')
+          .select('id,user_id')
+          .eq('visit_id', visitId)
+          .inFilter('user_id', newlySelectedIds.toList());
+
+      unawaited(Future.wait(tags.map((tag) => NotificationDispatchService.send(
+            eventType: 'experience_tag',
+            resourceId: tag['id'].toString(),
+          ))));
+    } catch (_) {
+      // The experience and its participants were saved successfully. A push
+      // delivery failure must not turn that successful save into an error.
+    }
+  }
 }

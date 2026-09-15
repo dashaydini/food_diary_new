@@ -6,7 +6,14 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info',
 }
 
-type EventType = 'support_request' | 'visit_report' | 'image_report' | 'new_experience'
+type EventType =
+  | 'support_request'
+  | 'visit_report'
+  | 'image_report'
+  | 'new_experience'
+  | 'experience_tag'
+  | 'new_follower'
+  | 'new_place'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
@@ -25,7 +32,15 @@ Deno.serve(async (req) => {
     const body = await req.json()
     const eventType = body.event_type as EventType
     const resourceId = typeof body.resource_id === 'string' ? body.resource_id : ''
-    if (!['support_request', 'visit_report', 'image_report', 'new_experience'].includes(eventType) || !resourceId) {
+    if (![
+      'support_request',
+      'visit_report',
+      'image_report',
+      'new_experience',
+      'experience_tag',
+      'new_follower',
+      'new_place',
+    ].includes(eventType) || !resourceId) {
       throw new Error('Invalid request')
     }
 
@@ -34,6 +49,9 @@ Deno.serve(async (req) => {
     let title = 'עדכון חדש ב־BITE THE WAY'
     let message = 'ממתין לך עדכון חדש באפליקציה'
     let targetUrl = '/'
+    let preferenceColumn: string | null = null
+    let dispatchEventType = eventType as string
+    let dispatchResourceId = resourceId
 
     if (eventType === 'support_request') {
       const { data: item, error } = await admin.from('support_requests')
@@ -71,6 +89,54 @@ Deno.serve(async (req) => {
       title = 'דיווח חדש על תמונה'
       message = item.reason || 'תמונה הוסתרה וממתינה לבדיקת מנהל'
       targetUrl = '/?open=admin-notifications'
+    } else if (eventType === 'experience_tag') {
+      const { data: item, error } = await admin.from('visit_user_tags')
+        .select('user_id,visit_id,visits!visit_user_tags_visit_id_fkey(user_id,place_id,places(name),profiles!visits_user_id_fkey(display_name))')
+        .eq('id', resourceId).single()
+      if (error) throw error
+      const visit = Array.isArray(item.visits) ? item.visits[0] : item.visits
+      if (!visit || visit.user_id !== user.id) throw new Error('Forbidden')
+      recipientIds = item.user_id === user.id ? [] : [item.user_id]
+      const rawProfile = Array.isArray(visit.profiles) ? visit.profiles[0] : visit.profiles
+      const rawPlace = Array.isArray(visit.places) ? visit.places[0] : visit.places
+      const authorName = rawProfile?.display_name || 'משתמש באפליקציה'
+      const placeName = rawPlace?.name || 'מקום חדש'
+      title = 'תויגת בחוויה חדשה'
+      message = `${authorName} צירף אותך לחוויה ב${placeName}`
+      targetUrl = `/?open=tagged-experience&visit_id=${encodeURIComponent(item.visit_id)}`
+      preferenceColumn = 'tags'
+    } else if (eventType === 'new_follower') {
+      const { data: follow, error } = await admin.from('user_follows')
+        .select('follower_id,following_id')
+        .eq('follower_id', user.id)
+        .eq('following_id', resourceId)
+        .maybeSingle()
+      if (error) throw error
+      if (!follow) throw new Error('Forbidden')
+      const { data: profile, error: profileError } = await admin.from('profiles')
+        .select('display_name').eq('id', user.id).single()
+      if (profileError) throw profileError
+      recipientIds = follow.following_id === user.id ? [] : [follow.following_id]
+      title = 'יש לך עוקב חדש'
+      message = `${profile.display_name || 'משתמש חדש'} התחיל לעקוב אחריך`
+      targetUrl = `/?open=user-profile&user_id=${encodeURIComponent(user.id)}`
+      preferenceColumn = 'new_followers'
+      dispatchEventType = `new_follower:${user.id}`
+    } else if (eventType === 'new_place') {
+      const { data: place, error } = await admin.from('places')
+        .select('user_id,name,address').eq('id', resourceId).single()
+      if (error) throw error
+      if (place.user_id !== user.id) throw new Error('Forbidden')
+      const { data: subscriberRows, error: subscriberError } = await admin
+        .from('push_subscriptions').select('user_id')
+      if (subscriberError) throw subscriberError
+      recipientIds = [...new Set((subscriberRows ?? [])
+        .map((row) => row.user_id)
+        .filter((id) => id && id !== user.id))]
+      title = 'מקום חדש ב־BITE THE WAY'
+      message = place.address ? `${place.name} — ${place.address}` : place.name
+      targetUrl = `/?open=place&place_id=${encodeURIComponent(resourceId)}`
+      preferenceColumn = 'new_places_ai'
     } else {
       const { data: visit, error } = await admin.from('visits')
         .select('user_id,place_id,places(name)').eq('id', resourceId).single()
@@ -80,36 +146,34 @@ Deno.serve(async (req) => {
         .select('user_id').eq('place_id', visit.place_id).eq('status', 'active')
       if (managerError) throw managerError
       const managerIds = [...new Set((managers ?? []).map((row) => row.user_id).filter((id) => id !== user.id))]
-      const { data: preferences, error: preferenceError } = managerIds.length
-        ? await admin.from('notification_preferences')
-          .select('user_id,manager_new_experience').in('user_id', managerIds)
-        : { data: [], error: null }
-      if (preferenceError) throw preferenceError
-      const disabled = new Set((preferences ?? [])
-        .filter((row) => row.manager_new_experience === false).map((row) => row.user_id))
-      recipientIds = managerIds.filter((id) => !disabled.has(id))
+      recipientIds = managerIds
       const rawPlace = Array.isArray(visit.places) ? visit.places[0] : visit.places
       const placeName = rawPlace?.name || 'המקום שלך'
       title = `חוויה חדשה ב${placeName}`
       message = 'נוספה חוויה חדשה למקום שלך. אפשר לצפות בה ולהגיב.'
       targetUrl = `/?open=manager-experience&place_id=${encodeURIComponent(visit.place_id)}`
+      preferenceColumn = 'manager_new_experience'
     }
 
     recipientIds = [...new Set(recipientIds)]
     if (recipientIds.length) {
+      const preferenceFields = preferenceColumn
+        ? `user_id,enabled,${preferenceColumn}`
+        : 'user_id,enabled'
       const { data: masterPreferences, error: masterPreferenceError } = await admin
         .from('notification_preferences')
-        .select('user_id,enabled')
+        .select(preferenceFields)
         .in('user_id', recipientIds)
       if (masterPreferenceError) throw masterPreferenceError
       const disabledUsers = new Set((masterPreferences ?? [])
-        .filter((row) => row.enabled === false)
+        .filter((row) => row.enabled === false ||
+          (preferenceColumn && row[preferenceColumn] === false))
         .map((row) => row.user_id))
       recipientIds = recipientIds.filter((id) => !disabledUsers.has(id))
     }
     const { error: dispatchError } = await admin.from('notification_dispatches').insert({
-      event_type: eventType,
-      resource_id: resourceId,
+      event_type: dispatchEventType,
+      resource_id: dispatchResourceId,
       recipient_count: recipientIds.length,
     })
     if (dispatchError?.code === '23505') {
@@ -150,7 +214,7 @@ Deno.serve(async (req) => {
       sent_count: sent,
       failed_count: failed,
       completed_at: new Date().toISOString(),
-    }).eq('event_type', eventType).eq('resource_id', resourceId)
+    }).eq('event_type', dispatchEventType).eq('resource_id', dispatchResourceId)
 
     return Response.json({ ok: true, recipients: recipientIds.length, sent, failed }, { headers: cors })
   } catch (error) {
