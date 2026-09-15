@@ -368,7 +368,8 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
         {
           'q': searchQuery,
           'format': 'jsonv2',
-          'limit': '1',
+          'limit': '8',
+          'countrycodes': 'il',
           'addressdetails': '1',
           'accept-language': 'he',
         },
@@ -391,7 +392,14 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
         throw Exception('לא נמצאה כתובת');
       }
 
-      final result = results.first as Map<String, dynamic>;
+      final result = selectBestAddressSearchResult(
+        results,
+        query: searchQuery,
+      );
+
+      if (result == null) {
+        throw Exception('לא נמצאה כתובת מתאימה');
+      }
 
       final latitude = double.tryParse(result['lat']?.toString() ?? '');
       final longitude = double.tryParse(result['lon']?.toString() ?? '');
@@ -420,6 +428,22 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
     }
   }
 
+  Future<void> _selectPointOnMap(LatLng point) async {
+    setState(() {
+      _latitude = point.latitude;
+      _longitude = point.longitude;
+      _usingCurrentLocation = false;
+      _error = null;
+    });
+
+    final resolved = await _reverseGeocodeWithNominatim(
+      point.latitude,
+      point.longitude,
+    );
+    if (!mounted || resolved == null || resolved.trim().isEmpty) return;
+    setState(() => _addressController.text = resolved);
+  }
+
   Widget _buildLocationMap() {
     if (_latitude == null || _longitude == null) {
       return SizedBox.shrink();
@@ -432,9 +456,11 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       child: SizedBox(
         height: 260,
         child: FlutterMap(
+          key: ValueKey('place-map-${point.latitude}-${point.longitude}'),
           options: MapOptions(
             initialCenter: point,
             initialZoom: 16,
+            onTap: (_, selectedPoint) => _selectPointOnMap(selectedPoint),
           ),
           children: [
             TileLayer(
@@ -824,6 +850,15 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                         ),
                         if (_latitude != null && _longitude != null) ...[
                           const SizedBox(height: 18),
+                          Text(
+                            'המיקום לא מדויק? לחץ על המפה בנקודה המדויקת של העסק',
+                            textAlign: TextAlign.right,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: AppColors.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
                           Container(
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(18),

@@ -37,4 +37,35 @@ void main() {
       );
     });
   });
+
+  test('prefers an exact settlement node over an administrative result', () {
+    final result = selectBestAddressSearchResult(
+      [
+        {
+          'name': 'מועצה אזורית באר טוביה',
+          'category': 'boundary',
+          'type': 'administrative',
+          'addresstype': 'municipality',
+          'osm_type': 'relation',
+          'lat': '31.70',
+          'lon': '34.75',
+          'address': {'municipality': 'מועצה אזורית באר טוביה'},
+        },
+        {
+          'name': 'ערוגות',
+          'category': 'place',
+          'type': 'village',
+          'addresstype': 'village',
+          'osm_type': 'node',
+          'lat': '31.7346866',
+          'lon': '34.7708779',
+          'address': {'village': 'ערוגות'},
+        },
+      ],
+      query: 'ערוגות, ישראל',
+    );
+
+    expect(result?['name'], 'ערוגות');
+    expect(result?['lat'], '31.7346866');
+  });
 }
