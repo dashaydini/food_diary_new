@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/colors.dart';
+import '../utils/supabase_image_url.dart';
 import '../widgets/home_button.dart';
 import 'public_profile_screen.dart';
 
@@ -253,7 +254,11 @@ class _FollowersListScreenState extends State<FollowersListScreen> {
                                             child: avatar != null &&
                                                     avatar.isNotEmpty
                                                 ? Image.network(
-                                                    avatar,
+                                                    optimizedSupabaseImageUrl(
+                                                      avatar,
+                                                      width: 160,
+                                                      height: 160,
+                                                    ),
                                                     fit: BoxFit.cover,
                                                     errorBuilder:
                                                         (_, __, ___) =>

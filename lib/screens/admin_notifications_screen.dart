@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/colors.dart';
 import '../utils/permissions.dart';
+import '../utils/supabase_image_url.dart';
 import '../widgets/home_button.dart';
 import 'add_visit_screen.dart';
 import 'admin_support_requests_screen.dart';
@@ -643,7 +644,11 @@ class _AdminReportsScreenState extends State<_AdminReportsScreen> {
                                                       ),
                                                     )
                                                   : Image.network(
-                                                      imageUrl,
+                                                      optimizedSupabaseImageUrl(
+                                                        imageUrl,
+                                                        width: 360,
+                                                        height: 280,
+                                                      ),
                                                       fit: BoxFit.cover,
                                                       errorBuilder:
                                                           (_, __, ___) =>
@@ -1026,7 +1031,12 @@ class _AdminReportDetailsScreenState extends State<AdminReportDetailsScreen> {
                             child: AspectRatio(
                               aspectRatio: 4 / 3,
                               child: Image.network(
-                                _imageUrl,
+                                optimizedSupabaseImageUrl(
+                                  _imageUrl,
+                                  width: 900,
+                                  height: 680,
+                                  quality: 78,
+                                ),
                                 fit: BoxFit.cover,
                                 errorBuilder: (_, __, ___) => const Center(
                                   child: Icon(

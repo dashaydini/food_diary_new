@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/colors.dart';
+import '../utils/supabase_image_url.dart';
 import 'navigation_app_picker.dart';
 
 class PlaceCard extends StatelessWidget {
@@ -142,7 +143,11 @@ class PlaceCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(14),
                               child: imageUrl != null && imageUrl.isNotEmpty
                                   ? Image.network(
-                                      imageUrl,
+                                      optimizedSupabaseImageUrl(
+                                        imageUrl,
+                                        width: 360,
+                                        height: 360,
+                                      ),
                                       width: imageSize,
                                       height: imageSize,
                                       fit: BoxFit.cover,

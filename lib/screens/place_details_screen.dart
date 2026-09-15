@@ -9,6 +9,7 @@ import 'add_visit_screen.dart';
 import '../theme/app_icons.dart';
 import '../theme/colors.dart';
 import '../utils/permissions.dart';
+import '../utils/supabase_image_url.dart';
 import '../widgets/home_button.dart';
 import '../widgets/visit_card.dart';
 import '../widgets/place_image_gallery.dart';
@@ -583,7 +584,12 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                           width: double.infinity,
                           height: mobile ? 190 : 260,
                           child: Image.network(
-                            imageUrl,
+                            optimizedSupabaseImageUrl(
+                              imageUrl,
+                              width: mobile ? 900 : 1400,
+                              quality: 78,
+                              resize: 'contain',
+                            ),
                             fit: BoxFit.contain,
                           ),
                         ),
@@ -983,7 +989,17 @@ class _MenuFilesCard extends StatelessWidget {
             child: InteractiveViewer(
               minScale: 0.8,
               maxScale: 5,
-              child: Center(child: Image.network(url, fit: BoxFit.contain)),
+              child: Center(
+                child: Image.network(
+                  optimizedSupabaseImageUrl(
+                    url,
+                    width: 1600,
+                    quality: 80,
+                    resize: 'contain',
+                  ),
+                  fit: BoxFit.contain,
+                ),
+              ),
             ),
           ),
           SafeArea(
@@ -1021,8 +1037,11 @@ class _MenuFilesCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: Image.network(file['url'].toString(),
-                          height: 300, fit: BoxFit.contain),
+                      child: Image.network(
+                          optimizedSupabaseImageUrl(file['url'].toString(),
+                              width: 1400, quality: 80, resize: 'contain'),
+                          height: 300,
+                          fit: BoxFit.contain),
                     ),
                   ),
                 )

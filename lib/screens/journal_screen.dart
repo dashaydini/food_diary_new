@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/colors.dart';
+import '../utils/supabase_image_url.dart';
 import '../widgets/home_button.dart';
 import 'add_visit_screen.dart';
 
@@ -1047,7 +1048,11 @@ class _JournalScreenState extends State<JournalScreen> {
       ),
       clipBehavior: Clip.antiAlias,
       child: Image.network(
-        url,
+        optimizedSupabaseImageUrl(
+          url,
+          width: 720,
+          height: 480,
+        ),
         fit: BoxFit.cover,
         errorBuilder: (_, __, ___) {
           return fallback(Icons.image_outlined);

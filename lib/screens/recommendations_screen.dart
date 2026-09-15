@@ -8,6 +8,7 @@ import '../theme/colors.dart';
 import '../core/services/experience_hashtag_service.dart';
 import '../utils/hashtag_taste_profile.dart';
 import '../utils/app_preferences.dart';
+import '../utils/supabase_image_url.dart';
 import 'hashtag_search_screen.dart';
 import '../widgets/home_button.dart';
 import '../widgets/place_card.dart';
@@ -781,7 +782,11 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
                       radius: 20,
                       backgroundColor: AppColors.surfaceRaised,
                       backgroundImage: avatarUrl?.isNotEmpty == true
-                          ? NetworkImage(avatarUrl!)
+                          ? NetworkImage(optimizedSupabaseImageUrl(
+                              avatarUrl!,
+                              width: 160,
+                              height: 160,
+                            ))
                           : null,
                       child: avatarUrl?.isNotEmpty == true
                           ? null

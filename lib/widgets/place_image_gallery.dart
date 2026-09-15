@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/colors.dart';
 import '../core/services/notification_dispatch_service.dart';
+import '../utils/supabase_image_url.dart';
 import 'compact_gallery_preview.dart';
 
 class PlaceGalleryImage {
@@ -288,7 +289,12 @@ class _GalleryScreenState extends State<_GalleryScreen> {
                   maxScale: 4,
                   child: Center(
                     child: Image.network(
-                      image.imageUrl,
+                      optimizedSupabaseImageUrl(
+                        image.imageUrl,
+                        width: 1600,
+                        quality: 78,
+                        resize: 'contain',
+                      ),
                       fit: BoxFit.contain,
                     ),
                   ),

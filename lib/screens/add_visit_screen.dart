@@ -13,6 +13,8 @@ import '../widgets/visit_image_gallery.dart';
 import '../widgets/shared_visit_panel.dart';
 import '../core/services/shared_visit_service.dart';
 import '../core/services/notification_dispatch_service.dart';
+import '../utils/image_upload_policy.dart';
+import '../utils/supabase_image_url.dart';
 
 class AddVisitScreen extends StatefulWidget {
   final Map<String, dynamic> place;
@@ -307,7 +309,11 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
       clipBehavior: Clip.antiAlias,
       child: avatarUrl != null && avatarUrl.isNotEmpty
           ? Image.network(
-              avatarUrl,
+              optimizedSupabaseImageUrl(
+                avatarUrl,
+                width: 160,
+                height: 160,
+              ),
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => Icon(
                 Icons.person_outline_rounded,
@@ -537,9 +543,9 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
 
     try {
       final files = await _picker.pickMultiImage(
-        imageQuality: 80,
-        maxWidth: 1400,
-        maxHeight: 1400,
+        imageQuality: ImageUploadPolicy.photoQuality,
+        maxWidth: ImageUploadPolicy.photoMaxDimension,
+        maxHeight: ImageUploadPolicy.photoMaxDimension,
       );
 
       if (files.isEmpty) return;
@@ -574,9 +580,9 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
     try {
       final file = await _picker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 80,
-        maxWidth: 1400,
-        maxHeight: 1400,
+        imageQuality: ImageUploadPolicy.photoQuality,
+        maxWidth: ImageUploadPolicy.photoMaxDimension,
+        maxHeight: ImageUploadPolicy.photoMaxDimension,
       );
 
       if (file == null) return;
@@ -942,7 +948,11 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(16),
                   child: Image.network(
-                    url,
+                    optimizedSupabaseImageUrl(
+                      url,
+                      width: 420,
+                      height: 420,
+                    ),
                     width: 150,
                     height: 150,
                     fit: BoxFit.cover,
@@ -2275,7 +2285,11 @@ class _ParticipantPickerSheetState extends State<_ParticipantPickerSheet> {
       clipBehavior: Clip.antiAlias,
       child: avatarUrl != null && avatarUrl.isNotEmpty
           ? Image.network(
-              avatarUrl,
+              optimizedSupabaseImageUrl(
+                avatarUrl,
+                width: 160,
+                height: 160,
+              ),
               fit: BoxFit.cover,
               errorBuilder: (_, __, ___) => const Icon(
                 Icons.person_outline_rounded,

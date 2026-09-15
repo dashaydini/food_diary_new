@@ -50,7 +50,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/branding/bite_the_way_logo_master.png
+    - assets/branding/bite_the_way_logo_runtime.jpg
     - assets/logo/bite_the_way_logo.svg
     - assets/coupons/rosh_hashanah_gift_basket.jpeg
 

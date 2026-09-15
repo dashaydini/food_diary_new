@@ -5,6 +5,7 @@ import '../screens/add_visit_screen.dart';
 import '../screens/public_profile_screen.dart';
 import '../theme/colors.dart';
 import '../utils/experience_hashtags.dart';
+import '../utils/supabase_image_url.dart';
 import '../screens/hashtag_search_screen.dart';
 import 'hashtag_chips.dart';
 
@@ -167,7 +168,11 @@ class VisitCard extends StatelessWidget {
                                 child: avatarUrl != null &&
                                         avatarUrl.trim().isNotEmpty
                                     ? Image.network(
-                                        avatarUrl,
+                                        optimizedSupabaseImageUrl(
+                                          avatarUrl,
+                                          width: 160,
+                                          height: 160,
+                                        ),
                                         fit: BoxFit.cover,
                                         errorBuilder: (_, __, ___) =>
                                             const Icon(

@@ -49,7 +49,7 @@ class AuthBrandHero extends StatelessWidget {
             ).createShader(bounds);
           },
           child: Image.asset(
-            'assets/branding/bite_the_way_logo_master.png',
+            'assets/branding/bite_the_way_logo_runtime.jpg',
             width: width,
             height: height,
             fit: BoxFit.contain,

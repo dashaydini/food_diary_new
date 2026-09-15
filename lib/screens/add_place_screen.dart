@@ -13,6 +13,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../theme/colors.dart';
 import '../widgets/home_button.dart';
+import '../utils/address_search.dart';
+import '../utils/image_upload_policy.dart';
 import '../utils/permissions.dart';
 import '../utils/app_preferences.dart';
 import 'place_details_screen.dart';
@@ -169,9 +171,9 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
     try {
       final image = await _picker.pickImage(
         source: source,
-        imageQuality: 80,
-        maxWidth: 1600,
-        maxHeight: 1600,
+        imageQuality: ImageUploadPolicy.photoQuality,
+        maxWidth: ImageUploadPolicy.photoMaxDimension,
+        maxHeight: ImageUploadPolicy.photoMaxDimension,
       );
 
       if (!mounted || image == null) return;
@@ -356,11 +358,15 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
     });
 
     try {
+      final searchQuery = buildAddressSearchQuery(
+        address: address,
+        placeName: _nameController.text,
+      );
       final uri = Uri.https(
         'nominatim.openstreetmap.org',
         '/search',
         {
-          'q': address,
+          'q': searchQuery,
           'format': 'jsonv2',
           'limit': '1',
           'addressdetails': '1',

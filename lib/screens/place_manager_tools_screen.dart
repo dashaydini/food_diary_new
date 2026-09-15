@@ -9,6 +9,8 @@ import 'package:uuid/uuid.dart';
 
 import '../theme/colors.dart';
 import '../core/services/notification_dispatch_service.dart';
+import '../utils/image_upload_policy.dart';
+import '../utils/supabase_image_url.dart';
 import '../utils/permissions.dart';
 import '../widgets/home_button.dart';
 
@@ -79,13 +81,17 @@ class _PlaceMenuManagerScreenState extends State<PlaceMenuManagerScreen> {
       final images = source == ImageSource.camera
           ? [
               if (await _imagePicker.pickImage(
-                      source: source, imageQuality: 88, maxWidth: 2200)
+                      source: source,
+                      imageQuality: ImageUploadPolicy.menuQuality,
+                      maxWidth: ImageUploadPolicy.menuMaxDimension,
+                      maxHeight: ImageUploadPolicy.menuMaxDimension)
                   case final image?)
                 image
             ]
           : await _imagePicker.pickMultiImage(
-              imageQuality: 88,
-              maxWidth: 2200,
+              imageQuality: ImageUploadPolicy.menuQuality,
+              maxWidth: ImageUploadPolicy.menuMaxDimension,
+              maxHeight: ImageUploadPolicy.menuMaxDimension,
             );
       if (images.isEmpty) return;
       final pending = <_PendingMenuFile>[];
@@ -301,7 +307,17 @@ class _PlaceMenuManagerScreenState extends State<PlaceMenuManagerScreen> {
             child: InteractiveViewer(
               minScale: 0.8,
               maxScale: 5,
-              child: Center(child: Image.network(url, fit: BoxFit.contain)),
+              child: Center(
+                child: Image.network(
+                  optimizedSupabaseImageUrl(
+                    url,
+                    width: 1600,
+                    quality: 80,
+                    resize: 'contain',
+                  ),
+                  fit: BoxFit.contain,
+                ),
+              ),
             ),
           ),
           SafeArea(
@@ -323,8 +339,11 @@ class _PlaceMenuManagerScreenState extends State<PlaceMenuManagerScreen> {
         leading: isImage
             ? ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.network(url,
-                    width: 58, height: 58, fit: BoxFit.cover),
+                child: Image.network(
+                    optimizedSupabaseImageUrl(url, width: 180, height: 180),
+                    width: 58,
+                    height: 58,
+                    fit: BoxFit.cover),
               )
             : const Icon(Icons.picture_as_pdf_outlined, size: 34),
         title: Text(file['name']?.toString() ??
@@ -601,11 +620,18 @@ class _PlaceGalleryManagerScreenState extends State<PlaceGalleryManagerScreen> {
     final picked = source == ImageSource.camera
         ? [
             if (await _picker.pickImage(
-                    source: source, imageQuality: 82, maxWidth: 1600)
+                    source: source,
+                    imageQuality: ImageUploadPolicy.photoQuality,
+                    maxWidth: ImageUploadPolicy.photoMaxDimension,
+                    maxHeight: ImageUploadPolicy.photoMaxDimension)
                 case final image?)
               image
           ]
-        : await _picker.pickMultiImage(imageQuality: 82, maxWidth: 1600);
+        : await _picker.pickMultiImage(
+            imageQuality: ImageUploadPolicy.photoQuality,
+            maxWidth: ImageUploadPolicy.photoMaxDimension,
+            maxHeight: ImageUploadPolicy.photoMaxDimension,
+          );
     if (picked.isEmpty) return;
     setState(() => _uploading = true);
     try {
@@ -694,7 +720,11 @@ class _PlaceGalleryManagerScreenState extends State<PlaceGalleryManagerScreen> {
                     return Stack(fit: StackFit.expand, children: [
                       ClipRRect(
                           borderRadius: BorderRadius.circular(14),
-                          child: Image.network(image['image_url'].toString(),
+                          child: Image.network(
+                              optimizedSupabaseImageUrl(
+                                  image['image_url'].toString(),
+                                  width: 480,
+                                  height: 480),
                               fit: BoxFit.cover)),
                       Positioned(
                           top: 5,

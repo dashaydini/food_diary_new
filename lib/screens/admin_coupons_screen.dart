@@ -12,6 +12,8 @@ import 'package:uuid/uuid.dart';
 import '../core/models/coupon.dart';
 import '../core/services/coupon_service.dart';
 import '../theme/colors.dart';
+import '../utils/image_upload_policy.dart';
+import '../utils/supabase_image_url.dart';
 import '../utils/permissions.dart';
 import '../utils/app_preferences.dart';
 import '../widgets/home_button.dart';
@@ -720,13 +722,20 @@ class _CouponEditorScreenState extends State<CouponEditorScreen> {
   Future<void> _pickImage(ImageSource source) async {
     if (source == ImageSource.camera) {
       final image = await _picker.pickImage(
-          source: source, imageQuality: 82, maxWidth: 1600, maxHeight: 1600);
+        source: source,
+        imageQuality: ImageUploadPolicy.photoQuality,
+        maxWidth: ImageUploadPolicy.photoMaxDimension,
+        maxHeight: ImageUploadPolicy.photoMaxDimension,
+      );
       if (mounted && image != null) {
         setState(() => _selectedImages.add(image));
       }
     } else {
       final images = await _picker.pickMultiImage(
-          imageQuality: 82, maxWidth: 1600, maxHeight: 1600);
+        imageQuality: ImageUploadPolicy.photoQuality,
+        maxWidth: ImageUploadPolicy.photoMaxDimension,
+        maxHeight: ImageUploadPolicy.photoMaxDimension,
+      );
       if (mounted && images.isNotEmpty) {
         setState(() => _selectedImages.addAll(images));
       }
@@ -963,7 +972,12 @@ class _CouponEditorScreenState extends State<CouponEditorScreen> {
                                       width: 92,
                                       height: 72,
                                       child: entry.$2.startsWith('http')
-                                          ? Image.network(entry.$2,
+                                          ? Image.network(
+                                              optimizedSupabaseImageUrl(
+                                                entry.$2,
+                                                width: 360,
+                                                height: 280,
+                                              ),
                                               fit: BoxFit.cover)
                                           : Image.asset(entry.$2,
                                               fit: BoxFit.cover))),

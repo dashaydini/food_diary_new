@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/colors.dart';
+import '../utils/supabase_image_url.dart';
 
 class CompactGalleryPreview extends StatelessWidget {
   final String imageUrl;
@@ -99,7 +100,11 @@ class CompactGalleryPreview extends StatelessWidget {
                       fit: StackFit.expand,
                       children: [
                         Image.network(
-                          imageUrl,
+                          optimizedSupabaseImageUrl(
+                            imageUrl,
+                            width: 640,
+                            height: 420,
+                          ),
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) => Container(
                             color: AppColors.card,

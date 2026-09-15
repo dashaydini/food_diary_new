@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/colors.dart';
+import '../utils/supabase_image_url.dart';
 import '../widgets/home_button.dart';
 import 'add_visit_screen.dart';
 
@@ -363,7 +364,11 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
             child: ClipOval(
               child: avatarUrl != null
                   ? Image.network(
-                      avatarUrl,
+                      optimizedSupabaseImageUrl(
+                        avatarUrl,
+                        width: 480,
+                        height: 480,
+                      ),
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => _avatarFallback(),
                     )
@@ -649,7 +654,11 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                     height: 74,
                     child: imageUrl != null && imageUrl.isNotEmpty
                         ? Image.network(
-                            imageUrl,
+                            optimizedSupabaseImageUrl(
+                              imageUrl,
+                              width: 240,
+                              height: 240,
+                            ),
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) =>
                                 _experienceImageFallback(),

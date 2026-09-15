@@ -14,7 +14,7 @@ class AppBrandMark extends StatelessWidget {
       width: size,
       height: size,
       child: Image.asset(
-        'assets/branding/bite_the_way_logo_master.png',
+        'assets/branding/bite_the_way_logo_runtime.jpg',
         fit: BoxFit.contain,
         filterQuality: FilterQuality.high,
         errorBuilder: (_, __, ___) => const SizedBox.shrink(),

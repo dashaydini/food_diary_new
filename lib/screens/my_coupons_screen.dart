@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/colors.dart';
+import '../utils/supabase_image_url.dart';
 import '../core/models/coupon.dart';
 import '../core/services/coupon_service.dart';
 import '../widgets/home_button.dart';
@@ -572,7 +573,12 @@ class _CouponGalleryState extends State<_CouponGallery> {
 
 Widget _couponImage(String source) {
   if (source.startsWith('http://') || source.startsWith('https://')) {
-    return Image.network(source,
+    return Image.network(
+        optimizedSupabaseImageUrl(
+          source,
+          width: 720,
+          height: 480,
+        ),
         fit: BoxFit.cover,
         alignment: const Alignment(0, 0.3),
         errorBuilder: (_, __, ___) =>

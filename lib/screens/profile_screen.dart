@@ -6,6 +6,8 @@ import 'package:share_plus/share_plus.dart';
 
 import '../core/services/auth_service.dart';
 import '../features/authentication/screens/login_screen.dart';
+import '../utils/image_upload_policy.dart';
+import '../utils/supabase_image_url.dart';
 import 'followers_list_screen.dart';
 import '../theme/colors.dart';
 import '../widgets/home_button.dart';
@@ -201,9 +203,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       final image = await _picker.pickImage(
         source: source,
-        imageQuality: 85,
-        maxWidth: 1000,
-        maxHeight: 1000,
+        imageQuality: ImageUploadPolicy.avatarQuality,
+        maxWidth: ImageUploadPolicy.avatarMaxDimension,
+        maxHeight: ImageUploadPolicy.avatarMaxDimension,
         preferredCameraDevice: CameraDevice.front,
       );
 
@@ -415,7 +417,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   color: AppColors.background,
                   child: _avatarUrl != null && _avatarUrl!.isNotEmpty
                       ? Image.network(
-                          _avatarUrl!,
+                          optimizedSupabaseImageUrl(
+                            _avatarUrl!,
+                            width: 640,
+                            height: 640,
+                          ),
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) {
                             return Icon(

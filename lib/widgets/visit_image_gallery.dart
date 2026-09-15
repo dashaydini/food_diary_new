@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/colors.dart';
 import '../core/services/notification_dispatch_service.dart';
+import '../utils/supabase_image_url.dart';
 import 'compact_gallery_preview.dart';
 
 class VisitImageGalleryImage {
@@ -142,7 +143,12 @@ class _VisitGalleryScreenState extends State<_VisitGalleryScreen> {
                   maxScale: 4,
                   child: Center(
                     child: Image.network(
-                      widget.images[realIndex].imageUrl,
+                      optimizedSupabaseImageUrl(
+                        widget.images[realIndex].imageUrl,
+                        width: 1600,
+                        quality: 78,
+                        resize: 'contain',
+                      ),
                       fit: BoxFit.contain,
                       errorBuilder: (_, __, ___) {
                         return Icon(
