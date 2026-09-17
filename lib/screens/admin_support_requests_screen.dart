@@ -5,6 +5,7 @@ import '../theme/colors.dart';
 import '../utils/permissions.dart';
 import '../widgets/home_button.dart';
 import 'support_requests_screen.dart';
+import 'place_details_screen.dart';
 
 class AdminSupportRequestsScreen extends StatefulWidget {
   const AdminSupportRequestsScreen({super.key});
@@ -42,7 +43,7 @@ class _AdminSupportRequestsScreenState
       final rows = await Supabase.instance.client
           .from('support_requests')
           .select(
-            'id, user_id, category, subject, message, status, admin_reply, '
+            'id, user_id, place_id, category, subject, message, status, admin_reply, '
             'responded_by, responded_at, created_at, updated_at',
           )
           .order('created_at', ascending: false);
@@ -330,6 +331,28 @@ class _SupportRequestSheetState extends State<_SupportRequestSheet> {
   bool _saving = false;
   bool _deleting = false;
 
+  Future<void> _openPlace() async {
+    final placeId = widget.request['place_id']?.toString();
+    if (placeId == null || placeId.isEmpty) return;
+    try {
+      final place = await Supabase.instance.client
+          .from('places')
+          .select('id,name,address,image_url,category_id,latitude,longitude')
+          .eq('id', placeId)
+          .single();
+      if (!mounted) return;
+      await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) =>
+            PlaceDetailsScreen(place: Map<String, dynamic>.from(place)),
+      ));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('לא ניתן לפתוח את כרטיס המקום'),
+      ));
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -468,6 +491,17 @@ class _SupportRequestSheetState extends State<_SupportRequestSheet> {
                   textAlign: TextAlign.right,
                   style: const TextStyle(color: AppColors.textMuted),
                 ),
+                if (widget.request['place_id'] != null) ...[
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: _openPlace,
+                      icon: const Icon(Icons.storefront_outlined),
+                      label: const Text('פתיחת כרטיס המקום'),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 18),
                 Container(
                   padding: const EdgeInsets.all(15),

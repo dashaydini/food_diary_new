@@ -80,6 +80,10 @@ void main() {
               expect(query['user_id'], 'eq.me');
               tagged = false;
               data = null;
+            } else if (query['user_id']?.contains('new') == true) {
+              data = [
+                {'id': 'new-tag', 'visit_id': 'original', 'user_id': 'new'}
+              ];
             } else {
               data = tagged &&
                       (query['visit_id'] == null ||
@@ -98,6 +102,8 @@ void main() {
                     ]
                   : [];
             }
+          case 'send-event-notification':
+            data = {'ok': true};
           case 'visits':
             if (request.method == 'POST') {
               inserted = Map<String, dynamic>.from(jsonDecode(request.body));
@@ -433,5 +439,27 @@ void main() {
     expect(requests.last.url.path, endsWith('/rpc/sync_visit_user_tags'));
     expect(jsonDecode(requests.last.body)['p_user_ids'], ['me']);
     expect(jsonDecode(requests.last.body)['p_previous_user_ids'], ['me']);
+  });
+
+  test('saving tags dispatches once only for newly added participants', () async {
+    final service = SharedVisitService(Supabase.instance.client);
+    await service.syncParticipants('original', ['me', 'new'],
+        previousUserIds: ['me']);
+    final dispatches = requests
+        .where((request) => request.url.path.endsWith('/send-event-notification'))
+        .toList();
+    expect(dispatches, hasLength(1));
+    expect(jsonDecode(dispatches.single.body), {
+      'event_type': 'experience_tag',
+      'resource_id': 'new-tag',
+    });
+
+    requests.clear();
+    await service.syncParticipants('original', ['me', 'new'],
+        previousUserIds: ['me', 'new']);
+    expect(
+        requests.where((request) =>
+            request.url.path.endsWith('/send-event-notification')),
+        isEmpty);
   });
 }

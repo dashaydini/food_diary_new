@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'notification_dispatch_service.dart';
@@ -109,10 +107,10 @@ class SharedVisitService {
           .eq('visit_id', visitId)
           .inFilter('user_id', newlySelectedIds.toList());
 
-      unawaited(Future.wait(tags.map((tag) => NotificationDispatchService.send(
+      await Future.wait(tags.map((tag) => NotificationDispatchService.send(
             eventType: 'experience_tag',
             resourceId: tag['id'].toString(),
-          ))));
+          )));
     } catch (_) {
       // The experience and its participants were saved successfully. A push
       // delivery failure must not turn that successful save into an error.

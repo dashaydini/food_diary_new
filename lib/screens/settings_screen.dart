@@ -484,7 +484,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           value: _notificationPreferences.newPlacesAi,
           icon: Icons.auto_awesome_outlined,
           title: 'מקומות חדשים בשבילי',
-          subtitle: 'המלצות AI על מקומות שמתאימים לטעם שלך',
+          subtitle: 'מקומות בקטגוריות שביקרת בהן, עד 40 ק״מ ממקום שביקרת בו',
           onChanged: (enabled) async {
             await _updateNotificationPreferences(
               _notificationPreferences.copyWith(newPlacesAi: enabled),

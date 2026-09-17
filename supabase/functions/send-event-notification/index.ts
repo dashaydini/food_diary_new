@@ -6,6 +6,15 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info',
 }
 
+function distanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const radians = Math.PI / 180
+  const deltaLat = (lat2 - lat1) * radians
+  const deltaLon = (lon2 - lon1) * radians
+  const a = Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(lat1 * radians) * Math.cos(lat2 * radians) * Math.sin(deltaLon / 2) ** 2
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
 type EventType =
   | 'support_request'
   | 'visit_report'
@@ -124,15 +133,44 @@ Deno.serve(async (req) => {
       dispatchEventType = `new_follower:${user.id}`
     } else if (eventType === 'new_place') {
       const { data: place, error } = await admin.from('places')
-        .select('user_id,name,address').eq('id', resourceId).single()
+        .select('user_id,name,address,category_id,latitude,longitude').eq('id', resourceId).single()
       if (error) throw error
       if (place.user_id !== user.id) throw new Error('Forbidden')
       const { data: subscriberRows, error: subscriberError } = await admin
         .from('push_subscriptions').select('user_id')
       if (subscriberError) throw subscriberError
-      recipientIds = [...new Set((subscriberRows ?? [])
+      const subscriberIds = [...new Set((subscriberRows ?? [])
         .map((row) => row.user_id)
         .filter((id) => id && id !== user.id))]
+      const placeLat = Number(place.latitude)
+      const placeLon = Number(place.longitude)
+      // An enabled switch does not mean "alert me about every place". Notify
+      // only people who actually visited the same category nearby. Historic
+      // visits in multiple regions count; the user's current GPS is irrelevant.
+      if (subscriberIds.length && place.latitude != null && place.longitude != null &&
+          Number.isFinite(placeLat) && Number.isFinite(placeLon) && place.category_id) {
+        const matched = new Set<string>()
+        for (let offset = 0; ; offset += 1000) {
+          const { data: visits, error: visitError } = await admin.from('visits')
+            .select('user_id,places!inner(category_id,latitude,longitude)')
+            .in('user_id', subscriberIds)
+            .eq('places.category_id', place.category_id)
+            .range(offset, offset + 999)
+          if (visitError) throw visitError
+          for (const visit of visits ?? []) {
+            const visitedPlace = Array.isArray(visit.places) ? visit.places[0] : visit.places
+            if (visitedPlace?.latitude == null || visitedPlace?.longitude == null) continue
+            const latitude = Number(visitedPlace.latitude)
+            const longitude = Number(visitedPlace.longitude)
+            if (Number.isFinite(latitude) && Number.isFinite(longitude) &&
+                distanceKm(placeLat, placeLon, latitude, longitude) <= 40) {
+              matched.add(visit.user_id)
+            }
+          }
+          if (!visits || visits.length < 1000) break
+        }
+        recipientIds = [...matched]
+      }
       title = 'מקום חדש ב־BITE THE WAY'
       message = place.address ? `${place.name} — ${place.address}` : place.name
       targetUrl = `/?open=place&place_id=${encodeURIComponent(resourceId)}`

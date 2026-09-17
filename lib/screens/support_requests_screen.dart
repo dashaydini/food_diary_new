@@ -11,6 +11,7 @@ const supportCategoryLabels = <String, String>{
   'terms': 'תנאי שימוש',
   'technical': 'בעיה טכנית',
   'report': 'דיווח על תוכן',
+  'place_ownership': 'בקשת בעלות על מקום',
 };
 
 const supportStatusLabels = <String, String>{
@@ -49,7 +50,8 @@ class _SupportRequestsScreenState extends State<SupportRequestsScreen> {
   @override
   void initState() {
     super.initState();
-    _category = supportCategoryLabels.containsKey(widget.initialCategory)
+    _category = widget.initialCategory != 'place_ownership' &&
+            supportCategoryLabels.containsKey(widget.initialCategory)
         ? widget.initialCategory
         : 'general';
     _loadRequests();
@@ -266,6 +268,7 @@ class _SupportRequestsScreenState extends State<SupportRequestsScreen> {
                     initialValue: _category,
                     decoration: const InputDecoration(labelText: 'נושא הפנייה'),
                     items: supportCategoryLabels.entries
+                        .where((entry) => entry.key != 'place_ownership')
                         .map(
                           (entry) => DropdownMenuItem(
                             value: entry.key,
