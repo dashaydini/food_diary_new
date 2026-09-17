@@ -84,7 +84,6 @@ class _PushPermissionPromptGateState extends State<PushPermissionPromptGate> {
             coupons: false,
             tags: false,
             newFollowers: false,
-            newPlacesAi: false,
             systemMessages: false,
             managerNewExperience: false,
           ),

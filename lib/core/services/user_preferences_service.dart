@@ -5,7 +5,6 @@ class UserNotificationPreferences {
   final bool coupons;
   final bool tags;
   final bool newFollowers;
-  final bool newPlacesAi;
   final bool systemMessages;
   final bool managerNewExperience;
 
@@ -14,7 +13,6 @@ class UserNotificationPreferences {
     this.coupons = true,
     this.tags = true,
     this.newFollowers = true,
-    this.newPlacesAi = true,
     this.systemMessages = true,
     this.managerNewExperience = true,
   });
@@ -25,7 +23,6 @@ class UserNotificationPreferences {
       coupons: row?['coupons'] != false,
       tags: row?['tags'] != false,
       newFollowers: row?['new_followers'] != false,
-      newPlacesAi: row?['new_places_ai'] != false,
       systemMessages: row?['system_messages'] != false,
       managerNewExperience: row?['manager_new_experience'] != false,
     );
@@ -36,7 +33,6 @@ class UserNotificationPreferences {
     bool? coupons,
     bool? tags,
     bool? newFollowers,
-    bool? newPlacesAi,
     bool? systemMessages,
     bool? managerNewExperience,
   }) {
@@ -45,7 +41,6 @@ class UserNotificationPreferences {
       coupons: coupons ?? this.coupons,
       tags: tags ?? this.tags,
       newFollowers: newFollowers ?? this.newFollowers,
-      newPlacesAi: newPlacesAi ?? this.newPlacesAi,
       systemMessages: systemMessages ?? this.systemMessages,
       managerNewExperience: managerNewExperience ?? this.managerNewExperience,
     );
@@ -57,7 +52,6 @@ class UserNotificationPreferences {
         'coupons': coupons,
         'tags': tags,
         'new_followers': newFollowers,
-        'new_places_ai': newPlacesAi,
         'system_messages': systemMessages,
         'manager_new_experience': managerNewExperience,
         'updated_at': DateTime.now().toUtc().toIso8601String(),
@@ -101,7 +95,7 @@ class UserPreferencesService {
     final row = await client
         .from('notification_preferences')
         .select(
-          'enabled,coupons,tags,new_followers,new_places_ai,'
+          'enabled,coupons,tags,new_followers,'
           'system_messages,manager_new_experience',
         )
         .eq('user_id', userId)

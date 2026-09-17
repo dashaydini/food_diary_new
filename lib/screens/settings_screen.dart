@@ -99,7 +99,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         Supabase.instance.client
             .from('notification_preferences')
             .select(
-              'enabled,coupons,tags,new_followers,new_places_ai,'
+              'enabled,coupons,tags,new_followers,'
               'system_messages,manager_new_experience',
             )
             .eq('user_id', user.id)
@@ -205,7 +205,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               coupons: false,
               tags: false,
               newFollowers: false,
-              newPlacesAi: false,
               systemMessages: false,
               managerNewExperience: false,
             );
@@ -475,19 +474,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           onChanged: (enabled) async {
             await _updateNotificationPreferences(
               _notificationPreferences.copyWith(newFollowers: enabled),
-            );
-            repaint();
-          },
-        ),
-        _notificationSwitch(
-          enabled: pushActive,
-          value: _notificationPreferences.newPlacesAi,
-          icon: Icons.auto_awesome_outlined,
-          title: 'מקומות חדשים בשבילי',
-          subtitle: 'מקומות בקטגוריות שביקרת בהן, עד 40 ק״מ ממקום שביקרת בו',
-          onChanged: (enabled) async {
-            await _updateNotificationPreferences(
-              _notificationPreferences.copyWith(newPlacesAi: enabled),
             );
             repaint();
           },

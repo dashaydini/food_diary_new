@@ -9,7 +9,6 @@ void main() {
     expect(preferences.coupons, isTrue);
     expect(preferences.tags, isTrue);
     expect(preferences.newFollowers, isTrue);
-    expect(preferences.newPlacesAi, isTrue);
     expect(preferences.systemMessages, isTrue);
     expect(preferences.managerNewExperience, isTrue);
   });
@@ -20,7 +19,6 @@ void main() {
       'coupons': false,
       'tags': true,
       'new_followers': false,
-      'new_places_ai': true,
       'system_messages': false,
       'manager_new_experience': true,
     });
@@ -42,7 +40,6 @@ void main() {
       coupons: false,
       tags: false,
       newFollowers: false,
-      newPlacesAi: false,
       systemMessages: false,
       managerNewExperience: false,
     );
@@ -52,7 +49,6 @@ void main() {
     expect(row['coupons'], isFalse);
     expect(row['tags'], isFalse);
     expect(row['new_followers'], isFalse);
-    expect(row['new_places_ai'], isFalse);
     expect(row['system_messages'], isFalse);
     expect(row['manager_new_experience'], isFalse);
   });

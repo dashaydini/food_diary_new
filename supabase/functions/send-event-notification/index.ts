@@ -6,15 +6,6 @@ const cors = {
   'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info',
 }
 
-function distanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const radians = Math.PI / 180
-  const deltaLat = (lat2 - lat1) * radians
-  const deltaLon = (lon2 - lon1) * radians
-  const a = Math.sin(deltaLat / 2) ** 2 +
-    Math.cos(lat1 * radians) * Math.cos(lat2 * radians) * Math.sin(deltaLon / 2) ** 2
-  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-}
-
 type EventType =
   | 'support_request'
   | 'visit_report'
@@ -22,7 +13,6 @@ type EventType =
   | 'new_experience'
   | 'experience_tag'
   | 'new_follower'
-  | 'new_place'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
@@ -39,6 +29,11 @@ Deno.serve(async (req) => {
     if (!user || user.is_anonymous) throw new Error('Unauthorized')
 
     const body = await req.json()
+    // Older app versions may still request this event. Acknowledge it without
+    // sending a push or creating a dispatch record.
+    if (body.event_type === 'new_place') {
+      return Response.json({ ok: true, disabled: true, sent: 0 }, { headers: cors })
+    }
     const eventType = body.event_type as EventType
     const resourceId = typeof body.resource_id === 'string' ? body.resource_id : ''
     if (![
@@ -48,7 +43,6 @@ Deno.serve(async (req) => {
       'new_experience',
       'experience_tag',
       'new_follower',
-      'new_place',
     ].includes(eventType) || !resourceId) {
       throw new Error('Invalid request')
     }
@@ -131,50 +125,6 @@ Deno.serve(async (req) => {
       targetUrl = `/?open=user-profile&user_id=${encodeURIComponent(user.id)}`
       preferenceColumn = 'new_followers'
       dispatchEventType = `new_follower:${user.id}`
-    } else if (eventType === 'new_place') {
-      const { data: place, error } = await admin.from('places')
-        .select('user_id,name,address,category_id,latitude,longitude').eq('id', resourceId).single()
-      if (error) throw error
-      if (place.user_id !== user.id) throw new Error('Forbidden')
-      const { data: subscriberRows, error: subscriberError } = await admin
-        .from('push_subscriptions').select('user_id')
-      if (subscriberError) throw subscriberError
-      const subscriberIds = [...new Set((subscriberRows ?? [])
-        .map((row) => row.user_id)
-        .filter((id) => id && id !== user.id))]
-      const placeLat = Number(place.latitude)
-      const placeLon = Number(place.longitude)
-      // An enabled switch does not mean "alert me about every place". Notify
-      // only people who actually visited the same category nearby. Historic
-      // visits in multiple regions count; the user's current GPS is irrelevant.
-      if (subscriberIds.length && place.latitude != null && place.longitude != null &&
-          Number.isFinite(placeLat) && Number.isFinite(placeLon) && place.category_id) {
-        const matched = new Set<string>()
-        for (let offset = 0; ; offset += 1000) {
-          const { data: visits, error: visitError } = await admin.from('visits')
-            .select('user_id,places!inner(category_id,latitude,longitude)')
-            .in('user_id', subscriberIds)
-            .eq('places.category_id', place.category_id)
-            .range(offset, offset + 999)
-          if (visitError) throw visitError
-          for (const visit of visits ?? []) {
-            const visitedPlace = Array.isArray(visit.places) ? visit.places[0] : visit.places
-            if (visitedPlace?.latitude == null || visitedPlace?.longitude == null) continue
-            const latitude = Number(visitedPlace.latitude)
-            const longitude = Number(visitedPlace.longitude)
-            if (Number.isFinite(latitude) && Number.isFinite(longitude) &&
-                distanceKm(placeLat, placeLon, latitude, longitude) <= 40) {
-              matched.add(visit.user_id)
-            }
-          }
-          if (!visits || visits.length < 1000) break
-        }
-        recipientIds = [...matched]
-      }
-      title = 'מקום חדש ב־BITE THE WAY'
-      message = place.address ? `${place.name} — ${place.address}` : place.name
-      targetUrl = `/?open=place&place_id=${encodeURIComponent(resourceId)}`
-      preferenceColumn = 'new_places_ai'
     } else {
       const { data: visit, error } = await admin.from('visits')
         .select('user_id,place_id,places(name)').eq('id', resourceId).single()
@@ -212,39 +162,15 @@ Deno.serve(async (req) => {
     const { error: dispatchError } = await admin.from('notification_dispatches').insert({
       event_type: dispatchEventType,
       resource_id: dispatchResourceId,
-      recipient_count: eventType === 'new_place' ? 0 : recipientIds.length,
+      recipient_count: recipientIds.length,
     })
     if (dispatchError?.code === '23505') {
       return Response.json({ ok: true, duplicate: true, sent: 0, failed: 0 }, { headers: cors })
     }
     if (dispatchError) throw dispatchError
 
-    if (eventType === 'new_place' && recipientIds.length) {
-      try {
-        const { data: reserved, error: reserveError } = await admin
-          .rpc('reserve_new_place_pushes', {
-            p_user_ids: recipientIds,
-            p_place_id: resourceId,
-          })
-        if (reserveError) throw reserveError
-        recipientIds = (reserved ?? []).map((row) => row.user_id)
-        const { error: countError } = await admin.from('notification_dispatches')
-          .update({ recipient_count: recipientIds.length })
-          .eq('event_type', dispatchEventType).eq('resource_id', dispatchResourceId)
-        if (countError) throw countError
-      } catch (error) {
-        // The event was not processed; allow a retry instead of consuming its
-        // unique dispatch key or leaving a 24-hour reservation behind.
-        await admin.from('new_place_push_cooldowns').delete()
-          .eq('place_id', resourceId)
-        await admin.from('notification_dispatches').delete()
-          .eq('event_type', dispatchEventType).eq('resource_id', dispatchResourceId)
-        throw error
-      }
-    }
-
     const { data: subscriptions, error: subscriptionError } = recipientIds.length
-      ? await admin.from('push_subscriptions').select('id,user_id,subscription').in('user_id', recipientIds)
+      ? await admin.from('push_subscriptions').select('id,subscription').in('user_id', recipientIds)
       : { data: [], error: null }
     if (subscriptionError) throw subscriptionError
 
@@ -260,25 +186,16 @@ Deno.serve(async (req) => {
     })
     let sent = 0
     let failed = 0
-    const sentUsers = new Set<string>()
     for (const row of subscriptions ?? []) {
       try {
         await webpush.sendNotification(row.subscription, payload)
         sent++
-        sentUsers.add(row.user_id)
       } catch (error) {
         failed++
         const statusCode = (error as { statusCode?: number })?.statusCode
         if (statusCode === 404 || statusCode === 410) {
           await admin.from('push_subscriptions').delete().eq('id', row.id)
         }
-      }
-    }
-    if (eventType === 'new_place') {
-      const undelivered = recipientIds.filter((id) => !sentUsers.has(id))
-      if (undelivered.length) {
-        await admin.from('new_place_push_cooldowns').delete()
-          .eq('place_id', resourceId).in('user_id', undelivered)
       }
     }
     await admin.from('notification_dispatches').update({
