@@ -212,15 +212,39 @@ Deno.serve(async (req) => {
     const { error: dispatchError } = await admin.from('notification_dispatches').insert({
       event_type: dispatchEventType,
       resource_id: dispatchResourceId,
-      recipient_count: recipientIds.length,
+      recipient_count: eventType === 'new_place' ? 0 : recipientIds.length,
     })
     if (dispatchError?.code === '23505') {
       return Response.json({ ok: true, duplicate: true, sent: 0, failed: 0 }, { headers: cors })
     }
     if (dispatchError) throw dispatchError
 
+    if (eventType === 'new_place' && recipientIds.length) {
+      try {
+        const { data: reserved, error: reserveError } = await admin
+          .rpc('reserve_new_place_pushes', {
+            p_user_ids: recipientIds,
+            p_place_id: resourceId,
+          })
+        if (reserveError) throw reserveError
+        recipientIds = (reserved ?? []).map((row) => row.user_id)
+        const { error: countError } = await admin.from('notification_dispatches')
+          .update({ recipient_count: recipientIds.length })
+          .eq('event_type', dispatchEventType).eq('resource_id', dispatchResourceId)
+        if (countError) throw countError
+      } catch (error) {
+        // The event was not processed; allow a retry instead of consuming its
+        // unique dispatch key or leaving a 24-hour reservation behind.
+        await admin.from('new_place_push_cooldowns').delete()
+          .eq('place_id', resourceId)
+        await admin.from('notification_dispatches').delete()
+          .eq('event_type', dispatchEventType).eq('resource_id', dispatchResourceId)
+        throw error
+      }
+    }
+
     const { data: subscriptions, error: subscriptionError } = recipientIds.length
-      ? await admin.from('push_subscriptions').select('id,subscription').in('user_id', recipientIds)
+      ? await admin.from('push_subscriptions').select('id,user_id,subscription').in('user_id', recipientIds)
       : { data: [], error: null }
     if (subscriptionError) throw subscriptionError
 
@@ -236,16 +260,25 @@ Deno.serve(async (req) => {
     })
     let sent = 0
     let failed = 0
+    const sentUsers = new Set<string>()
     for (const row of subscriptions ?? []) {
       try {
         await webpush.sendNotification(row.subscription, payload)
         sent++
+        sentUsers.add(row.user_id)
       } catch (error) {
         failed++
         const statusCode = (error as { statusCode?: number })?.statusCode
         if (statusCode === 404 || statusCode === 410) {
           await admin.from('push_subscriptions').delete().eq('id', row.id)
         }
+      }
+    }
+    if (eventType === 'new_place') {
+      const undelivered = recipientIds.filter((id) => !sentUsers.has(id))
+      if (undelivered.length) {
+        await admin.from('new_place_push_cooldowns').delete()
+          .eq('place_id', resourceId).in('user_id', undelivered)
       }
     }
     await admin.from('notification_dispatches').update({
