@@ -244,6 +244,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
         }
         return;
       case 'tagged-experience':
+      case 'experience':
         final visitId = Uri.base.queryParameters['visit_id'];
         if (visitId == null || visitId.isEmpty) return;
         try {

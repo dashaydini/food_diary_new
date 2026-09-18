@@ -9,6 +9,8 @@ import 'package:food_diary/core/services/shared_visit_service.dart';
 import 'package:food_diary/screens/add_visit_screen.dart';
 import 'package:food_diary/screens/category_selection_screen.dart';
 import 'package:food_diary/screens/following_feed_screen.dart';
+import 'package:food_diary/screens/followers_list_screen.dart';
+import 'package:food_diary/screens/public_profile_screen.dart';
 import 'package:food_diary/screens/visit_notifications_screen.dart';
 import 'package:food_diary/widgets/shared_visit_panel.dart';
 import 'package:food_diary/widgets/visit_notification_button.dart';
@@ -37,6 +39,7 @@ void main() {
   var failed = false;
   var manager = false;
   var pendingSupport = false;
+  var followNotifications = false;
   Map<String, dynamic>? personal;
   Map<String, dynamic>? inserted;
   final requests = <http.Request>[];
@@ -107,8 +110,18 @@ void main() {
           case 'send-event-notification':
             data = {'ok': true};
           case 'user_follows':
+            if (request.method == 'PATCH') {
+              expect(query['follower_id'], 'eq.me');
+              expect(query['following_id'], 'eq.author');
+              final body = jsonDecode(request.body) as Map<String, dynamic>;
+              followNotifications = body['notify_on_new_experience'] == true;
+            }
             data = [
-              {'following_id': 'author'}
+              {
+                'follower_id': 'me',
+                'following_id': 'author',
+                'notify_on_new_experience': followNotifications,
+              }
             ];
           case 'visits':
             if (request.method == 'POST') {
@@ -141,14 +154,22 @@ void main() {
           case 'places':
             data = [place];
           case 'profiles':
-            data = [
-              {
-                'id': 'me',
-                'display_name': 'אני',
-                'is_admin': manager,
-                'admin_role': manager ? 'full_admin' : null
-              }
-            ];
+            data = query['id']?.contains('author') == true
+                ? [
+                    {
+                      'id': 'author',
+                      'display_name': 'שי',
+                      'avatar_url': null,
+                    }
+                  ]
+                : [
+                    {
+                      'id': 'me',
+                      'display_name': 'אני',
+                      'is_admin': manager,
+                      'admin_role': manager ? 'full_admin' : null
+                    }
+                  ];
           case 'support_requests':
             expect(query['limit'], '1');
             expect(
@@ -192,6 +213,7 @@ void main() {
     failed = false;
     manager = false;
     pendingSupport = false;
+    followNotifications = false;
     personal = null;
     inserted = null;
     requests.clear();
@@ -201,7 +223,8 @@ void main() {
       theme: AppTheme.darkTheme,
       home: Directionality(textDirection: TextDirection.rtl, child: child));
 
-  testWidgets('notification opens author experience and a blank personal form',
+  testWidgets(
+      'notification opens author experience and an inline personal form',
       (tester) async {
     await tester.pumpWidget(app(const VisitNotificationsScreen()));
     await tester.pumpAndSettle();
@@ -218,14 +241,16 @@ void main() {
     expect(find.byTooltip('הוספה לזיכרונות המועדפים'), findsNothing);
     await tester.tap(find.text('הוספת הדירוג והביקורת שלי'));
     await tester.pumpAndSettle();
-    final form =
-        tester.widget<AddVisitScreen>(find.byType(AddVisitScreen).last);
-    expect(form.visit, isNull);
-    expect(form.sourceVisit?['id'], 'original');
-    expect(form.viewOnly, isFalse);
+    expect(find.byType(AddVisitScreen), findsOneWidget);
+    expect(find.text('הביקורת שלי על הביקור המשותף'), findsOneWidget);
+    expect(find.text('אכלתי בנוסף (לא חובה)'), findsOneWidget);
     expect(find.byIcon(Icons.person_add_alt_1_outlined), findsNothing);
-    final fields = tester.widgetList<TextField>(find.byType(TextField));
-    expect(fields.every((f) => f.controller?.text.isEmpty ?? true), isTrue);
+    expect(
+        tester
+            .widget<TextField>(find.widgetWithText(TextField, 'הביקורת שלי'))
+            .controller
+            ?.text,
+        isEmpty);
     expect(
         requests
             .where((r) => r.method == 'POST' && r.url.path.endsWith('/visits')),
@@ -242,20 +267,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('הוספת הדירוג והביקורת שלי'));
     await tester.pumpAndSettle();
-    final notes = find.widgetWithText(TextField, 'הערות נוספות / חוויות');
-    final formScroll = find
-        .descendant(
-            of: find.byType(ListView).last, matching: find.byType(Scrollable))
-        .first;
-    await tester.scrollUntilVisible(notes, 250, scrollable: formScroll);
+    final notes = find.widgetWithText(TextField, 'הביקורת שלי');
     await tester.enterText(notes, 'החוויה האישית שלי #שווארמה');
-    await tester.scrollUntilVisible(
-        find.widgetWithText(FilledButton, 'שמור חוויה'), 300,
-        scrollable: formScroll);
-    await tester.drag(find.byType(ListView).last, const Offset(0, -150));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('שמור חוויה'));
-    // Saving remains disabled behind the taste-feedback dialog.
+    await tester.ensureVisible(find.text('שמירת הביקורת שלי'));
+    await tester.tap(find.text('שמירת הביקורת שלי'));
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
@@ -266,24 +281,21 @@ void main() {
     expect(requests.where((r) => r.url.path.endsWith('/sync_visit_user_tags')),
         isEmpty);
     expect(inserted?['visit_date'], startsWith('2026-09-01'));
-    expect(find.text('המקום היה לטעמך?'), findsOneWidget);
-    await tester.tap(find.text('לא עכשיו'));
-    await tester.pumpAndSettle();
     expect(find.text('הביקור המשותף'), findsOneWidget);
     expect(find.byType(VisitCard), findsOneWidget);
     await tester.tap(find.text('הדירוג והביקורת שלי'));
     await tester.pumpAndSettle();
-    expect(find.byTooltip('עריכת חוויה'), findsOneWidget);
+    expect(find.text('הביקורת שלי על הביקור המשותף'), findsOneWidget);
     expect(
         tester
-            .widget<AddVisitScreen>(find.byType(AddVisitScreen).last)
-            .visit?['id'],
-        'personal');
-    await tester.tap(find.byTooltip('עריכת חוויה'));
-    await tester.pumpAndSettle();
+            .widget<TextField>(find.widgetWithText(TextField, 'הביקורת שלי'))
+            .controller
+            ?.text,
+        'החוויה האישית שלי #שווארמה');
     expect(find.byIcon(Icons.person_add_alt_1_outlined), findsNothing);
-    expect(find.byTooltip('מחיקת חוויה'), findsOneWidget);
-    await tester.tap(find.byTooltip('מחיקת חוויה'));
+    await tester.tap(find.text('ביטול'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('מחיקת הביקורת שלי'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('מחיקה'));
     await tester.pumpAndSettle();
@@ -294,6 +306,30 @@ void main() {
         (r) => r.method == 'DELETE' && r.url.path.endsWith('/visits'));
     expect(deletion.url.queryParameters['id'], 'eq.personal');
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('personal rating and extras stay on participant row',
+      (tester) async {
+    await tester.pumpWidget(app(Scaffold(
+        body: SingleChildScrollView(
+            child: SharedVisitPanel(
+                visitId: 'original', place: place, onTagRemoved: () {})))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('הוספת הדירוג והביקורת שלי'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('shared-rating-4')));
+    await tester.enterText(
+        find.widgetWithText(TextField, 'אכלתי בנוסף (לא חובה)'), 'קינוח');
+    await tester.enterText(
+        find.widgetWithText(TextField, 'שילמתי בנוסף ₪ (לא חובה)'), '25');
+    await tester.ensureVisible(find.text('שמירת הביקורת שלי'));
+    await tester.tap(find.text('שמירת הביקורת שלי'));
+    await tester.pumpAndSettle();
+    expect(inserted?['rating'], 4);
+    expect(inserted?['food'], 'קינוח');
+    expect(inserted?['total_price'], 25);
+    expect(original['rating'], 5);
+    expect(original['notes'], 'החוויה של המחבר #שניצל');
   });
 
   testWidgets(
@@ -384,6 +420,50 @@ void main() {
     expect(find.text('חוויה של שי'), findsOneWidget);
     expect(find.text('בית הפול'), findsOneWidget);
     expect(find.byTooltip('בית'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('followed profile explains bell and saves notifications',
+      (tester) async {
+    await tester.pumpWidget(app(const PublicProfileScreen(userId: 'author')));
+    await tester.pumpAndSettle();
+    expect(find.text('עוקב'), findsOneWidget);
+    expect(find.byIcon(Icons.notifications_none_rounded), findsOneWidget);
+    expect(
+      find.text(
+        'הפעמון מאפשר לקבל התראה כשמתפרסמת חוויה חדשה · נדרש להפעיל התראות בהגדרות',
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.byIcon(Icons.notifications_none_rounded));
+    await tester.pumpAndSettle();
+    expect(followNotifications, isTrue);
+    expect(find.byIcon(Icons.notifications_active_rounded), findsOneWidget);
+    expect(
+      requests.any((request) =>
+          request.method == 'PATCH' &&
+          request.url.path.endsWith('/user_follows')),
+      isTrue,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('following list explains bells without navigation arrows',
+      (tester) async {
+    followNotifications = true;
+    await tester.pumpWidget(app(const FollowersListScreen(
+      userId: 'me',
+      showFollowers: false,
+    )));
+    await tester.pumpAndSettle();
+    expect(
+      find.text(
+        'הפעמון מאפשר לבחור ממי לקבל התראה על חוויות ציבוריות חדשות. לקבלת פוש יש להפעיל התראות בהגדרות.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.byIcon(Icons.notifications_active_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.chevron_left_rounded), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

@@ -26,6 +26,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
 
   bool _loading = true;
   bool _followWorking = false;
+  bool _notificationWorking = false;
   String? _error;
 
   Map<String, dynamic>? _profile;
@@ -35,6 +36,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   int _followingCount = 0;
 
   bool _isFollowing = false;
+  bool _notifyOnNewExperience = false;
 
   String? get _currentUserId => _client.auth.currentUser?.id;
 
@@ -104,12 +106,15 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
       if (currentUserId != null && currentUserId != widget.userId) {
         final follow = await _client
             .from('user_follows')
-            .select('follower_id, following_id')
+            .select(
+              'follower_id, following_id, notify_on_new_experience',
+            )
             .eq('follower_id', currentUserId)
             .eq('following_id', widget.userId)
             .maybeSingle();
 
         isFollowing = follow != null;
+        _notifyOnNewExperience = follow?['notify_on_new_experience'] == true;
       }
 
       if (!mounted) return;
@@ -157,6 +162,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
 
         setState(() {
           _isFollowing = false;
+          _notifyOnNewExperience = false;
           if (_followersCount > 0) {
             _followersCount--;
           }
@@ -191,6 +197,42 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
         SnackBar(
           content: Text('לא ניתן לעדכן מעקב: $e'),
         ),
+      );
+    }
+  }
+
+  Future<void> _toggleExperienceNotifications() async {
+    if (!_isFollowing || _notificationWorking) return;
+    final nextValue = !_notifyOnNewExperience;
+    setState(() => _notificationWorking = true);
+    try {
+      final updated = await _client
+          .from('user_follows')
+          .update({'notify_on_new_experience': nextValue})
+          .eq('follower_id', _currentUserId!)
+          .eq('following_id', widget.userId)
+          .select('following_id')
+          .maybeSingle();
+      if (updated == null) throw StateError('follow_not_found');
+      if (!mounted) return;
+      setState(() {
+        _notifyOnNewExperience = nextValue;
+        _notificationWorking = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            nextValue
+                ? 'תקבל התראה על חוויות ציבוריות חדשות של ${_authorName()}'
+                : 'ההתראות מ${_authorName()} כובו',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _notificationWorking = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('לא ניתן לעדכן את ההתראה כרגע')),
       );
     }
   }
@@ -455,49 +497,79 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                   ),
                 ),
               )
-            else
-              Align(
-                alignment: Alignment.centerRight,
-                child: SizedBox(
-                  height: 32,
-                  child: OutlinedButton(
-                    onPressed: _followWorking ? null : _toggleFollow,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.textMuted,
-                      side: BorderSide(
-                        color: AppColors.champagne.withValues(alpha: 0.14),
-                        width: 0.7,
-                      ),
-                      backgroundColor: AppColors.background,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                      ),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+            else ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    height: 38,
+                    child: OutlinedButton.icon(
+                      onPressed: _followWorking ? null : _toggleFollow,
+                      icon: const Icon(Icons.check_rounded, size: 16),
+                      label: const Text('עוקב'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.textMuted,
+                        side: BorderSide(
+                          color: AppColors.champagne.withValues(alpha: 0.18),
+                          width: 0.8,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(19),
+                        ),
                       ),
                     ),
-                    child: _followWorking
-                        ? const SizedBox(
-                            width: 12,
-                            height: 12,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 1.1,
-                              color: AppColors.champagne,
-                            ),
-                          )
-                        : const Text(
-                            'הסרת עוקב',
-                            style: TextStyle(
-                              color: AppColors.textMuted,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
                   ),
+                  const SizedBox(width: 8),
+                  Tooltip(
+                    message: _notifyOnNewExperience
+                        ? 'כיבוי התראות ממשתמש זה'
+                        : 'קבלת התראות ממשתמש זה',
+                    child: IconButton.outlined(
+                      onPressed: _notificationWorking
+                          ? null
+                          : _toggleExperienceNotifications,
+                      icon: _notificationWorking
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.4,
+                                color: AppColors.champagne,
+                              ),
+                            )
+                          : Icon(
+                              _notifyOnNewExperience
+                                  ? Icons.notifications_active_rounded
+                                  : Icons.notifications_none_rounded,
+                            ),
+                      color: AppColors.champagne,
+                      style: IconButton.styleFrom(
+                        backgroundColor: _notifyOnNewExperience
+                            ? AppColors.champagne.withValues(alpha: 0.12)
+                            : Colors.transparent,
+                        side: BorderSide(
+                          color: AppColors.champagne.withValues(
+                            alpha: _notifyOnNewExperience ? 0.48 : 0.20,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 9),
+              Text(
+                _notifyOnNewExperience
+                    ? 'הפעמון פעיל · תקבל התראה על חוויות ציבוריות חדשות'
+                    : 'הפעמון מאפשר לקבל התראה כשמתפרסמת חוויה חדשה · נדרש להפעיל התראות בהגדרות',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.textMuted,
+                  fontSize: 11,
                 ),
               ),
+            ],
           ],
         ],
       ),

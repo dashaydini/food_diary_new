@@ -11,6 +11,7 @@ type EventType =
   | 'visit_report'
   | 'image_report'
   | 'new_experience'
+  | 'followed_user_experience'
   | 'experience_tag'
   | 'new_follower'
 
@@ -41,6 +42,7 @@ Deno.serve(async (req) => {
       'visit_report',
       'image_report',
       'new_experience',
+      'followed_user_experience',
       'experience_tag',
       'new_follower',
     ].includes(eventType) || !resourceId) {
@@ -125,6 +127,33 @@ Deno.serve(async (req) => {
       targetUrl = `/?open=user-profile&user_id=${encodeURIComponent(user.id)}`
       preferenceColumn = 'new_followers'
       dispatchEventType = `new_follower:${user.id}`
+    } else if (eventType === 'followed_user_experience') {
+      const { data: visit, error } = await admin.from('visits')
+        .select('user_id,place_id,created_at,moderation_status,places(name),profiles!visits_user_id_fkey(display_name)')
+        .eq('id', resourceId).single()
+      if (error) throw error
+      if (visit.user_id !== user.id) throw new Error('Forbidden')
+      if (visit.moderation_status !== 'visible' ||
+          !visit.created_at ||
+          Date.now() - new Date(visit.created_at).getTime() > 60 * 60 * 1000) {
+        return Response.json({ ok: true, skipped: true, sent: 0 }, { headers: cors })
+      }
+      const { data: followers, error: followersError } = await admin
+        .from('user_follows')
+        .select('follower_id')
+        .eq('following_id', user.id)
+        .eq('notify_on_new_experience', true)
+      if (followersError) throw followersError
+      recipientIds = (followers ?? [])
+        .map((row) => row.follower_id)
+        .filter((id) => id !== user.id)
+      const rawProfile = Array.isArray(visit.profiles) ? visit.profiles[0] : visit.profiles
+      const rawPlace = Array.isArray(visit.places) ? visit.places[0] : visit.places
+      const authorName = rawProfile?.display_name || 'משתמש באפליקציה'
+      const placeName = rawPlace?.name || 'מקום חדש'
+      title = `${authorName} פרסם חוויה חדשה`
+      message = `חוויה חדשה ב${placeName}`
+      targetUrl = `/?open=experience&visit_id=${encodeURIComponent(resourceId)}`
     } else {
       const { data: visit, error } = await admin.from('visits')
         .select('user_id,place_id,places(name)').eq('id', resourceId).single()

@@ -26,6 +26,7 @@ class _FollowersListScreenState extends State<FollowersListScreen> {
   bool _loading = true;
   String? _error;
   List<Map<String, dynamic>> _users = [];
+  final Set<String> _notificationWorking = {};
 
   @override
   void initState() {
@@ -78,6 +79,18 @@ class _FollowersListScreenState extends State<FollowersListScreen> {
 
       final profileList = List<Map<String, dynamic>>.from(profiles as List);
 
+      final currentUserId = _client.auth.currentUser?.id;
+      final ownFollows = currentUserId == null
+          ? const <dynamic>[]
+          : await _client
+              .from('user_follows')
+              .select('following_id, notify_on_new_experience')
+              .eq('follower_id', currentUserId)
+              .inFilter('following_id', ids);
+      final followByUserId = {
+        for (final row in ownFollows) row['following_id']?.toString(): row,
+      };
+
       final byId = {
         for (final profile in profileList) profile['id']?.toString(): profile,
       };
@@ -87,7 +100,13 @@ class _FollowersListScreenState extends State<FollowersListScreen> {
       for (final id in ids) {
         final profile = byId[id];
         if (profile != null) {
-          ordered.add(profile);
+          final follow = followByUserId[id];
+          ordered.add({
+            ...profile,
+            '_is_following': follow != null,
+            '_notify_on_new_experience':
+                follow?['notify_on_new_experience'] == true,
+          });
         }
       }
 
@@ -104,6 +123,47 @@ class _FollowersListScreenState extends State<FollowersListScreen> {
         _loading = false;
         _error = 'לא ניתן לטעון את הרשימה: $e';
       });
+    }
+  }
+
+  Future<void> _toggleNotifications(Map<String, dynamic> user) async {
+    final userId = user['id']?.toString();
+    if (userId == null ||
+        userId.isEmpty ||
+        _notificationWorking.contains(userId)) {
+      return;
+    }
+    final nextValue = user['_notify_on_new_experience'] != true;
+    setState(() => _notificationWorking.add(userId));
+    try {
+      final currentUserId = _client.auth.currentUser?.id;
+      if (currentUserId == null) throw StateError('login_required');
+      final updated = await _client
+          .from('user_follows')
+          .update({'notify_on_new_experience': nextValue})
+          .eq('follower_id', currentUserId)
+          .eq('following_id', userId)
+          .select('following_id')
+          .maybeSingle();
+      if (updated == null) throw StateError('follow_not_found');
+      if (!mounted) return;
+      setState(() {
+        user['_notify_on_new_experience'] = nextValue;
+        _notificationWorking.remove(userId);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(nextValue
+              ? 'התראות מ${_name(user)} הופעלו'
+              : 'התראות מ${_name(user)} כובו'),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _notificationWorking.remove(userId));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('לא ניתן לעדכן את ההתראה כרגע')),
+      );
     }
   }
 
@@ -207,11 +267,50 @@ class _FollowersListScreenState extends State<FollowersListScreen> {
                                 16,
                                 32,
                               ),
-                              itemCount: _users.length,
+                              itemCount: _users.length + 1,
                               separatorBuilder: (_, __) =>
                                   const SizedBox(height: 10),
                               itemBuilder: (context, index) {
-                                final user = _users[index];
+                                if (index == 0) {
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 12,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.champagne
+                                          .withValues(alpha: 0.05),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: AppColors.champagne
+                                            .withValues(alpha: 0.13),
+                                      ),
+                                    ),
+                                    child: const Row(
+                                      textDirection: TextDirection.rtl,
+                                      children: [
+                                        Icon(
+                                          Icons.notifications_none_rounded,
+                                          color: AppColors.champagne,
+                                          size: 20,
+                                        ),
+                                        SizedBox(width: 10),
+                                        Expanded(
+                                          child: Text(
+                                            'הפעמון מאפשר לבחור ממי לקבל התראה על חוויות ציבוריות חדשות. לקבלת פוש יש להפעיל התראות בהגדרות.',
+                                            textAlign: TextAlign.right,
+                                            style: TextStyle(
+                                              color: AppColors.textMuted,
+                                              fontSize: 12,
+                                              height: 1.35,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }
+                                final user = _users[index - 1];
                                 final id = user['id']?.toString() ?? '';
                                 final avatar =
                                     user['avatar_url']?.toString().trim();
@@ -289,12 +388,50 @@ class _FollowersListScreenState extends State<FollowersListScreen> {
                                               ),
                                             ),
                                           ),
-                                          Icon(
-                                            Icons.chevron_left_rounded,
-                                            size: 20,
-                                            color: AppColors.champagne
-                                                .withValues(alpha: 0.45),
-                                          ),
+                                          if (user['_is_following'] == true)
+                                            Tooltip(
+                                              message:
+                                                  user['_notify_on_new_experience'] ==
+                                                          true
+                                                      ? 'כיבוי התראות'
+                                                      : 'קבלת התראות',
+                                              child: IconButton(
+                                                onPressed: _notificationWorking
+                                                        .contains(id)
+                                                    ? null
+                                                    : () =>
+                                                        _toggleNotifications(
+                                                          user,
+                                                        ),
+                                                icon: _notificationWorking
+                                                        .contains(id)
+                                                    ? const SizedBox(
+                                                        width: 16,
+                                                        height: 16,
+                                                        child:
+                                                            CircularProgressIndicator(
+                                                          strokeWidth: 1.3,
+                                                          color: AppColors
+                                                              .champagne,
+                                                        ),
+                                                      )
+                                                    : Icon(
+                                                        user['_notify_on_new_experience'] ==
+                                                                true
+                                                            ? Icons
+                                                                .notifications_active_rounded
+                                                            : Icons
+                                                                .notifications_none_rounded,
+                                                        size: 21,
+                                                        color: user['_notify_on_new_experience'] ==
+                                                                true
+                                                            ? AppColors
+                                                                .champagne
+                                                            : AppColors
+                                                                .textMuted,
+                                                      ),
+                                              ),
+                                            ),
                                         ],
                                       ),
                                     ),

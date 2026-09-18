@@ -795,17 +795,44 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                       ),
                       const SizedBox(width: 9),
                       Expanded(
-                        child: Text(
-                          name,
-                          textAlign: TextAlign.right,
-                          style: Theme.of(context)
-                              .textTheme
-                              .headlineSmall
-                              ?.copyWith(
-                                color: AppColors.textPrimary,
-                                fontSize: mobile ? 24 : 28,
-                                fontWeight: FontWeight.w500,
+                        child: Wrap(
+                          textDirection: TextDirection.rtl,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: [
+                            Text(
+                              name,
+                              textAlign: TextAlign.right,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .headlineSmall
+                                  ?.copyWith(
+                                    color: AppColors.textPrimary,
+                                    fontSize: mobile ? 24 : 28,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                            ),
+                            Tooltip(
+                              message: 'בקשת בעלות על המקום',
+                              child: ActionChip(
+                                avatar: const Icon(Icons.verified_user_outlined,
+                                    size: 14),
+                                label: const Text('אני הבעלים',
+                                    style: TextStyle(fontSize: 11)),
+                                visualDensity: VisualDensity.compact,
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 2),
+                                onPressed: () => Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => PlaceOwnershipRequestScreen(
+                                      place: widget.place,
+                                    ),
+                                  ),
+                                ),
                               ),
+                            ),
+                          ],
                         ),
                       ),
                       if (!_loadingPreferences && isUserLoggedIn) ...[
@@ -867,21 +894,6 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: _PlaceManagementButton(
-                      icon: Icons.verified_user_outlined,
-                      label: 'אני הבעלים',
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => PlaceOwnershipRequestScreen(
-                            place: widget.place,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
                   if (description.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text(

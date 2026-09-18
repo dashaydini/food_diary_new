@@ -1128,6 +1128,10 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
           eventType: 'new_experience',
           resourceId: visitId,
         ));
+        unawaited(NotificationDispatchService.send(
+          eventType: 'followed_user_experience',
+          resourceId: visitId,
+        ));
 
         if (imageUrls.isNotEmpty) {
           await Supabase.instance.client.from('visit_images').insert(

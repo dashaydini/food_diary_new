@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/services/shared_visit_service.dart';
 import '../screens/add_visit_screen.dart';
 import '../screens/public_profile_screen.dart';
 import '../theme/colors.dart';
@@ -19,6 +20,7 @@ class VisitCard extends StatelessWidget {
   final bool canDeleteOfficialReply;
   final VoidCallback? onDeleteOfficialReply;
   final bool groupedReview;
+  final bool openOnTap;
 
   const VisitCard({
     super.key,
@@ -31,14 +33,22 @@ class VisitCard extends StatelessWidget {
     this.canDeleteOfficialReply = false,
     this.onDeleteOfficialReply,
     this.groupedReview = false,
+    this.openOnTap = true,
   });
 
   Future<void> _open(BuildContext context) async {
+    var openedVisit = visit;
+    if (groupedReview && visit['source_visit_id'] != null) {
+      final source = await SharedVisitService(Supabase.instance.client)
+          .visit(visit['source_visit_id'].toString());
+      if (source != null) openedVisit = source;
+      if (!context.mounted) return;
+    }
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => AddVisitScreen(
           place: place,
-          visit: visit,
+          visit: openedVisit,
           viewOnly: true,
         ),
       ),
@@ -120,7 +130,7 @@ class VisitCard extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () => _open(context),
+          onTap: openOnTap ? () => _open(context) : null,
           borderRadius: BorderRadius.circular(17),
           child: Ink(
             decoration: BoxDecoration(
@@ -255,6 +265,32 @@ class VisitCard extends StatelessWidget {
                         onSelected: (tag) =>
                             HashtagSearchScreen.open(context, tag),
                       ),
+                    ],
+                    if (groupedReview &&
+                        (visit['notes']?.toString().trim().isNotEmpty ??
+                            false)) ...[
+                      const SizedBox(height: 8),
+                      Text(visit['notes'].toString(),
+                          textAlign: TextAlign.right),
+                    ],
+                    if (groupedReview && visit['source_visit_id'] != null) ...[
+                      for (final detail in [
+                        if (visit['food']?.toString().trim().isNotEmpty ??
+                            false)
+                          'אכל/ה בנוסף: ${visit['food']}',
+                        if (visit['drink']?.toString().trim().isNotEmpty ??
+                            false)
+                          'שתה/תה בנוסף: ${visit['drink']}',
+                        if (visit['total_price'] != null)
+                          'שילם/ה בנוסף: ₪${visit['total_price']}',
+                      ])
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(detail,
+                              textAlign: TextAlign.right,
+                              style: theme.textTheme.bodySmall
+                                  ?.copyWith(color: AppColors.textMuted)),
+                        ),
                     ],
                     if (officialReply?.trim().isNotEmpty == true) ...[
                       const SizedBox(height: 12),
