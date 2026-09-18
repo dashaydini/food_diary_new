@@ -7,6 +7,7 @@ import '../../../screens/category_selection_screen.dart';
 import '../../../theme/colors.dart';
 import '../widgets/auth_brand_hero.dart';
 import '../widgets/auth_brand_divider.dart';
+import '../widgets/google_auth_button.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
 
@@ -93,35 +94,28 @@ class _LoginScreenState extends State<LoginScreen> {
     await RegistrationService(Supabase.instance.client).applyPendingReferral();
   }
 
-  Future<void> _loginWithGoogle() async {
-    await _startOAuth(
-      action: _authService.signInWithGoogle,
-    );
-  }
-
-  Future<void> _startOAuth({
-    required Future<void> Function() action,
-  }) async {
+  Future<void> _googleStarted() async {
     setState(() {
       _loading = true;
       _error = null;
     });
+  }
 
+  Future<void> _googleAuthenticated() async {
     try {
-      await action();
       await _applyPendingReferralCode();
+    } catch (_) {}
+    if (!mounted) return;
+    widget.onAuthSuccess?.call();
+  }
 
-      if (!mounted) return;
-
-      widget.onAuthSuccess?.call();
-    } catch (_) {
-      if (!mounted) return;
-
-      setState(() {
-        _loading = false;
-        _error = 'ההתחברות נכשלה';
-      });
-    }
+  void _googleError(Object error) {
+    debugPrint('GOOGLE LOGIN ERROR: $error');
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      _error = 'ההתחברות עם Google נכשלה';
+    });
   }
 
   Future<void> _guestLogin() async {
@@ -232,15 +226,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        SizedBox(
-                          height: 50,
-                          child: OutlinedButton(
-                            onPressed: _loading ? null : _loginWithGoogle,
-                            child: const Text(
-                              'התחברות עם Google',
-                              style: TextStyle(fontSize: 15),
-                            ),
-                          ),
+                        GoogleAuthButton(
+                          label: 'התחברות עם Google',
+                          loading: _loading,
+                          onStarted: _googleStarted,
+                          onAuthenticated: _googleAuthenticated,
+                          onError: _googleError,
                         ),
                         const SizedBox(height: 24),
                         const Row(

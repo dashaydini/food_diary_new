@@ -87,7 +87,7 @@ class _SharedVisitPanelState extends State<SharedVisitPanel> {
         builder: (ctx) => AlertDialog(
               title: const Text('הסרת התיוג שלי'),
               content: const Text(
-                  'התיוג יוסר מהחוויה. חוויה אישית שכבר כתבת לא תימחק.'),
+                  'התיוג יוסר מהביקור. ביקורת אישית שכבר כתבת לא תימחק.'),
               actions: [
                 TextButton(
                     onPressed: () => Navigator.pop(ctx, false),
@@ -140,23 +140,28 @@ class _SharedVisitPanelState extends State<SharedVisitPanel> {
           OutlinedButton.icon(
               onPressed: _busy ? null : _openOwn,
               icon: const Icon(Icons.edit_note_rounded),
-              label: const Text('החוויה שלי מהביקור')),
+              label: Text(_own == null
+                  ? 'הוספת הדירוג והביקורת שלי'
+                  : 'הדירוג והביקורת שלי')),
         if (_tag != null)
           TextButton(
               onPressed: _busy ? null : _remove,
               child: const Text('הסרת התיוג שלי')),
         if (_visits.length > 1) ...[
           const SizedBox(height: 12),
-          const Text('חוויות מאותו ביקור',
+          const Text('הביקור המשותף',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-          const Text('ביקור משותף, חוויה אישית לכל משתתף',
+          const Text('ביקור אחד · דירוג וביקורת נפרדים לכל משתתף',
               style: TextStyle(color: AppColors.textMuted)),
           const SizedBox(height: 10),
           for (final visit in _visits.where((v) => v['id'] != widget.visitId))
             Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: VisitCard(
-                    visit: visit, place: widget.place, onChanged: _load)),
+                    visit: visit,
+                    place: widget.place,
+                    groupedReview: true,
+                    onChanged: _load)),
         ],
       ]),
     );

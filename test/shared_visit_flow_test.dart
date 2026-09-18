@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:food_diary/core/services/shared_visit_service.dart';
 import 'package:food_diary/screens/add_visit_screen.dart';
 import 'package:food_diary/screens/category_selection_screen.dart';
+import 'package:food_diary/screens/following_feed_screen.dart';
 import 'package:food_diary/screens/visit_notifications_screen.dart';
 import 'package:food_diary/widgets/shared_visit_panel.dart';
 import 'package:food_diary/widgets/visit_notification_button.dart';
@@ -29,6 +30,7 @@ void main() {
     'notes': 'החוויה של המחבר #שניצל',
     'rating': 5,
     'profiles': {'display_name': 'שי'},
+    'places': place,
   };
   var tagged = true;
   var read = false;
@@ -104,6 +106,10 @@ void main() {
             }
           case 'send-event-notification':
             data = {'ok': true};
+          case 'user_follows':
+            data = [
+              {'following_id': 'author'}
+            ];
           case 'visits':
             if (request.method == 'POST') {
               inserted = Map<String, dynamic>.from(jsonDecode(request.body));
@@ -127,7 +133,9 @@ void main() {
                 return (query['id'] == null ||
                         query['id'] == 'eq.${v['id']}') &&
                     (query['user_id'] == null ||
-                        query['user_id'] == 'eq.${v['user_id']}');
+                        query['user_id'] == 'eq.${v['user_id']}' ||
+                        (query['user_id']!.startsWith('in.') &&
+                            query['user_id']!.contains(v['user_id'])));
               }).toList();
             }
           case 'places':
@@ -208,7 +216,7 @@ void main() {
     expect(find.byTooltip('עריכת חוויה'), findsNothing);
     expect(find.byTooltip('מחיקת חוויה'), findsNothing);
     expect(find.byTooltip('הוספה לזיכרונות המועדפים'), findsNothing);
-    await tester.tap(find.text('החוויה שלי מהביקור'));
+    await tester.tap(find.text('הוספת הדירוג והביקורת שלי'));
     await tester.pumpAndSettle();
     final form =
         tester.widget<AddVisitScreen>(find.byType(AddVisitScreen).last);
@@ -232,7 +240,7 @@ void main() {
             child: SharedVisitPanel(
                 visitId: 'original', place: place, onTagRemoved: () {})))));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('החוויה שלי מהביקור'));
+    await tester.tap(find.text('הוספת הדירוג והביקורת שלי'));
     await tester.pumpAndSettle();
     final notes = find.widgetWithText(TextField, 'הערות נוספות / חוויות');
     final formScroll = find
@@ -261,9 +269,9 @@ void main() {
     expect(find.text('המקום היה לטעמך?'), findsOneWidget);
     await tester.tap(find.text('לא עכשיו'));
     await tester.pumpAndSettle();
-    expect(find.text('חוויות מאותו ביקור'), findsOneWidget);
+    expect(find.text('הביקור המשותף'), findsOneWidget);
     expect(find.byType(VisitCard), findsOneWidget);
-    await tester.tap(find.text('החוויה שלי מהביקור'));
+    await tester.tap(find.text('הדירוג והביקורת שלי'));
     await tester.pumpAndSettle();
     expect(find.byTooltip('עריכת חוויה'), findsOneWidget);
     expect(
@@ -281,7 +289,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(personal, isNull);
     expect(original['notes'], 'החוויה של המחבר #שניצל');
-    expect(find.text('החוויה שלי מהביקור'), findsOneWidget);
+    expect(find.text('הוספת הדירוג והביקורת שלי'), findsOneWidget);
     final deletion = requests.singleWhere(
         (r) => r.method == 'DELETE' && r.url.path.endsWith('/visits'));
     expect(deletion.url.queryParameters['id'], 'eq.personal');
@@ -310,7 +318,7 @@ void main() {
     expect(tagged, isFalse);
     expect(personal, isNotNull);
     expect(find.text('הסרת התיוג שלי'), findsNothing);
-    expect(find.text('החוויה שלי מהביקור'), findsOneWidget);
+    expect(find.text('הדירוג והביקורת שלי'), findsOneWidget);
     expect(
         requests.where(
             (r) => r.method == 'DELETE' && r.url.path.endsWith('/visits')),
@@ -366,6 +374,17 @@ void main() {
             30));
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('following feed shows followed user experiences and place',
+      (tester) async {
+    await tester.pumpWidget(app(const FollowingFeedScreen()));
+    await tester.pumpAndSettle();
+    expect(find.text('מה חדש אצל נעקבים'), findsOneWidget);
+    expect(find.text('חוויה של שי'), findsOneWidget);
+    expect(find.text('בית הפול'), findsOneWidget);
+    expect(find.byTooltip('בית'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(
@@ -441,12 +460,14 @@ void main() {
     expect(jsonDecode(requests.last.body)['p_previous_user_ids'], ['me']);
   });
 
-  test('saving tags dispatches once only for newly added participants', () async {
+  test('saving tags dispatches once only for newly added participants',
+      () async {
     final service = SharedVisitService(Supabase.instance.client);
-    await service.syncParticipants('original', ['me', 'new'],
-        previousUserIds: ['me']);
+    await service
+        .syncParticipants('original', ['me', 'new'], previousUserIds: ['me']);
     final dispatches = requests
-        .where((request) => request.url.path.endsWith('/send-event-notification'))
+        .where(
+            (request) => request.url.path.endsWith('/send-event-notification'))
         .toList();
     expect(dispatches, hasLength(1));
     expect(jsonDecode(dispatches.single.body), {
@@ -458,8 +479,8 @@ void main() {
     await service.syncParticipants('original', ['me', 'new'],
         previousUserIds: ['me', 'new']);
     expect(
-        requests.where((request) =>
-            request.url.path.endsWith('/send-event-notification')),
+        requests.where(
+            (request) => request.url.path.endsWith('/send-event-notification')),
         isEmpty);
   });
 }

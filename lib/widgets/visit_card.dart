@@ -18,6 +18,7 @@ class VisitCard extends StatelessWidget {
   final VoidCallback? onReply;
   final bool canDeleteOfficialReply;
   final VoidCallback? onDeleteOfficialReply;
+  final bool groupedReview;
 
   const VisitCard({
     super.key,
@@ -29,6 +30,7 @@ class VisitCard extends StatelessWidget {
     this.onReply,
     this.canDeleteOfficialReply = false,
     this.onDeleteOfficialReply,
+    this.groupedReview = false,
   });
 
   Future<void> _open(BuildContext context) async {
@@ -90,7 +92,9 @@ class VisitCard extends StatelessWidget {
     final isOwnVisit =
         ownerId != null && currentUserId != null && ownerId == currentUserId;
 
-    final visitTitle = isOwnVisit ? 'החוויה שלך' : 'חוויה של $author';
+    final visitTitle = groupedReview
+        ? (isOwnVisit ? 'הביקורת שלך' : 'הביקורת של $author')
+        : (isOwnVisit ? 'החוויה שלך' : 'חוויה של $author');
     final hashtags = ExperienceHashtags.extract(visit['notes'] as String?);
 
     return Container(

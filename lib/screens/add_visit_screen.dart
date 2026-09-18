@@ -1842,9 +1842,11 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
           title: Text(
             widget.viewOnly
                 ? 'פרטי חוויה'
-                : widget.isEditing
-                    ? 'עריכת חוויה'
-                    : 'שיתוף חוויה',
+                : widget.sourceVisit != null
+                    ? 'הוספת ביקורת לביקור'
+                    : widget.isEditing
+                        ? 'עריכת חוויה'
+                        : 'שיתוף חוויה',
           ),
           leading: IconButton(
             tooltip: 'חזרה',
@@ -1940,7 +1942,9 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                     ),
                     SizedBox(height: 6),
                     Text(
-                      'תעד את החוויה שלך',
+                      widget.sourceVisit != null
+                          ? 'הדירוג והביקורת שלך בביקור המשותף'
+                          : 'תעד את החוויה שלך',
                       style: TextStyle(
                         fontSize: 15,
                         color: AppColors.muted,
@@ -1959,7 +1963,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                       const Padding(
                         padding: EdgeInsets.only(bottom: 20),
                         child: Text(
-                            'החוויה האישית שלך מאותו ביקור. הדירוג, התמונות והטקסט הם שלך בלבד.',
+                            'הביקור משותף, אבל הדירוג, התמונות והטקסט כאן הם שלך בלבד.',
                             style: TextStyle(color: AppColors.champagne)),
                       ),
                     _textField(

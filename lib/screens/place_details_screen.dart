@@ -389,7 +389,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
             'id, place_id, user_id, visit_date, notes, rating, food, food_price, total_price, price_level, '
             'drink, drink_price, image_url, food_rating, drink_rating, '
             'atmosphere_rating, service_rating, cleanliness_rating, '
-            'variety_rating, value_rating, created_at, '
+            'variety_rating, value_rating, created_at, outing_id, source_visit_id, is_shared_response, '
             'profiles(display_name, avatar_url), '
             'visit_tag_links(tag_id, visit_tags(name, icon)), '
             'visit_images(id, image_url, sort_order)',
@@ -1111,8 +1111,36 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
       );
     }
 
+    final grouped = <String, List<Map<String, dynamic>>>{};
+    for (final visit in _visits) {
+      final key = visit['outing_id']?.toString() ?? visit['id'].toString();
+      grouped.putIfAbsent(key, () => []).add(visit);
+    }
+
     return Column(
-      children: _visits.map((visit) {
+      children: grouped.values.map((outing) {
+        if (outing.length > 1) {
+          return _SharedOutingReviews(
+            visits: outing,
+            reviewBuilder: (visit) => VisitCard(
+              visit: visit,
+              place: widget.place,
+              groupedReview: true,
+              officialReply: _officialReplies[visit['id']?.toString()]?['body']
+                  ?.toString(),
+              canReply: _canReplyOfficially,
+              onReply: () => _editOfficialReply(visit),
+              canDeleteOfficialReply: Permissions.canManageContent ||
+                  _officialReplies[visit['id']?.toString()]?['created_by']
+                          ?.toString() ==
+                      Supabase.instance.client.auth.currentUser?.id,
+              onDeleteOfficialReply: () =>
+                  _deleteOfficialReply(visit['id'].toString()),
+              onChanged: _reloadVisits,
+            ),
+          );
+        }
+        final visit = outing.single;
         return VisitCard(
           visit: visit,
           place: widget.place,
@@ -1126,17 +1154,66 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                   Supabase.instance.client.auth.currentUser?.id,
           onDeleteOfficialReply: () =>
               _deleteOfficialReply(visit['id'].toString()),
-          onChanged: () async {
-            if (!mounted) return;
-
-            setState(() {
-              _loadingVisits = true;
-            });
-
-            await _loadVisits();
-          },
+          onChanged: _reloadVisits,
         );
       }).toList(),
+    );
+  }
+
+  Future<void> _reloadVisits() async {
+    if (!mounted) return;
+    setState(() => _loadingVisits = true);
+    await _loadVisits();
+  }
+}
+
+class _SharedOutingReviews extends StatelessWidget {
+  const _SharedOutingReviews({
+    required this.visits,
+    required this.reviewBuilder,
+  });
+
+  final List<Map<String, dynamic>> visits;
+  final Widget Function(Map<String, dynamic> visit) reviewBuilder;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.fromLTRB(12, 14, 12, 4),
+      decoration: BoxDecoration(
+        color: AppColors.surface.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.champagne.withValues(alpha: 0.22),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'ביקור משותף',
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            '${visits.length} משתתפים · ביקורת נפרדת לכל אחד',
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              color: AppColors.textMuted,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 12),
+          for (final visit in visits) reviewBuilder(visit),
+        ],
+      ),
     );
   }
 }

@@ -34,6 +34,7 @@ import 'admin_notifications_screen.dart';
 import 'place_details_screen.dart';
 import 'public_profile_screen.dart';
 import 'add_visit_screen.dart';
+import 'following_feed_screen.dart';
 
 class PlaceCategory {
   final String id;
@@ -911,6 +912,13 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
               case 'category_order':
                 if (!_editingOrder) _toggleCategoryOrderEditing();
                 break;
+              case 'following_feed':
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const FollowingFeedScreen(),
+                  ),
+                );
+                break;
               case 'profile':
                 _openProfile();
                 break;
@@ -985,6 +993,30 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                 !(Supabase.instance.client.auth.currentUser?.isAnonymous ??
                     true)) ...[
               const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'following_feed',
+                child: Row(
+                  children: [
+                    Icon(Icons.people_alt_outlined),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('מה חדש אצל נעקבים'),
+                          Text(
+                            'חוויות חדשות של אנשים שבחרת לעקוב אחריהם',
+                            style: TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               const PopupMenuItem(
                 value: 'advanced_filter',
                 child: Row(
