@@ -7,7 +7,6 @@ import '../../../core/services/registration_service.dart';
 import '../../../theme/colors.dart';
 import '../widgets/auth_brand_hero.dart';
 import '../widgets/auth_brand_divider.dart';
-import '../widgets/google_auth_button.dart';
 
 class RegisterScreen extends StatefulWidget {
   final VoidCallback? onAuthSuccess;
@@ -74,8 +73,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  Future<void> _googleStarted() async {
+  Future<void> _registerWithGoogle() async {
     if (_loading) return;
+
     final referralCode = _referralCodeController.text.trim();
     if (referralCode.isNotEmpty) {
       await _saveReferralCodeForLater(referralCode);
@@ -86,23 +86,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _error = null;
       _message = null;
     });
-  }
 
-  Future<void> _googleAuthenticated() async {
-    final referralCode = _referralCodeController.text.trim();
     try {
+      await _authService.signInWithGoogle();
       await _applyReferralCodeIfPossible(referralCode);
-    } catch (_) {}
-    widget.onAuthSuccess?.call();
-  }
+    } catch (_) {
+      if (!mounted) return;
 
-  void _googleError(Object error) {
-    debugPrint('GOOGLE REGISTRATION ERROR: $error');
-    if (!mounted) return;
-    setState(() {
-      _loading = false;
-      _error = 'ההרשמה עם Google נכשלה';
-    });
+      setState(() {
+        _loading = false;
+        _error = 'ההרשמה עם Google נכשלה';
+      });
+    }
   }
 
   Future<void> _register() async {
@@ -275,13 +270,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        GoogleAuthButton(
-                          label: 'הרשמה עם Google',
-                          loading: _loading,
-                          signUp: true,
-                          onStarted: _googleStarted,
-                          onAuthenticated: _googleAuthenticated,
-                          onError: _googleError,
+                        SizedBox(
+                          height: 50,
+                          child: OutlinedButton(
+                            onPressed: _loading ? null : _registerWithGoogle,
+                            child: const Text(
+                              'הרשמה עם Google',
+                              style: TextStyle(fontSize: 15),
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 24),
                         const Row(

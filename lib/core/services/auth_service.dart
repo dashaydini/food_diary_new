@@ -1,15 +1,10 @@
 import 'package:flutter/foundation.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthService {
   static const _localGuestKey = 'local_guest_mode';
-  static const googleWebClientId =
-      '188806948323-uabt3bsesl0l7l3j1ci8b1fkrlp0i3bu.apps.googleusercontent.com';
   static bool _localGuestMode = false;
-  static final GoogleSignIn googleSignIn = GoogleSignIn.instance;
-  static Future<void>? _googleInitialization;
 
   final SupabaseClient _supabase = Supabase.instance.client;
 
@@ -18,13 +13,6 @@ class AuthService {
   bool get isGuest => currentUser?.isAnonymous ?? _localGuestMode;
 
   static bool get isLocalGuest => _localGuestMode;
-
-  static Future<void> initializeGoogleSignIn() {
-    return _googleInitialization ??= googleSignIn.initialize(
-      clientId: kIsWeb ? googleWebClientId : null,
-      serverClientId: kIsWeb ? null : googleWebClientId,
-    );
-  }
 
   static Future<void> initializeGuestMode() async {
     final prefs = await SharedPreferences.getInstance();
@@ -154,25 +142,18 @@ class AuthService {
 
   Future<void> signInWithGoogle() async {
     await clearLocalGuestMode();
-    await initializeGoogleSignIn();
-    if (kIsWeb) {
-      throw UnsupportedError(
-        'Google web sign-in must start from the official Google button.',
-      );
-    }
-    final account = await googleSignIn.authenticate();
-    await completeGoogleSignIn(account);
-  }
+    final redirectTo = kIsWeb
+        ? '${Uri.base.origin}${Uri.base.path}'
+        : 'fooddiary://login-callback';
 
-  Future<void> completeGoogleSignIn(GoogleSignInAccount account) async {
-    await clearLocalGuestMode();
-    final idToken = account.authentication.idToken;
-    if (idToken == null || idToken.isEmpty) {
-      throw const AuthException('Google לא החזירה אסימון התחברות');
-    }
-    await _supabase.auth.signInWithIdToken(
-      provider: OAuthProvider.google,
-      idToken: idToken,
+    await _supabase.auth.signInWithOAuth(
+      OAuthProvider.google,
+      redirectTo: redirectTo,
+      queryParams: {
+        'prompt': 'select_account',
+      },
+      authScreenLaunchMode:
+          kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
     );
   }
 
@@ -216,11 +197,5 @@ class AuthService {
   Future<void> signOut() async {
     await clearLocalGuestMode();
     await _supabase.auth.signOut();
-    try {
-      await initializeGoogleSignIn();
-      await googleSignIn.signOut();
-    } catch (_) {
-      // Supabase sign-out succeeded; Google SDK cleanup is best-effort.
-    }
   }
 }

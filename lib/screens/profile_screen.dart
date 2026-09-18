@@ -4,8 +4,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../core/services/auth_service.dart';
 import '../features/authentication/screens/login_screen.dart';
-import '../features/authentication/widgets/google_auth_button.dart';
 import '../utils/image_upload_policy.dart';
 import '../utils/supabase_image_url.dart';
 import 'followers_list_screen.dart';
@@ -22,6 +22,8 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final _displayNameController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
+  final AuthService _authService = AuthService();
+
   String? _avatarUrl;
   bool _uploadingAvatar = false;
 
@@ -360,19 +362,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _googleLoginStarted() async {
-    if (mounted) setState(() => _loggingIn = true);
-  }
+  Future<void> _googleLogin() async {
+    if (_loggingIn) return;
 
-  Future<void> _googleLoginCompleted() async {}
+    setState(() {
+      _loggingIn = true;
+    });
 
-  void _googleLoginFailed(Object error) {
-    debugPrint('GOOGLE PROFILE LOGIN ERROR: $error');
-    if (!mounted) return;
-    setState(() => _loggingIn = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('ההתחברות עם Google נכשלה')),
-    );
+    try {
+      await _authService.signInWithGoogle();
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _loggingIn = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ההתחברות עם Google נכשלה'),
+        ),
+      );
+    }
   }
 
   Widget _buildAvatar({bool editable = true}) {
@@ -738,12 +749,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                GoogleAuthButton(
-                  label: 'התחברות עם Google',
-                  loading: _loggingIn,
-                  onStarted: _googleLoginStarted,
-                  onAuthenticated: _googleLoginCompleted,
-                  onError: _googleLoginFailed,
+                SizedBox(
+                  height: 50,
+                  child: FilledButton.icon(
+                    onPressed: _loggingIn ? null : _googleLogin,
+                    icon: const Icon(
+                      Icons.g_mobiledata,
+                      size: 28,
+                    ),
+                    label: const Text(
+                      'התחברות עם Google',
+                      style: TextStyle(fontSize: 15),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 20),
                 _buildLogoutButton(),
