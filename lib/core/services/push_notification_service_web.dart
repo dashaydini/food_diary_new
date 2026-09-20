@@ -16,6 +16,10 @@ class PushNotificationService {
   static const vapidPublicKey =
       'BKSEMdCoF6M2af4dfsiNHrhmld1jNoGmffoKd_m6iTqQ4_CZTEmrq-DPvfhP0BED4E5JsEYTDxtWaL4G4ibRx7c';
 
+  static Future<void> initialize() async {}
+  static Future<Uri?> initialLink() async => Uri.base;
+  static Stream<Uri> get openedLinks => const Stream.empty();
+
   static Future<bool> isSupported() async =>
       (await _isSupportedJs().toDart).toDart;
 

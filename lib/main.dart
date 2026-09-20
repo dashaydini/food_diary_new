@@ -1,9 +1,12 @@
 import 'dart:async';
 
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'core/services/premium_service.dart';
+import 'core/services/push_notification_service.dart';
 import 'core/services/auth_service.dart';
 import 'core/services/registration_service.dart';
 import 'core/services/privacy_consent_service.dart';
@@ -21,6 +24,12 @@ import 'utils/permissions.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Initialize the Android Firebase app for native services. Web push keeps
+  // its existing service-worker implementation.
+  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+    await Firebase.initializeApp();
+  }
+
   // Preserve invitation links before OAuth initialization can consume the URL.
   try {
     await RegistrationService.captureInvitation(Uri.base);
@@ -33,6 +42,7 @@ Future<void> main() async {
       authFlowType: AuthFlowType.pkce,
     ),
   );
+  await PushNotificationService.initialize();
 
   await AuthService.initializeGuestMode();
   await PrivacyConsentService.initialize();

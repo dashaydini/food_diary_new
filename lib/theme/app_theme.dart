@@ -317,13 +317,13 @@ class AppTheme {
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return AppColors.champagne;
+            return AppColors.success;
           }
           return AppColors.textMuted;
         }),
         trackColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return AppColors.champagne.withValues(alpha: 0.28);
+            return AppColors.success.withValues(alpha: 0.34);
           }
           return AppColors.cardBorder;
         }),

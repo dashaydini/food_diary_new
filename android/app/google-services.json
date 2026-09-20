@@ -1,0 +1,90 @@
+{
+  "project_info": {
+    "project_number": "188806948323",
+    "project_id": "foodiary-91a6b",
+    "storage_bucket": "foodiary-91a6b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:188806948323:android:3f01cb319c1c3644002cd6",
+        "android_client_info": {
+          "package_name": "com.dashay.bitetheway"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "188806948323-uabt3bsesl0l7l3j1ci8b1fkrlp0i3bu.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCBzDwKlQKmpfwM78qio4-tWfD3JBa9Ax8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "188806948323-uabt3bsesl0l7l3j1ci8b1fkrlp0i3bu.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "188806948323-13cflnq466ha60k1pv2d5sm0q49se62v.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.foodDiary"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:188806948323:android:fb25288f70f34a99002cd6",
+        "android_client_info": {
+          "package_name": "com.example.food_diary"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "188806948323-n16g4e517qn0ub3s7b04ug7m51eqce8f.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.food_diary",
+            "certificate_hash": "3fe40fa13195894d829f9a350d1ae5ec3c4da255"
+          }
+        },
+        {
+          "client_id": "188806948323-uabt3bsesl0l7l3j1ci8b1fkrlp0i3bu.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCBzDwKlQKmpfwM78qio4-tWfD3JBa9Ax8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "188806948323-uabt3bsesl0l7l3j1ci8b1fkrlp0i3bu.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "188806948323-13cflnq466ha60k1pv2d5sm0q49se62v.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.foodDiary"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

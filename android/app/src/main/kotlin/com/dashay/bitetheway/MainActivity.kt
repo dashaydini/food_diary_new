@@ -1,4 +1,4 @@
-package com.example.food_diary
+package com.dashay.bitetheway
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/content_filter.dart';
 import '../core/services/app_install_service.dart';
 import '../core/services/privacy_consent_service.dart';
+import '../core/services/push_notification_service.dart';
 import '../core/services/shared_visit_service.dart';
 import '../theme/colors.dart';
 import '../theme/app_icons.dart';
@@ -71,6 +72,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
   String? _error;
   String _greetingName = 'אורח';
   StreamSubscription<AuthState>? _authSubscription;
+  StreamSubscription<Uri>? _pushLinkSubscription;
   bool _handledInitialLink = false;
   bool _handledInstallOffer = false;
   bool _hasManagedPlaces = false;
@@ -94,6 +96,9 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
       _loadGreeting();
       _loadManagerAccess();
       _loadAdExperiment();
+    });
+    _pushLinkSubscription = PushNotificationService.openedLinks.listen((link) {
+      if (mounted) unawaited(_openLink(link));
     });
   }
 
@@ -206,7 +211,13 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
   Future<void> _openInitialLink() async {
     if (!mounted || _handledInitialLink) return;
     _handledInitialLink = true;
-    final target = Uri.base.queryParameters['open'];
+    final nativeLink = await PushNotificationService.initialLink();
+    if (!mounted) return;
+    await _openLink(nativeLink ?? Uri.base);
+  }
+
+  Future<void> _openLink(Uri link) async {
+    final target = link.queryParameters['open'];
     switch (target) {
       case 'coupons':
         await Navigator.of(context).push(
@@ -221,7 +232,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
         );
         return;
       case 'manager-experience':
-        final placeId = Uri.base.queryParameters['place_id'];
+        final placeId = link.queryParameters['place_id'];
         if (placeId == null || placeId.isEmpty) return;
         try {
           final place = await Supabase.instance.client
@@ -245,7 +256,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
         return;
       case 'tagged-experience':
       case 'experience':
-        final visitId = Uri.base.queryParameters['visit_id'];
+        final visitId = link.queryParameters['visit_id'];
         if (visitId == null || visitId.isEmpty) return;
         try {
           final service = SharedVisitService(Supabase.instance.client);
@@ -268,14 +279,14 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
         } catch (_) {}
         return;
       case 'user-profile':
-        final userId = Uri.base.queryParameters['user_id'];
+        final userId = link.queryParameters['user_id'];
         if (userId == null || userId.isEmpty) return;
         await Navigator.of(context).push(MaterialPageRoute(
           builder: (_) => PublicProfileScreen(userId: userId),
         ));
         return;
       case 'place':
-        final placeId = Uri.base.queryParameters['place_id'];
+        final placeId = link.queryParameters['place_id'];
         if (placeId == null || placeId.isEmpty) return;
         try {
           final place = await Supabase.instance.client
@@ -307,6 +318,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
   @override
   void dispose() {
     _authSubscription?.cancel();
+    _pushLinkSubscription?.cancel();
     super.dispose();
   }
 

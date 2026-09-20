@@ -4,7 +4,7 @@
       "android": {
         "default": {
           "projectId": "foodiary-91a6b",
-          "appId": "1:188806948323:android:fb25288f70f34a99002cd6",
+          "appId": "1:188806948323:android:3f01cb319c1c3644002cd6",
           "fileOutput": "android/app/google-services.json"
         }
       },
@@ -28,7 +28,7 @@
         "lib/firebase_options.dart": {
           "projectId": "foodiary-91a6b",
           "configurations": {
-            "android": "1:188806948323:android:fb25288f70f34a99002cd6",
+            "android": "1:188806948323:android:3f01cb319c1c3644002cd6",
             "ios": "1:188806948323:ios:5476f939f1ae4401002cd6",
             "macos": "1:188806948323:ios:db5b3492ecec65ff002cd6",
             "web": "1:188806948323:web:45836b22055f7b89002cd6",

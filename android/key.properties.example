@@ -1,0 +1,7 @@
+# Copy to android/key.properties after creating and securely backing up your
+# Google Play upload keystore. This example contains no real credentials.
+# Use an absolute path for storeFile.
+storeFile=/absolute/path/to/upload-key.jks
+storePassword=REPLACE_WITH_PRIVATE_PASSWORD
+keyAlias=upload
+keyPassword=REPLACE_WITH_PRIVATE_PASSWORD

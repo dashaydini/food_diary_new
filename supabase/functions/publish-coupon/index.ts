@@ -1,5 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.57.4'
-import webpush from 'npm:web-push@3.6.7'
+import { sendPushNotification } from '../_shared/push.ts'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -40,11 +40,6 @@ Deno.serve(async (req) => {
     let sent = 0
     let failed = 0
     if (send_push === true) {
-      const publicKey = Deno.env.get('VAPID_PUBLIC_KEY')!
-      const privateKey = Deno.env.get('VAPID_PRIVATE_KEY')!
-      const subject = Deno.env.get('VAPID_SUBJECT') || 'mailto:notifications@bitetheway.app'
-      webpush.setVapidDetails(subject, publicKey, privateKey)
-
       const { data: subscriptions, error: subError } = await admin.from('push_subscriptions').select('id,user_id,subscription')
       if (subError) throw subError
       const userIds = [...new Set((subscriptions ?? []).map((row) => row.user_id).filter(Boolean))]
@@ -84,15 +79,15 @@ Deno.serve(async (req) => {
       const body = typeof push_body === 'string' && push_body.trim()
         ? push_body.trim().slice(0, 180)
         : `${coupon.title} — ${coupon.business_name}`
-      const payload = JSON.stringify({
+      const payload = {
         title,
         body,
         tag: `coupon-${coupon.id}`,
         url: '/?open=coupons',
-      })
+      }
       for (const row of eligibleSubscriptions) {
         try {
-          await webpush.sendNotification(row.subscription, payload)
+          await sendPushNotification(row.subscription, payload)
           sent++
         } catch (error) {
           failed++
