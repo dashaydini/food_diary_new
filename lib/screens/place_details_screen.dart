@@ -18,6 +18,8 @@ import '../widgets/home_button.dart';
 import '../widgets/visit_card.dart';
 import '../widgets/place_image_gallery.dart';
 import '../widgets/navigation_app_picker.dart';
+import '../widgets/premium_preview_dialog.dart';
+import '../core/services/premium_service.dart';
 
 class PlaceDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> place;
@@ -312,11 +314,19 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
     final value = !_isFavorite;
 
     setState(() {
-      _isFavorite = value;
       _savingFavorite = true;
     });
 
     try {
+      if (value && !await _hasFreeSavedPlaceCapacity('is_favorite')) {
+        await _showSavedPlacesUpgrade(
+          featureName: 'המועדפים',
+          benefit:
+              'כבר בנית רשימה נהדרת. ב־Premium אפשר להמשיך לשמור את כל המקומות שאהבת, בלי לבחור על מה לוותר.',
+        );
+        return;
+      }
+      if (mounted) setState(() => _isFavorite = value);
       await _savePreferences(
         isFavorite: value,
         isWishlist: _isWishlist,
@@ -328,10 +338,16 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
         _isFavorite = !value;
       });
 
+      if (e.toString().contains('free_favorites_limit')) {
+        await _showSavedPlacesUpgrade(
+          featureName: 'המועדפים',
+          benefit:
+              'כבר בנית רשימה נהדרת. ב־Premium אפשר להמשיך לשמור את כל המקומות שאהבת, בלי לבחור על מה לוותר.',
+        );
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('לא ניתן לעדכן מועדפים: $e'),
-        ),
+        const SnackBar(content: Text('לא ניתן לעדכן מועדפים כרגע')),
       );
     } finally {
       if (mounted) {
@@ -348,11 +364,19 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
     final value = !_isWishlist;
 
     setState(() {
-      _isWishlist = value;
       _savingWishlist = true;
     });
 
     try {
+      if (value && !await _hasFreeSavedPlaceCapacity('is_wishlist')) {
+        await _showSavedPlacesUpgrade(
+          featureName: 'רשימת המשאלות',
+          benefit:
+              'יש עוד מקומות ששווה לזכור. ב־Premium רשימת המשאלות נשארת פתוחה לכל רעיון ולכל ביקור עתידי.',
+        );
+        return;
+      }
+      if (mounted) setState(() => _isWishlist = value);
       await _savePreferences(
         isFavorite: _isFavorite,
         isWishlist: value,
@@ -364,9 +388,17 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
         _isWishlist = !value;
       });
 
+      if (e.toString().contains('free_wishlist_limit')) {
+        await _showSavedPlacesUpgrade(
+          featureName: 'רשימת המשאלות',
+          benefit:
+              'יש עוד מקומות ששווה לזכור. ב־Premium רשימת המשאלות נשארת פתוחה לכל רעיון ולכל ביקור עתידי.',
+        );
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('לא ניתן לעדכן Wishlist: $e'),
+        const SnackBar(
+          content: Text('לא ניתן לעדכן את רשימת המשאלות כרגע'),
         ),
       );
     } finally {
@@ -376,6 +408,35 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
         });
       }
     }
+  }
+
+  Future<bool> _hasFreeSavedPlaceCapacity(String field) async {
+    await PremiumService.refresh();
+    if (PremiumService.isPremium) return true;
+
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null || user.isAnonymous) return false;
+
+    final rows = await Supabase.instance.client
+        .from('user_place_preferences')
+        .select('place_id')
+        .eq('user_id', user.id)
+        .eq(field, true)
+        .limit(5);
+    return rows.length < 5;
+  }
+
+  Future<void> _showSavedPlacesUpgrade({
+    required String featureName,
+    required String benefit,
+  }) async {
+    final action = await showPremiumPreviewDialog(
+      context,
+      featureName: featureName,
+      benefit: benefit,
+    );
+    if (!mounted || action != PremiumPreviewAction.upgrade) return;
+    await openPremiumUpgrade(context, sourceFeature: featureName);
   }
 
   Future<void> _loadVisits() async {

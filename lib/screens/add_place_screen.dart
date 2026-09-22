@@ -489,17 +489,15 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
 
   Future<Map<String, dynamic>?> _checkForExistingPlace(
     String name,
-    String categoryId,
+    String? excludingPlaceId,
   ) async {
-    final normalizedName = name.trim().toLowerCase();
+    final normalizedName = _normalizePlaceName(name);
 
-    final rows = await Supabase.instance.client
-        .from('places')
-        .select()
-        .eq('category_id', categoryId);
+    final rows = await Supabase.instance.client.from('places').select();
 
     for (final row in (rows as List)) {
-      final existingName = (row['name'] as String?)?.trim().toLowerCase();
+      if (row['id']?.toString() == excludingPlaceId) continue;
+      final existingName = _normalizePlaceName(row['name']?.toString() ?? '');
 
       if (existingName == normalizedName) {
         return Map<String, dynamic>.from(row);
@@ -508,6 +506,9 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
 
     return null;
   }
+
+  String _normalizePlaceName(String value) =>
+      value.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
 
   Future<void> _savePlace() async {
     if (!_formKey.currentState!.validate()) return;
@@ -555,6 +556,23 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       final isEditing = existingPlace != null;
       final placeId = isEditing ? existingPlace['id'].toString() : Uuid().v4();
 
+      final duplicate = await _checkForExistingPlace(
+        _nameController.text,
+        isEditing ? placeId : null,
+      );
+
+      if (duplicate != null) {
+        await _showDuplicatePlaceDialog(duplicate);
+
+        if (mounted) {
+          setState(() {
+            _saving = false;
+          });
+        }
+
+        return;
+      }
+
       String? imageUrl = existingPlace?['image_url']?.toString();
 
       if (_selectedImage != null) {
@@ -582,25 +600,6 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
 
         imageUrl =
             '${client.storage.from('place-images').getPublicUrl(filePath)}?v=${DateTime.now().millisecondsSinceEpoch}';
-      }
-
-      if (!isEditing) {
-        final duplicate = await _checkForExistingPlace(
-          _nameController.text.trim(),
-          widget.categoryId,
-        );
-
-        if (duplicate != null) {
-          await _showDuplicatePlaceDialog(duplicate);
-
-          if (mounted) {
-            setState(() {
-              _saving = false;
-            });
-          }
-
-          return;
-        }
       }
 
       final data = {
@@ -633,7 +632,9 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
       if (e is StorageException) {
         message = 'שגיאת Storage (${e.statusCode}): ${e.message}';
       } else if (e is PostgrestException) {
-        message = 'שגיאת מסד נתונים: ${e.message}';
+        message = e.message.contains('duplicate_place_name')
+            ? 'כבר קיים באפליקציה מקום בשם הזה'
+            : 'שגיאת מסד נתונים: ${e.message}';
       } else {
         message = e.toString();
       }
@@ -664,7 +665,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
             textAlign: TextAlign.right,
           ),
           content: Text(
-            'המקום "${existingPlace['name'] ?? ''}" כבר קיים בקטגוריה הזו.',
+            'המקום "${existingPlace['name'] ?? ''}" כבר קיים באפליקציה. אפשר לעבור אליו ולהוסיף חוויה במקום לפתוח אותו שוב.',
             textAlign: TextAlign.right,
           ),
           actionsAlignment: MainAxisAlignment.end,

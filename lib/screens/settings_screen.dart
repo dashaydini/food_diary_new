@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/colors.dart';
 import '../utils/app_preferences.dart';
 import '../core/services/push_notification_service.dart';
+import '../core/services/premium_service.dart';
 import '../core/services/user_preferences_service.dart';
 import '../widgets/home_button.dart';
 import 'legal_screens.dart';
@@ -52,6 +54,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _checkingLocation = true;
   bool _locationFeaturesEnabled = true;
   bool _changingLocationPreference = false;
+  String _versionLabel = 'טוען גרסה…';
+  bool _previewAsFree = PremiumService.previewAsFree;
 
   @override
   void initState() {
@@ -65,6 +69,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       AppPreferences.maximumRouteDetourKm(),
       AppPreferences.routeCategoryIds(),
       AppPreferences.locationFeaturesEnabled(),
+      PackageInfo.fromPlatform(),
     ]);
 
     if (!mounted) return;
@@ -73,6 +78,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _maximumRouteDetourKm = values[1] as double;
       _selectedCategoryIds = values[2] as Set<String>;
       _locationFeaturesEnabled = values[3] as bool;
+      final packageInfo = values[4] as PackageInfo;
+      _versionLabel =
+          'גרסה ${packageInfo.version} (${packageInfo.buildNumber})';
       _loading = false;
     });
 
@@ -723,16 +731,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ),
                       const SizedBox(height: 14),
+                      if (PremiumService.isAdmin) ...[
+                        _section(
+                          title: 'בדיקות מנהל',
+                          child: SwitchListTile.adaptive(
+                            contentPadding: EdgeInsets.zero,
+                            value: _previewAsFree,
+                            secondary: const Icon(Icons.science_outlined),
+                            title: const Text('תצוגה כמשתמש חינמי'),
+                            subtitle: const Text(
+                              'מציג מגבלות והצעות Premium בלי לשנות את הרשאות המנהל או את החשבון',
+                            ),
+                            onChanged: (enabled) {
+                              PremiumService.setAdminFreePreview(enabled);
+                              setState(() => _previewAsFree = enabled);
+                              _showMessage(enabled
+                                  ? 'מצב בדיקה חינמי הופעל'
+                                  : 'חזרת לתצוגת מנהל מלאה');
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                      ],
                       _section(
                         title: 'אודות',
                         child: Column(
                           children: [
-                            const ListTile(
+                            ListTile(
                               contentPadding: EdgeInsets.zero,
-                              leading: Icon(Icons.info_outline),
-                              title: Text('BITE THE WAY'),
+                              leading: const Icon(Icons.info_outline),
+                              title: const Text('BITE THE WAY'),
                               subtitle: Text(
-                                'גרסה 1.0.0 (1) · בעלים: SHAY DINI',
+                                '$_versionLabel · בעלים: SHAY DINI',
                               ),
                             ),
                             const Divider(),

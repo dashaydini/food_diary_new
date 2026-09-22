@@ -7,6 +7,7 @@ import '../core/services/shared_visit_service.dart';
 import '../theme/colors.dart';
 import '../utils/image_upload_policy.dart';
 import 'visit_card.dart';
+import 'half_star_rating.dart';
 
 class SharedVisitPanel extends StatefulWidget {
   const SharedVisitPanel(
@@ -31,7 +32,7 @@ class _SharedVisitPanelState extends State<SharedVisitPanel> {
   bool _loading = true;
   bool _busy = false;
   bool _editing = false;
-  int _rating = 0;
+  double _rating = 0;
   final _notes = TextEditingController();
   final _extraFood = TextEditingController();
   final _extraDrink = TextEditingController();
@@ -86,7 +87,7 @@ class _SharedVisitPanelState extends State<SharedVisitPanel> {
     if (_source == null || _busy) return;
     final own = _own;
     setState(() {
-      _rating = ((own?['rating'] as num?)?.round() ?? 0).clamp(0, 5);
+      _rating = ((own?['rating'] as num?)?.toDouble() ?? 0).clamp(0, 5);
       _notes.text = own?['notes']?.toString() ?? '';
       _extraFood.text = own?['food']?.toString() ?? '';
       _extraDrink.text = own?['drink']?.toString() ?? '';
@@ -299,19 +300,30 @@ class _SharedVisitPanelState extends State<SharedVisitPanel> {
               style: TextStyle(color: AppColors.textMuted, fontSize: 12)),
           const SizedBox(height: 12),
           const Text('הדירוג שלי', textAlign: TextAlign.right),
-          Wrap(alignment: WrapAlignment.end, children: [
-            for (var value = 1; value <= 5; value++)
-              IconButton(
-                key: ValueKey('shared-rating-$value'),
-                tooltip: '$value כוכבים',
-                onPressed: _busy ? null : () => setState(() => _rating = value),
-                icon: Icon(
-                    value <= _rating
-                        ? Icons.star_rounded
-                        : Icons.star_border_rounded,
-                    color: AppColors.champagne),
+          Align(
+            alignment: Alignment.centerRight,
+            child: HalfStarRating(
+              key: const ValueKey('shared-half-star-rating'),
+              value: _rating,
+              size: 34,
+              spacing: 5,
+              keyPrefix: 'shared-rating',
+              onChanged:
+                  _busy ? null : (value) => setState(() => _rating = value),
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              _rating == 0
+                  ? 'בחרו דירוג בחצאי כוכבים'
+                  : '${_rating.toStringAsFixed(1)} מתוך 5',
+              style: const TextStyle(
+                color: AppColors.textMuted,
+                fontSize: 11.5,
               ),
-          ]),
+            ),
+          ),
           TextField(
             controller: _notes,
             maxLines: 3,

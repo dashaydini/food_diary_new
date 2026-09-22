@@ -11,6 +11,7 @@ import '../theme/colors.dart';
 import 'public_profile_screen.dart';
 import '../widgets/visit_image_gallery.dart';
 import '../widgets/shared_visit_panel.dart';
+import '../widgets/half_star_rating.dart';
 import '../core/services/shared_visit_service.dart';
 import '../core/services/notification_dispatch_service.dart';
 import '../utils/image_upload_policy.dart';
@@ -64,13 +65,13 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
 
   DateTime _visitDate = DateTime.now();
 
-  int _foodRating = 0;
-  int _drinkRating = 0;
-  int _atmosphereRating = 0;
-  int _serviceRating = 0;
-  int _cleanlinessRating = 0;
-  int _varietyRating = 0;
-  int _valueRating = 0;
+  double _foodRating = 0;
+  double _drinkRating = 0;
+  double _atmosphereRating = 0;
+  double _serviceRating = 0;
+  double _cleanlinessRating = 0;
+  double _varietyRating = 0;
+  double _valueRating = 0;
 
   bool _loadingTags = true;
   bool _saving = false;
@@ -112,13 +113,13 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
       _visitDate = visitDate;
     }
 
-    _foodRating = (visit['food_rating'] as num?)?.toInt() ?? 0;
-    _drinkRating = (visit['drink_rating'] as num?)?.toInt() ?? 0;
-    _atmosphereRating = (visit['atmosphere_rating'] as num?)?.toInt() ?? 0;
-    _serviceRating = (visit['service_rating'] as num?)?.toInt() ?? 0;
-    _cleanlinessRating = (visit['cleanliness_rating'] as num?)?.toInt() ?? 0;
-    _varietyRating = (visit['variety_rating'] as num?)?.toInt() ?? 0;
-    _valueRating = (visit['value_rating'] as num?)?.toInt() ?? 0;
+    _foodRating = (visit['food_rating'] as num?)?.toDouble() ?? 0;
+    _drinkRating = (visit['drink_rating'] as num?)?.toDouble() ?? 0;
+    _atmosphereRating = (visit['atmosphere_rating'] as num?)?.toDouble() ?? 0;
+    _serviceRating = (visit['service_rating'] as num?)?.toDouble() ?? 0;
+    _cleanlinessRating = (visit['cleanliness_rating'] as num?)?.toDouble() ?? 0;
+    _varietyRating = (visit['variety_rating'] as num?)?.toDouble() ?? 0;
+    _valueRating = (visit['value_rating'] as num?)?.toDouble() ?? 0;
 
     final links =
         (visit['visit_tag_links'] as List?)?.cast<Map<String, dynamic>>() ?? [];
@@ -1427,8 +1428,8 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
 
   Widget _ratingRow(
     String label,
-    int value,
-    ValueChanged<int> onChanged,
+    double value,
+    ValueChanged<double> onChanged,
   ) {
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -1466,37 +1467,11 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                   ),
                 ),
                 const SizedBox(width: 14),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  textDirection: TextDirection.rtl,
-                  children: List.generate(5, (index) {
-                    final starValue = index + 1;
-                    final selected = value >= starValue;
-
-                    return InkWell(
-                      onTap: widget.viewOnly
-                          ? null
-                          : () {
-                              onChanged(starValue);
-                            },
-                      customBorder: const CircleBorder(),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 2,
-                        ),
-                        child: Icon(
-                          selected
-                              ? Icons.star_rounded
-                              : Icons.star_border_rounded,
-                          size: 22,
-                          color: selected
-                              ? AppColors.champagne
-                              : AppColors.textMuted.withValues(alpha: 0.52),
-                        ),
-                      ),
-                    );
-                  }),
+                HalfStarRating(
+                  value: value,
+                  size: 25,
+                  spacing: 4,
+                  onChanged: widget.viewOnly ? null : onChanged,
                 ),
               ],
             ),

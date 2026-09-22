@@ -259,35 +259,54 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     final selection = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: AppColors.surfaceRaised,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const ListTile(
-              title: Text('גישה לפרימיום', textAlign: TextAlign.right),
-            ),
-            for (final option in const [
-              (value: '7d', label: '7 ימים'),
-              (value: '30d', label: '30 ימים'),
-              (value: '90d', label: '90 ימים'),
-              (value: '180d', label: 'חצי שנה'),
-              (value: '365d', label: 'שנה'),
-              (value: 'unlimited', label: 'ללא הגבלת זמן'),
-              (value: 'remove', label: 'הסרת פרימיום'),
-            ])
-              ListTile(
-                leading: Icon(
-                  option.value == 'remove'
-                      ? Icons.remove_circle_outline
-                      : Icons.workspace_premium_outlined,
-                  color: option.value == 'remove'
-                      ? AppColors.danger
-                      : AppColors.champagne,
+      isScrollControlled: true,
+      builder: (sheetContext) => FractionallySizedBox(
+        heightFactor: 0.82,
+        child: SafeArea(
+          child: Column(
+            children: [
+              const ListTile(
+                title: Text(
+                  'גישה לפרימיום',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(fontSize: 19, fontWeight: FontWeight.w600),
                 ),
-                title: Text(option.label, textAlign: TextAlign.right),
-                onTap: () => Navigator.pop(sheetContext, option.value),
+                subtitle: Text(
+                  'בחירת משך ההטבה למשתמש',
+                  textAlign: TextAlign.right,
+                ),
               ),
-          ],
+              const Divider(height: 1),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  children: [
+                    for (final option in const [
+                      (value: '7d', label: '7 ימים'),
+                      (value: '30d', label: '30 ימים'),
+                      (value: '90d', label: '90 ימים'),
+                      (value: '180d', label: 'חצי שנה'),
+                      (value: '365d', label: 'שנה'),
+                      (value: 'unlimited', label: 'ללא הגבלת זמן'),
+                      (value: 'remove', label: 'הסרת פרימיום'),
+                    ])
+                      ListTile(
+                        leading: Icon(
+                          option.value == 'remove'
+                              ? Icons.remove_circle_outline
+                              : Icons.workspace_premium_outlined,
+                          color: option.value == 'remove'
+                              ? AppColors.danger
+                              : AppColors.champagne,
+                        ),
+                        title: Text(option.label, textAlign: TextAlign.right),
+                        onTap: () => Navigator.pop(sheetContext, option.value),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

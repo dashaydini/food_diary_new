@@ -36,6 +36,8 @@ import 'place_details_screen.dart';
 import 'public_profile_screen.dart';
 import 'add_visit_screen.dart';
 import 'following_feed_screen.dart';
+import 'saved_places_screen.dart';
+import 'premium_upgrade_screen.dart';
 
 class PlaceCategory {
   final String id;
@@ -902,8 +904,22 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
           onSelected: (value) {
             switch (value) {
               case 'favorites':
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const SavedPlacesScreen(
+                      filter: ContentFilter.favorites,
+                    ),
+                  ),
+                );
                 break;
               case 'wishlist':
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const SavedPlacesScreen(
+                      filter: ContentFilter.wishlist,
+                    ),
+                  ),
+                );
                 break;
               case 'journal':
                 _openJournal();
@@ -919,6 +935,13 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => const GuidedSearchScreen(),
+                  ),
+                );
+                break;
+              case 'premium':
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const PremiumUpgradeScreen(),
                   ),
                 );
                 break;
@@ -1005,6 +1028,33 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
             if (Supabase.instance.client.auth.currentUser != null &&
                 !(Supabase.instance.client.auth.currentUser?.isAnonymous ??
                     true)) ...[
+              const PopupMenuItem(
+                value: 'premium',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.workspace_premium_rounded,
+                      color: AppColors.champagne,
+                    ),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('BITE THE WAY Premium'),
+                          Text(
+                            'כלים חכמים ושמירה ללא הגבלה',
+                            style: TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               const PopupMenuDivider(),
               const PopupMenuItem(
                 value: 'following_feed',

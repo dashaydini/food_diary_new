@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -10,6 +12,7 @@ import '../theme/app_icons.dart';
 import '../theme/colors.dart';
 import '../widgets/home_button.dart';
 import '../widgets/place_card.dart';
+import '../widgets/premium_preview_dialog.dart';
 import 'place_details_screen.dart';
 
 class GuidedSearchScreen extends StatefulWidget {
@@ -20,7 +23,7 @@ class GuidedSearchScreen extends StatefulWidget {
 }
 
 class _GuidedSearchScreenState extends State<GuidedSearchScreen> {
-  static const _premiumAccessRequired = false;
+  static const _previewDuration = Duration(seconds: 5);
   static const _nearbyRadiusKm = 10.0;
   static const _centralClusterRadiusKm = 1.0;
   static const _centralClusterMinimumNearbyPlaces = 3;
@@ -44,9 +47,8 @@ class _GuidedSearchScreenState extends State<GuidedSearchScreen> {
   bool _searching = false;
   bool _searched = false;
   String? _error;
-
-  bool get _accessAllowed =>
-      !_premiumAccessRequired || PremiumService.isPremium;
+  Timer? _premiumPreviewTimer;
+  bool _premiumPromptShown = false;
 
   bool get _isSignedIn {
     final user = _client.auth.currentUser;
@@ -69,8 +71,42 @@ class _GuidedSearchScreenState extends State<GuidedSearchScreen> {
 
   @override
   void dispose() {
+    _premiumPreviewTimer?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _startPremiumPreview() {
+    if (PremiumService.isPremium || !_isSignedIn || _premiumPromptShown) {
+      return;
+    }
+    _premiumPreviewTimer?.cancel();
+    _premiumPreviewTimer = Timer(_previewDuration, _finishPremiumPreview);
+  }
+
+  Future<void> _finishPremiumPreview() async {
+    if (!mounted || PremiumService.isPremium || _premiumPromptShown) return;
+    _premiumPromptShown = true;
+    final action = await showPremiumPreviewDialog(
+      context,
+      featureName: 'הסינון המתקדם',
+      benefit:
+          'אפשר לשלב מרחק, קטגוריה, אווירה, דירוג ומחיר ולקבל התאמות מדויקות יותר.',
+    );
+    if (!mounted) return;
+
+    if (action == PremiumPreviewAction.upgrade) {
+      await openPremiumUpgrade(
+        context,
+        sourceFeature: 'הסינון המתקדם',
+      );
+      if (!mounted) return;
+      await PremiumService.refresh();
+    }
+
+    if (!PremiumService.isPremium && mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   Future<void> _loadData() async {
@@ -144,6 +180,7 @@ class _GuidedSearchScreenState extends State<GuidedSearchScreen> {
         _loading = false;
         _error = null;
       });
+      _startPremiumPreview();
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -533,14 +570,6 @@ class _GuidedSearchScreenState extends State<GuidedSearchScreen> {
         message: 'האפשרות מבוססת על נתוני המקומות והחוויות באפליקציה.',
       );
     }
-    if (!_accessAllowed) {
-      return const _MessageState(
-        icon: Icons.workspace_premium_outlined,
-        title: 'אפשרות למשתמשי פרימיום',
-        message: 'הסינון המתקדם זמין במסגרת BITE THE WAY Premium.',
-      );
-    }
-
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 920),

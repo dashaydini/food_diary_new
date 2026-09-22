@@ -20,9 +20,7 @@ class _JournalScreenState extends State<JournalScreen> {
   bool _loading = true;
   String? _error;
   int _section = 0;
-  // ignore: unused_field
   List<Map<String, dynamic>> _collections = [];
-  // ignore: unused_field
   bool _collectionsLoading = false;
 
   @override
@@ -113,6 +111,262 @@ class _JournalScreenState extends State<JournalScreen> {
       });
     } catch (e) {
       if (mounted) setState(() => _collectionsLoading = false);
+    }
+  }
+
+  Set<String> _collectionVisitIds(Map<String, dynamic> collection) {
+    final links = collection['journal_collection_visits'];
+    if (links is! List) return <String>{};
+    return {
+      for (final link in links)
+        if (link is Map && link['visit_id'] != null)
+          link['visit_id'].toString(),
+    };
+  }
+
+  Future<String?> _editCollection([Map<String, dynamic>? collection]) async {
+    final nameController = TextEditingController(
+      text: collection?['name']?.toString() ?? '',
+    );
+    final descriptionController = TextEditingController(
+      text: collection?['description']?.toString() ?? '',
+    );
+    String? validationError;
+
+    final save = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(collection == null ? 'אוסף חדש' : 'עריכת אוסף'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                autofocus: true,
+                textAlign: TextAlign.right,
+                maxLength: 60,
+                decoration: InputDecoration(
+                  labelText: 'שם האוסף',
+                  errorText: validationError,
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: descriptionController,
+                textAlign: TextAlign.right,
+                minLines: 2,
+                maxLines: 4,
+                maxLength: 240,
+                decoration: const InputDecoration(
+                  labelText: 'תיאור קצר (לא חובה)',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('ביטול'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (nameController.text.trim().isEmpty) {
+                  setDialogState(() => validationError = 'יש להזין שם לאוסף');
+                  return;
+                }
+                Navigator.pop(dialogContext, true);
+              },
+              child: const Text('שמירה'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    String? savedId;
+    if (save == true) {
+      final user = _client.auth.currentUser;
+      if (user == null || user.isAnonymous) {
+        nameController.dispose();
+        descriptionController.dispose();
+        return null;
+      }
+      final values = {
+        'user_id': user.id,
+        'name': nameController.text.trim(),
+        'description': descriptionController.text.trim().isEmpty
+            ? null
+            : descriptionController.text.trim(),
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      };
+      try {
+        if (collection == null) {
+          final created = await _client
+              .from('journal_collections')
+              .insert(values)
+              .select('id')
+              .single();
+          savedId = created['id']?.toString();
+        } else {
+          await _client
+              .from('journal_collections')
+              .update(values)
+              .eq('id', collection['id'])
+              .eq('user_id', user.id);
+          savedId = collection['id']?.toString();
+        }
+        await _loadCollections();
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('לא ניתן לשמור את האוסף כרגע')),
+          );
+        }
+      }
+    }
+    nameController.dispose();
+    descriptionController.dispose();
+    return savedId;
+  }
+
+  Future<void> _deleteCollection(Map<String, dynamic> collection) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('מחיקת אוסף'),
+        content: Text(
+          'למחוק את „${collection['name']}”? החוויות עצמן יישארו ביומן.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('ביטול'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('מחיקה'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _client
+        .from('journal_collections')
+        .delete()
+        .eq('id', collection['id']);
+    await _loadCollections();
+  }
+
+  Future<void> _manageVisitCollections(Map<String, dynamic> visit) async {
+    final visitId = visit['id']?.toString();
+    if (visitId == null) return;
+    final selected = <String>{
+      for (final collection in _collections)
+        if (_collectionVisitIds(collection).contains(visitId))
+          collection['id'].toString(),
+    };
+    final original = Set<String>.from(selected);
+    while (mounted) {
+      final action = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: const Text('שמירה באוספים'),
+            content: SizedBox(
+              width: 420,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () => Navigator.pop(dialogContext, 'create'),
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('יצירת אוסף חדש'),
+                  ),
+                  const SizedBox(height: 10),
+                  if (_collections.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: Text(
+                        'עדיין אין אוספים. אפשר ליצור את הראשון עכשיו.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: AppColors.textMuted),
+                      ),
+                    )
+                  else
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 300),
+                      child: ListView(
+                        shrinkWrap: true,
+                        children: [
+                          for (final collection in _collections)
+                            CheckboxListTile(
+                              value: selected
+                                  .contains(collection['id'].toString()),
+                              title: Text(
+                                collection['name']?.toString() ?? 'אוסף',
+                              ),
+                              subtitle: Text(
+                                '${_collectionVisitIds(collection).length} חוויות',
+                              ),
+                              onChanged: (value) => setDialogState(() {
+                                final id = collection['id'].toString();
+                                value == true
+                                    ? selected.add(id)
+                                    : selected.remove(id);
+                              }),
+                            ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('ביטול'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, 'save'),
+                child: const Text('שמירה'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (!mounted || action == null) return;
+      if (action == 'create') {
+        final createdId = await _editCollection();
+        if (!mounted) return;
+        if (createdId != null) selected.add(createdId);
+        continue;
+      }
+      if (action == 'save') break;
+    }
+
+    try {
+      for (final collectionId in selected.difference(original)) {
+        await _client.from('journal_collection_visits').upsert({
+          'collection_id': collectionId,
+          'visit_id': visitId,
+        }, onConflict: 'collection_id,visit_id');
+      }
+      for (final collectionId in original.difference(selected)) {
+        await _client
+            .from('journal_collection_visits')
+            .delete()
+            .eq('collection_id', collectionId)
+            .eq('visit_id', visitId);
+      }
+      await _loadCollections();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('לא ניתן לעדכן את האוספים כרגע')),
+        );
+      }
     }
   }
 
@@ -523,6 +777,7 @@ class _JournalScreenState extends State<JournalScreen> {
     const labels = [
       ('ציר זמן', Icons.timeline_rounded),
       ('זיכרונות', Icons.favorite_border_rounded),
+      ('אוספים', Icons.collections_bookmark_outlined),
       ('סטטיסטיקות', Icons.bar_chart_rounded),
     ];
 
@@ -599,6 +854,8 @@ class _JournalScreenState extends State<JournalScreen> {
       case 1:
         return _buildMemories();
       case 2:
+        return _buildCollections();
+      case 3:
         return _buildStatistics();
       default:
         return _buildTimeline(_visits);
@@ -720,6 +977,22 @@ class _JournalScreenState extends State<JournalScreen> {
                           ),
                           const SizedBox(width: 8),
                           IconButton(
+                            onPressed: () => _manageVisitCollections(visit),
+                            tooltip: 'הוספה לאוסף',
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                              minWidth: 30,
+                              minHeight: 30,
+                            ),
+                            icon: Icon(
+                              Icons.collections_bookmark_outlined,
+                              size: 18,
+                              color:
+                                  AppColors.textMuted.withValues(alpha: 0.70),
+                            ),
+                          ),
+                          IconButton(
                             onPressed: () => _toggleMemory(visit),
                             tooltip:
                                 favorite ? 'הסר מזיכרונות' : 'שמור בזיכרונות',
@@ -800,6 +1073,151 @@ class _JournalScreenState extends State<JournalScreen> {
     }
 
     return _buildTimeline(_favorites);
+  }
+
+  Widget _buildCollections() {
+    if (_collectionsLoading) {
+      return const Center(child: CircularProgressIndicator(strokeWidth: 1.5));
+    }
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(2, 4, 2, 42),
+      children: [
+        Align(
+          alignment: Alignment.centerRight,
+          child: FilledButton.icon(
+            onPressed: () => _editCollection(),
+            icon: const Icon(Icons.create_new_folder_outlined),
+            label: const Text('אוסף חדש'),
+          ),
+        ),
+        const SizedBox(height: 14),
+        if (_collections.isEmpty)
+          _empty(
+            'עדיין אין אוספים',
+            'אפשר לארגן חוויות לפי טיולים, ערים, סוגי אוכל או כל נושא שתרצה.',
+          )
+        else
+          for (final collection in _collections) _collectionCard(collection),
+      ],
+    );
+  }
+
+  Widget _collectionCard(Map<String, dynamic> collection) {
+    final visitIds = _collectionVisitIds(collection);
+    final description = collection['description']?.toString().trim() ?? '';
+    return Card(
+      margin: const EdgeInsets.only(bottom: 11),
+      color: AppColors.background,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(17),
+        side: BorderSide(
+          color: AppColors.champagne.withValues(alpha: 0.15),
+        ),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(17),
+        onTap: () => _openCollection(collection),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: AppColors.champagne.withValues(alpha: 0.07),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.collections_bookmark_outlined,
+                  color: AppColors.champagne,
+                ),
+              ),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      collection['name']?.toString() ?? 'אוסף',
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      description.isEmpty
+                          ? '${visitIds.length} חוויות'
+                          : '$description · ${visitIds.length} חוויות',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              PopupMenuButton<String>(
+                tooltip: 'אפשרויות אוסף',
+                onSelected: (value) {
+                  if (value == 'edit') _editCollection(collection);
+                  if (value == 'delete') _deleteCollection(collection);
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'edit', child: Text('עריכת אוסף')),
+                  PopupMenuItem(value: 'delete', child: Text('מחיקת אוסף')),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openCollection(Map<String, dynamic> collection) async {
+    final ids = _collectionVisitIds(collection);
+    final visits = _visits
+        .where((visit) => ids.contains(visit['id']?.toString()))
+        .toList();
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (routeContext) => Scaffold(
+          backgroundColor: AppColors.background,
+          appBar: AppBar(
+            title: Text(collection['name']?.toString() ?? 'אוסף'),
+            actions: const [HomeButton()],
+          ),
+          body: Directionality(
+            textDirection: TextDirection.rtl,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 980),
+                child: visits.isEmpty
+                    ? _empty(
+                        'האוסף עדיין ריק',
+                        'לחץ על אייקון האוסף ליד חוויה ביומן כדי להוסיף אותה.',
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(16, 18, 16, 40),
+                        itemCount: visits.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 11),
+                        itemBuilder: (_, index) => _entry(visits[index]),
+                      ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    if (mounted) await _loadCollections();
   }
 
   Widget _buildStatistics() {

@@ -7,11 +7,13 @@ class PremiumService {
 
   static bool _isPremium = false;
   static bool _isAdmin = false;
+  static bool _previewAsFree = false;
   static String? _adminRole;
   static bool _loaded = false;
 
-  static bool get isPremium => _isPremium || _isAdmin;
+  static bool get isPremium => (_isPremium || _isAdmin) && !_previewAsFree;
   static bool get isAdmin => _isAdmin;
+  static bool get previewAsFree => _previewAsFree;
   static String? get adminRole => _adminRole;
   static bool get isLoaded => _loaded;
 
@@ -78,6 +80,12 @@ class PremiumService {
     _isAdmin = false;
     _adminRole = null;
     _loaded = false;
+    _previewAsFree = false;
+  }
+
+  /// Lets an administrator test premium gates without changing account data.
+  static void setAdminFreePreview(bool enabled) {
+    _previewAsFree = _isAdmin && enabled;
   }
 
   static Future<bool> refresh() async {
