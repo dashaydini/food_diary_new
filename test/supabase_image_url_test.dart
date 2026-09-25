@@ -2,20 +2,29 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:food_diary/utils/supabase_image_url.dart';
 
 void main() {
-  test('builds a resized public Supabase image URL', () {
+  test('keeps a public Supabase object URL directly loadable', () {
+    const source =
+        'https://demo.supabase.co/storage/v1/object/public/place-images/u/a.jpg?v=7';
     final result = optimizedSupabaseImageUrl(
-      'https://demo.supabase.co/storage/v1/object/public/place-images/u/a.jpg?v=7',
+      source,
       width: 360,
       height: 240,
     );
 
-    final uri = Uri.parse(result);
-    expect(uri.path, '/storage/v1/render/image/public/place-images/u/a.jpg');
-    expect(uri.queryParameters['v'], '7');
-    expect(uri.queryParameters['width'], '360');
-    expect(uri.queryParameters['height'], '240');
-    expect(uri.queryParameters['quality'], '72');
-    expect(uri.queryParameters['resize'], 'cover');
+    expect(result, source);
+  });
+
+  test('recovers a legacy transformed URL as its public object URL', () {
+    final result = optimizedSupabaseImageUrl(
+      'https://demo.supabase.co/storage/v1/render/image/public/place-images/u/a.jpg?v=7&width=360&height=240&quality=72&resize=cover',
+      width: 360,
+      height: 240,
+    );
+
+    expect(
+      result,
+      'https://demo.supabase.co/storage/v1/object/public/place-images/u/a.jpg?v=7',
+    );
   });
 
   test('does not change assets, blobs or PDFs', () {
