@@ -42,25 +42,41 @@ class PushNotificationService {
       _localNotificationsReady = false;
     }
 
-    FirebaseMessaging.onMessage.listen((message) {
+    FirebaseMessaging.onMessage.listen((message) async {
       final notification = message.notification;
       if (notification == null || !_localNotificationsReady) return;
-      _localNotifications.show(
-        id: notification.hashCode,
-        title: notification.title,
-        body: notification.body,
-        notificationDetails: NotificationDetails(
-          android: AndroidNotificationDetails(
-            _channel.id,
-            _channel.name,
-            channelDescription: _channel.description,
-            importance: Importance.high,
-            priority: Priority.high,
-            icon: 'btw_notification',
+
+      // Android 13+ can deliver an FCM callback while notification display
+      // permission is disabled. Avoid calling the native notification API in
+      // that state, and keep a plugin/device-specific failure from surfacing
+      // as an unhandled asynchronous exception.
+      final settings =
+          await FirebaseMessaging.instance.getNotificationSettings();
+      if (settings.authorizationStatus != AuthorizationStatus.authorized &&
+          settings.authorizationStatus != AuthorizationStatus.provisional) {
+        return;
+      }
+
+      try {
+        await _localNotifications.show(
+          id: notification.hashCode,
+          title: notification.title,
+          body: notification.body,
+          notificationDetails: NotificationDetails(
+            android: AndroidNotificationDetails(
+              _channel.id,
+              _channel.name,
+              channelDescription: _channel.description,
+              importance: Importance.high,
+              priority: Priority.high,
+              icon: 'btw_notification',
+            ),
           ),
-        ),
-        payload: message.data['url'] as String?,
-      );
+          payload: message.data['url'] as String?,
+        );
+      } catch (_) {
+        // A notification rendering failure must not interrupt the active app.
+      }
     });
 
     FirebaseMessaging.onMessageOpenedApp.listen((message) {
