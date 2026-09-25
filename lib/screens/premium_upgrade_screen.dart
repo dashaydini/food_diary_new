@@ -97,10 +97,10 @@ class _PremiumUpgradeScreenState extends State<PremiumUpgradeScreen> {
                       ),
                       if (widget.sourceFeature != null) ...[
                         const SizedBox(height: 10),
-                        Text(
-                          'נהנית מהטעימה של ${widget.sourceFeature}? עם Premium אפשר להמשיך בלי לעצור.',
+                        const Text(
+                          'רוצה להמשיך להשתמש באפשרות הזו? עם Premium כל האפשרויות המתקדמות פתוחות עבורך.',
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppColors.textSecondary,
                             height: 1.45,
                           ),
@@ -122,8 +122,23 @@ class _PremiumUpgradeScreenState extends State<PremiumUpgradeScreen> {
                 ),
                 _benefit(
                   Icons.auto_awesome_rounded,
-                  'התאמה אישית עמוקה יותר',
-                  'כלים חכמים שיעזרו להגיע מהר יותר למקום הנכון.',
+                  'AI והפתעות אישיות',
+                  'המלצות לפי הטעם שלך ובחירת מקום מפתיע על המפה.',
+                ),
+                _benefit(
+                  Icons.collections_bookmark_outlined,
+                  'יומן ואוספים מורחבים',
+                  'אוספים ללא הגבלה ועד 10 תמונות בכל חוויה.',
+                ),
+                _benefit(
+                  Icons.route_outlined,
+                  'כלי גילוי מתקדמים',
+                  'מסננים למציאת מקומות בדרך וסידור קטגוריות אישי.',
+                ),
+                _benefit(
+                  Icons.local_activity_outlined,
+                  'קופונים בלעדיים',
+                  'גישה להטבות ולקופונים שמיועדים לחברי Premium.',
                 ),
                 const SizedBox(height: 12),
                 Container(

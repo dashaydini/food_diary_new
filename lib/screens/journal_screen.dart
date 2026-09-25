@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/services/premium_limits.dart';
+import '../core/services/premium_service.dart';
 import '../theme/colors.dart';
 import '../utils/supabase_image_url.dart';
 import '../widgets/home_button.dart';
+import '../widgets/premium_preview_dialog.dart';
 import 'add_visit_screen.dart';
 
 class JournalScreen extends StatefulWidget {
@@ -22,6 +25,7 @@ class _JournalScreenState extends State<JournalScreen> {
   int _section = 0;
   List<Map<String, dynamic>> _collections = [];
   bool _collectionsLoading = false;
+  String? _collectionsError;
 
   @override
   void initState() {
@@ -97,20 +101,61 @@ class _JournalScreenState extends State<JournalScreen> {
       final rows = await _client
           .from('journal_collections')
           .select(
-            'id, name, description, cover_image_url, created_at, '
-            'journal_collection_visits(visit_id)',
+            'id, name, description, cover_image_url, created_at',
           )
           .eq('user_id', user.id)
           .order('created_at', ascending: false);
 
+      final collections = [
+        for (final row in rows as List) Map<String, dynamic>.from(row as Map),
+      ];
+
+      final collectionIds = collections
+          .map((collection) => collection['id']?.toString())
+          .whereType<String>()
+          .toList();
+
+      var links = <Map<String, dynamic>>[];
+      if (collectionIds.isNotEmpty) {
+        try {
+          final linkRows = await _client
+              .from('journal_collection_visits')
+              .select('collection_id, visit_id')
+              .inFilter('collection_id', collectionIds);
+          links = [
+            for (final row in linkRows as List)
+              Map<String, dynamic>.from(row as Map),
+          ];
+        } catch (e) {
+          // The collections themselves should remain visible even if a link
+          // query fails because of a temporary API or relationship issue.
+          debugPrint('JOURNAL COLLECTION LINKS LOAD ERROR: $e');
+        }
+      }
+
+      for (final collection in collections) {
+        final collectionId = collection['id']?.toString();
+        collection['journal_collection_visits'] = [
+          for (final link in links)
+            if (link['collection_id']?.toString() == collectionId) link,
+        ];
+      }
+
       if (!mounted) return;
 
       setState(() {
-        _collections = List<Map<String, dynamic>>.from(rows);
+        _collections = collections;
         _collectionsLoading = false;
+        _collectionsError = null;
       });
     } catch (e) {
-      if (mounted) setState(() => _collectionsLoading = false);
+      debugPrint('JOURNAL COLLECTIONS LOAD ERROR: $e');
+      if (mounted) {
+        setState(() {
+          _collectionsLoading = false;
+          _collectionsError = 'לא ניתן לטעון את האוספים כרגע';
+        });
+      }
     }
   }
 
@@ -125,6 +170,20 @@ class _JournalScreenState extends State<JournalScreen> {
   }
 
   Future<String?> _editCollection([Map<String, dynamic>? collection]) async {
+    if (collection == null &&
+        !PremiumService.isPremium &&
+        _collections.length >= PremiumLimits.freeCollections) {
+      final action = await showPremiumRequiredDialog(
+        context,
+        featureName: 'אוספים ללא הגבלה',
+        benefit:
+            'בחשבון החינמי אפשר ליצור עד ${PremiumLimits.freeCollections} אוספים. Premium מאפשר לארגן את כל החוויות בכמה אוספים שתרצה.',
+      );
+      if (action == PremiumPreviewAction.upgrade && mounted) {
+        await openPremiumUpgrade(context, sourceFeature: 'journal_collections');
+      }
+      return null;
+    }
     final nameController = TextEditingController(
       text: collection?['name']?.toString() ?? '',
     );
@@ -310,12 +369,23 @@ class _JournalScreenState extends State<JournalScreen> {
                               subtitle: Text(
                                 '${_collectionVisitIds(collection).length} חוויות',
                               ),
-                              onChanged: (value) => setDialogState(() {
+                              onChanged: (value) async {
                                 final id = collection['id'].toString();
-                                value == true
-                                    ? selected.add(id)
-                                    : selected.remove(id);
-                              }),
+                                final count =
+                                    _collectionVisitIds(collection).length;
+                                if (value == true &&
+                                    !PremiumService.isPremium &&
+                                    count >=
+                                        PremiumLimits.freeVisitsPerCollection) {
+                                  Navigator.pop(dialogContext, 'limit');
+                                  return;
+                                }
+                                setDialogState(() {
+                                  value == true
+                                      ? selected.add(id)
+                                      : selected.remove(id);
+                                });
+                              },
                             ),
                         ],
                       ),
@@ -337,6 +407,21 @@ class _JournalScreenState extends State<JournalScreen> {
         ),
       );
       if (!mounted || action == null) return;
+      if (action == 'limit') {
+        final premiumAction = await showPremiumRequiredDialog(
+          context,
+          featureName: 'אוסף גדול יותר',
+          benefit:
+              'בחשבון החינמי אפשר לשמור עד ${PremiumLimits.freeVisitsPerCollection} חוויות בכל אוסף. ב־Premium אין הגבלה.',
+        );
+        if (premiumAction == PremiumPreviewAction.upgrade && mounted) {
+          await openPremiumUpgrade(
+            context,
+            sourceFeature: 'journal_collection_items',
+          );
+        }
+        continue;
+      }
       if (action == 'create') {
         final createdId = await _editCollection();
         if (!mounted) return;
@@ -796,6 +881,7 @@ class _JournalScreenState extends State<JournalScreen> {
                   setState(() {
                     _section = i;
                   });
+                  if (i == 2) _loadCollections();
                 },
                 borderRadius: BorderRadius.circular(22),
                 child: AnimatedContainer(
@@ -873,7 +959,12 @@ class _JournalScreenState extends State<JournalScreen> {
     return RefreshIndicator(
       color: AppColors.champagne,
       backgroundColor: AppColors.background,
-      onRefresh: _loadVisits,
+      onRefresh: () async {
+        await Future.wait([
+          _loadVisits(),
+          _loadCollections(),
+        ]);
+      },
       child: ListView.separated(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(2, 4, 2, 42),
@@ -894,9 +985,20 @@ class _JournalScreenState extends State<JournalScreen> {
         : 'מקום ללא שם';
 
     final address = place['address']?.toString().trim() ?? '';
+    final galleryImages = visit['visit_images'];
+    final galleryImage = galleryImages is List
+        ? galleryImages
+            .whereType<Map>()
+            .map((item) => item['image_url']?.toString().trim() ?? '')
+            .firstWhere((url) => url.isNotEmpty, orElse: () => '')
+        : '';
     final visitImage = visit['image_url']?.toString().trim() ?? '';
     final placeImage = place['image_url']?.toString().trim() ?? '';
-    final image = visitImage.isNotEmpty ? visitImage : placeImage;
+    final image = galleryImage.isNotEmpty
+        ? galleryImage
+        : visitImage.isNotEmpty
+            ? visitImage
+            : placeImage;
     final rating = _rating(visit);
     final date = _date(visit['visit_date']?.toString());
     final note =
@@ -1078,6 +1180,32 @@ class _JournalScreenState extends State<JournalScreen> {
   Widget _buildCollections() {
     if (_collectionsLoading) {
       return const Center(child: CircularProgressIndicator(strokeWidth: 1.5));
+    }
+
+    if (_collectionsError != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.cloud_off_outlined,
+              color: AppColors.textMuted,
+              size: 30,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _collectionsError!,
+              style: const TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _loadCollections,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('נסה שוב'),
+            ),
+          ],
+        ),
+      );
     }
 
     return ListView(

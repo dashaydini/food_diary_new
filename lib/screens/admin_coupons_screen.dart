@@ -530,6 +530,7 @@ class _CouponEditorScreenState extends State<CouponEditorScreen> {
   List<Map<String, dynamic>> _categories = [];
   late Set<String> _categoryIds;
   String? _notificationRegion;
+  late bool _isPremiumOnly;
   int _searchSequence = 0;
 
   @override
@@ -556,6 +557,7 @@ class _CouponEditorScreenState extends State<CouponEditorScreen> {
     _existingImages = List<String>.from(x?.images ?? const []);
     _categoryIds = Set<String>.from(x?.categoryIds ?? const []);
     _notificationRegion = x?.notificationRegion;
+    _isPremiumOnly = x?.isPremiumOnly ?? false;
     final managedPlace = widget.managedPlace;
     if (managedPlace != null) {
       _selectedPlaceId = managedPlace['id']?.toString();
@@ -780,6 +782,7 @@ class _CouponEditorScreenState extends State<CouponEditorScreen> {
         'valid_until': _validUntil.toIso8601String().split('T').first,
         'is_unlimited': true,
         'is_published': widget.coupon?.isPublished ?? false,
+        'is_premium_only': _isPremiumOnly,
       }, id: widget.coupon?.id);
       if (mounted) Navigator.of(context).pop();
     } catch (_) {
@@ -1003,6 +1006,17 @@ class _CouponEditorScreenState extends State<CouponEditorScreen> {
                         ]),
                       ),
                     const SizedBox(height: 10),
+                    SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      value: _isPremiumOnly,
+                      activeThumbColor: AppColors.champagne,
+                      title: const Text('קופון Premium'),
+                      subtitle: const Text(
+                        'רק משתמשי Premium יוכלו לפתוח ולהציג את קוד הקופון',
+                      ),
+                      onChanged: (value) =>
+                          setState(() => _isPremiumOnly = value),
+                    ),
                     ListTile(
                         contentPadding: EdgeInsets.zero,
                         title: const Text('בתוקף עד'),

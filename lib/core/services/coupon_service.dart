@@ -11,7 +11,12 @@ class CouponService {
     bool includeExpired = false,
     String? placeId,
   }) async {
-    dynamic query = _client.from('coupons').select();
+    dynamic query = _client.from('coupons').select(
+          'id,title,subtitle,description,valid_until,business_name,address,'
+          'latitude,longitude,place_id,image_url,gallery_images,category_ids,'
+          'notification_region,is_unlimited,is_published,is_premium_only,'
+          'published_at,notification_sent_at,created_by,created_at,updated_at',
+        );
     if (!includeDrafts) query = query.eq('is_published', true);
     if (!includeExpired) {
       final now = DateTime.now();
@@ -21,7 +26,23 @@ class CouponService {
     }
     if (placeId != null) query = query.eq('place_id', placeId);
     final rows = await query.order('created_at', ascending: false);
-    return List<Map<String, dynamic>>.from(rows).map(Coupon.fromJson).toList();
+    var coupons =
+        List<Map<String, dynamic>>.from(rows).map(Coupon.fromJson).toList();
+    if (includeDrafts) {
+      coupons = await Future.wait([
+        for (final coupon in coupons)
+          getCode(coupon.id).then(coupon.copyWithCode),
+      ]);
+    }
+    return coupons;
+  }
+
+  static Future<String> getCode(String couponId) async {
+    final value = await _client.rpc(
+      'get_coupon_redemption_code',
+      params: {'target_coupon_id': couponId},
+    );
+    return value?.toString() ?? '';
   }
 
   static Future<void> save(Map<String, dynamic> values, {String? id}) async {

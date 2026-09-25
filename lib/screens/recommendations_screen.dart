@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -6,12 +7,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/colors.dart';
 import '../core/services/experience_hashtag_service.dart';
+import '../core/services/premium_service.dart';
 import '../utils/hashtag_taste_profile.dart';
 import '../utils/app_preferences.dart';
 import '../utils/supabase_image_url.dart';
 import 'hashtag_search_screen.dart';
 import '../widgets/home_button.dart';
 import '../widgets/place_card.dart';
+import '../widgets/premium_preview_dialog.dart';
 import 'place_details_screen.dart';
 import 'public_profile_screen.dart';
 
@@ -32,11 +35,43 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
   bool _loading = true;
   bool _hasLocation = false;
   String? _error;
+  Timer? _premiumPreviewTimer;
+  bool _premiumPromptShown = false;
 
   @override
   void initState() {
     super.initState();
     _loadRecommendations();
+    if (!PremiumService.isPremium) {
+      _premiumPreviewTimer = Timer(
+        const Duration(seconds: 5),
+        _finishPremiumPreview,
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _premiumPreviewTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _finishPremiumPreview() async {
+    if (!mounted || PremiumService.isPremium || _premiumPromptShown) return;
+    _premiumPromptShown = true;
+    final action = await showPremiumPreviewDialog(
+      context,
+      featureName: 'ההמלצות האישיות של AI',
+      benefit:
+          'Premium לומד מהחוויות, הדירוגים והטעם שלך כדי להציע מקומות שסביר שבאמת תאהב.',
+    );
+    if (!mounted) return;
+    if (action == PremiumPreviewAction.upgrade) {
+      await openPremiumUpgrade(context, sourceFeature: 'ai_recommendations');
+      if (!mounted) return;
+      await PremiumService.refresh();
+    }
+    if (!PremiumService.isPremium && mounted) Navigator.of(context).pop();
   }
 
   Future<void> _loadRecommendations() async {

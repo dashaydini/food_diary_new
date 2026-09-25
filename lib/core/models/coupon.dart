@@ -16,6 +16,7 @@ class Coupon {
   final String? notificationRegion;
   final bool isUnlimited;
   final bool isPublished;
+  final bool isPremiumOnly;
 
   const Coupon({
     required this.id,
@@ -35,6 +36,7 @@ class Coupon {
     this.notificationRegion,
     required this.isUnlimited,
     required this.isPublished,
+    this.isPremiumOnly = false,
   });
 
   factory Coupon.fromJson(Map<String, dynamic> json) => Coupon(
@@ -60,6 +62,7 @@ class Coupon {
         notificationRegion: json['notification_region']?.toString(),
         isUnlimited: json['is_unlimited'] != false,
         isPublished: json['is_published'] == true,
+        isPremiumOnly: json['is_premium_only'] == true,
       );
 
   List<String> get images => galleryImages.isEmpty
@@ -77,6 +80,27 @@ class Coupon {
         DateTime(validUntil.year, validUntil.month, validUntil.day);
     return expiryDate.isBefore(today);
   }
+
+  Coupon copyWithCode(String value) => Coupon(
+        id: id,
+        title: title,
+        subtitle: subtitle,
+        description: description,
+        code: value,
+        validUntil: validUntil,
+        businessName: businessName,
+        address: address,
+        latitude: latitude,
+        longitude: longitude,
+        placeId: placeId,
+        imageUrl: imageUrl,
+        galleryImages: galleryImages,
+        categoryIds: categoryIds,
+        notificationRegion: notificationRegion,
+        isUnlimited: isUnlimited,
+        isPublished: isPublished,
+        isPremiumOnly: isPremiumOnly,
+      );
 
   Map<String, dynamic> get navigationPlace => {
         'name': businessName,

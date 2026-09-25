@@ -20,6 +20,7 @@ import '../widgets/place_image_gallery.dart';
 import '../widgets/navigation_app_picker.dart';
 import '../widgets/premium_preview_dialog.dart';
 import '../core/services/premium_service.dart';
+import '../core/services/premium_limits.dart';
 
 class PlaceDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> place;
@@ -430,7 +431,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
     required String featureName,
     required String benefit,
   }) async {
-    final action = await showPremiumPreviewDialog(
+    final action = await showPremiumRequiredDialog(
       context,
       featureName: featureName,
       benefit: benefit,
@@ -636,6 +637,18 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
       return;
     }
 
+    final existingImageRows = await client
+        .from('visit_images')
+        .select('id')
+        .eq('visit_id', ownVisit['id']);
+    if (!mounted) return;
+    final remainingImages =
+        PremiumLimits.imagesPerExperience - (existingImageRows as List).length;
+    if (remainingImages <= 0) {
+      await _showExperienceImageLimit();
+      return;
+    }
+
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       builder: (sheetContext) => SafeArea(
@@ -696,7 +709,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
           .maybeSingle();
       final nextSortOrder =
           ((lastImage?['sort_order'] as num?)?.toInt() ?? -1) + 1;
-      for (final image in picked.take(5)) {
+      for (final image in picked.take(remainingImages)) {
         final extension = image.name.split('.').last.toLowerCase();
         final contentType = switch (extension) {
           'jpg' || 'jpeg' => 'image/jpeg',
@@ -731,6 +744,9 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
             ? 'התמונה נוספה לגלריית המקום'
             : '$saved תמונות נוספו לגלריית המקום'),
       ));
+      if (picked.length > remainingImages) {
+        await _showExperienceImageLimit();
+      }
     } catch (_) {
       if (saved > 0) await _loadVisits();
       if (!mounted) return;
@@ -741,6 +757,29 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
       ));
     } finally {
       if (mounted) setState(() => _uploadingPlacePhotos = false);
+    }
+  }
+
+  Future<void> _showExperienceImageLimit() async {
+    if (!mounted) return;
+    if (PremiumService.isPremium) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'ניתן להעלות עד ${PremiumLimits.premiumImagesPerExperience} תמונות לחוויה',
+          ),
+        ),
+      );
+      return;
+    }
+    final action = await showPremiumRequiredDialog(
+      context,
+      featureName: 'יותר תמונות בכל חוויה',
+      benefit:
+          'בחשבון החינמי אפשר להעלות עד ${PremiumLimits.freeImagesPerExperience} תמונות לחוויה. Premium מאפשר עד ${PremiumLimits.premiumImagesPerExperience} תמונות.',
+    );
+    if (action == PremiumPreviewAction.upgrade && mounted) {
+      await openPremiumUpgrade(context, sourceFeature: 'experience_images');
     }
   }
 

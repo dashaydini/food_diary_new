@@ -5,6 +5,51 @@ import '../theme/colors.dart';
 
 enum PremiumPreviewAction { upgrade, leave }
 
+Future<PremiumPreviewAction?> showPremiumRequiredDialog(
+  BuildContext context, {
+  required String featureName,
+  required String benefit,
+}) {
+  return showDialog<PremiumPreviewAction>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      icon: Container(
+        width: 58,
+        height: 58,
+        decoration: BoxDecoration(
+          color: AppColors.champagne.withValues(alpha: 0.14),
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(
+          Icons.workspace_premium_rounded,
+          color: AppColors.champagne,
+          size: 30,
+        ),
+      ),
+      title: Text('$featureName עם Premium'),
+      content: Text(
+        benefit,
+        textAlign: TextAlign.center,
+        style: const TextStyle(height: 1.5),
+      ),
+      actionsAlignment: MainAxisAlignment.center,
+      actions: [
+        TextButton(
+          onPressed: () =>
+              Navigator.of(dialogContext).pop(PremiumPreviewAction.leave),
+          child: const Text('אולי אחר כך'),
+        ),
+        FilledButton.icon(
+          onPressed: () =>
+              Navigator.of(dialogContext).pop(PremiumPreviewAction.upgrade),
+          icon: const Icon(Icons.workspace_premium_rounded),
+          label: const Text('למסלולי Premium'),
+        ),
+      ],
+    ),
+  );
+}
+
 Future<PremiumPreviewAction?> showPremiumPreviewDialog(
   BuildContext context, {
   required String featureName,
@@ -36,13 +81,13 @@ Future<PremiumPreviewAction?> showPremiumPreviewDialog(
       actionsAlignment: MainAxisAlignment.center,
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(dialogContext)
-              .pop(PremiumPreviewAction.leave),
+          onPressed: () =>
+              Navigator.of(dialogContext).pop(PremiumPreviewAction.leave),
           child: const Text('אולי אחר כך'),
         ),
         FilledButton.icon(
-          onPressed: () => Navigator.of(dialogContext)
-              .pop(PremiumPreviewAction.upgrade),
+          onPressed: () =>
+              Navigator.of(dialogContext).pop(PremiumPreviewAction.upgrade),
           icon: const Icon(Icons.workspace_premium_rounded),
           label: const Text('למסלולי Premium'),
         ),

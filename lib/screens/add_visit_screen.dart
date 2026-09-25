@@ -14,8 +14,11 @@ import '../widgets/shared_visit_panel.dart';
 import '../widgets/half_star_rating.dart';
 import '../core/services/shared_visit_service.dart';
 import '../core/services/notification_dispatch_service.dart';
+import '../core/services/premium_limits.dart';
+import '../core/services/premium_service.dart';
 import '../utils/image_upload_policy.dart';
 import '../utils/supabase_image_url.dart';
+import '../widgets/premium_preview_dialog.dart';
 
 class AddVisitScreen extends StatefulWidget {
   final Map<String, dynamic> place;
@@ -542,6 +545,12 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
   Future<void> _pickImages() async {
     if (widget.viewOnly) return;
 
+    final remaining = _remainingImageSlots;
+    if (remaining <= 0) {
+      await _showImageLimit();
+      return;
+    }
+
     try {
       final files = await _picker.pickMultiImage(
         imageQuality: ImageUploadPolicy.photoQuality,
@@ -554,7 +563,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
       final bytesList = <Uint8List>[];
       final names = <String>[];
 
-      for (final file in files) {
+      for (final file in files.take(remaining)) {
         bytesList.add(await file.readAsBytes());
         names.add(file.name);
       }
@@ -566,6 +575,9 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
         _imageNames.addAll(names);
         _hasChanges = true;
       });
+      if (files.length > remaining) {
+        await _showImageLimit();
+      }
     } catch (_) {
       if (!mounted) return;
 
@@ -577,6 +589,11 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
 
   Future<void> _pickImageFromCamera() async {
     if (widget.viewOnly) return;
+
+    if (_remainingImageSlots <= 0) {
+      await _showImageLimit();
+      return;
+    }
 
     try {
       final file = await _picker.pickImage(
@@ -603,6 +620,34 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
       setState(() {
         _error = 'לא ניתן לצלם תמונה';
       });
+    }
+  }
+
+  int get _remainingImageSlots {
+    final current = _existingVisitImages().length + _imageBytes.length;
+    return PremiumLimits.imagesPerExperience - current;
+  }
+
+  Future<void> _showImageLimit() async {
+    if (!mounted) return;
+    if (PremiumService.isPremium) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'ניתן להעלות עד ${PremiumLimits.premiumImagesPerExperience} תמונות לחוויה',
+          ),
+        ),
+      );
+      return;
+    }
+    final action = await showPremiumRequiredDialog(
+      context,
+      featureName: 'יותר תמונות בכל חוויה',
+      benefit:
+          'בחשבון החינמי אפשר להעלות עד ${PremiumLimits.freeImagesPerExperience} תמונות לחוויה. Premium מאפשר עד ${PremiumLimits.premiumImagesPerExperience} תמונות.',
+    );
+    if (action == PremiumPreviewAction.upgrade && mounted) {
+      await openPremiumUpgrade(context, sourceFeature: 'experience_images');
     }
   }
 

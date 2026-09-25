@@ -17,9 +17,11 @@ import 'features/authentication/screens/login_screen.dart';
 import 'features/authentication/screens/register_screen.dart';
 import 'features/authentication/screens/reset_password_screen.dart';
 import 'features/authentication/screens/welcome_screen.dart';
+import 'features/onboarding/screens/first_launch_screen.dart';
 import 'screens/category_selection_screen.dart';
 import 'theme/app_theme.dart';
 import 'utils/permissions.dart';
+import 'utils/app_preferences.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -45,6 +47,10 @@ Future<void> main() async {
   await PushNotificationService.initialize();
 
   await AuthService.initializeGuestMode();
+  if (Supabase.instance.client.auth.currentSession != null ||
+      AuthService.isLocalGuest) {
+    await AppPreferences.setFirstLaunchCompleted();
+  }
   await PrivacyConsentService.initialize();
   await Permissions.load();
   await PremiumService.load();
@@ -70,7 +76,9 @@ class FoodDiaryApp extends StatelessWidget {
           child: child ?? const SizedBox.shrink(),
         );
       },
-      home: const PrivacyConsentPromptGate(child: AuthGate()),
+      home: const FirstLaunchGate(
+        child: PrivacyConsentPromptGate(child: AuthGate()),
+      ),
     );
   }
 }

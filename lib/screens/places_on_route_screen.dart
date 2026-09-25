@@ -6,11 +6,13 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/services/premium_service.dart';
 import '../theme/colors.dart';
 import '../utils/app_preferences.dart';
 import '../widgets/home_button.dart';
 import '../widgets/navigation_app_picker.dart';
 import '../widgets/place_card.dart';
+import '../widgets/premium_preview_dialog.dart';
 import 'place_details_screen.dart';
 
 class PlacesOnRouteScreen extends StatefulWidget {
@@ -71,6 +73,7 @@ class _PlacesOnRouteScreenState extends State<PlacesOnRouteScreen> {
   }
 
   Future<void> _findPlaces() async {
+    final usePremiumFilters = PremiumService.isPremium;
     final destinationText = _destinationController.text.trim();
     final originText = _originController.text.trim();
     if (destinationText.isEmpty ||
@@ -126,12 +129,14 @@ class _PlacesOnRouteScreenState extends State<PlacesOnRouteScreen> {
 
       for (final place in places) {
         final categoryId = place['category_id']?.toString();
-        if (_selectedCategoryIds.isNotEmpty &&
+        if (usePremiumFilters &&
+            _selectedCategoryIds.isNotEmpty &&
             !_selectedCategoryIds.contains(categoryId)) {
           continue;
         }
         final placeId = place['id']?.toString();
-        if (_selectedTagIds.isNotEmpty &&
+        if (usePremiumFilters &&
+            _selectedTagIds.isNotEmpty &&
             !_selectedTagIds.any(
               (tagId) => _placeTagIds[placeId]?.contains(tagId) ?? false,
             )) {
@@ -147,12 +152,14 @@ class _PlacesOnRouteScreenState extends State<PlacesOnRouteScreen> {
         if (estimatedDetourKm > _maximumRelevantDetourKm) continue;
 
         final metric = metrics[placeId] ?? const _PlaceMetric();
-        if (_minimumRating > 0 &&
+        if (usePremiumFilters &&
+            _minimumRating > 0 &&
             (metric.averageRating == null ||
                 metric.averageRating! < _minimumRating)) {
           continue;
         }
-        if (_maximumPriceLevel > 0 &&
+        if (usePremiumFilters &&
+            _maximumPriceLevel > 0 &&
             (metric.averagePrice == null ||
                 metric.averagePrice! > _maximumPriceLevel)) {
           continue;
@@ -198,6 +205,21 @@ class _PlacesOnRouteScreenState extends State<PlacesOnRouteScreen> {
         _loading = false;
         _error = error.toString().replaceFirst('Exception: ', '');
       });
+    }
+  }
+
+  Future<void> _openPremiumRouteFilters() async {
+    final action = await showPremiumRequiredDialog(
+      context,
+      featureName: 'המסננים שבדרך',
+      benefit:
+          'Premium מאפשר לבחור קטגוריות, תגיות, דירוג ורמת מחיר ולמצוא בדיוק את העצירה שמתאימה לנסיעה.',
+    );
+    if (action == PremiumPreviewAction.upgrade && mounted) {
+      await openPremiumUpgrade(context, sourceFeature: 'route_filters');
+      if (!mounted) return;
+      await PremiumService.refresh();
+      setState(() {});
     }
   }
 
@@ -727,92 +749,148 @@ class _PlacesOnRouteScreenState extends State<PlacesOnRouteScreen> {
           const SizedBox(height: 8),
           _addressField(_destinationController, 'כתובת יעד'),
           const SizedBox(height: 18),
-          const Text(
-            'קטגוריות בדרך',
-            textAlign: TextAlign.right,
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            alignment: WrapAlignment.end,
-            spacing: 7,
-            runSpacing: 7,
-            children: _categories.map((category) {
-              final id = category['id']?.toString() ?? '';
-              final selected = _selectedCategoryIds.contains(id);
-              return FilterChip(
-                selected: selected,
-                showCheckmark: true,
-                checkmarkColor: AppColors.background,
-                selectedColor: AppColors.champagne,
-                backgroundColor: AppColors.inputBg,
-                side: BorderSide(
-                  color: selected ? AppColors.champagne : AppColors.cardBorder,
-                  width: selected ? 1.2 : 0.8,
+          if (PremiumService.isPremium) ...[
+            const Text(
+              'קטגוריות בדרך',
+              textAlign: TextAlign.right,
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 7,
+              runSpacing: 7,
+              children: _categories.map((category) {
+                final id = category['id']?.toString() ?? '';
+                final selected = _selectedCategoryIds.contains(id);
+                return FilterChip(
+                  selected: selected,
+                  showCheckmark: true,
+                  checkmarkColor: AppColors.background,
+                  selectedColor: AppColors.champagne,
+                  backgroundColor: AppColors.inputBg,
+                  side: BorderSide(
+                    color:
+                        selected ? AppColors.champagne : AppColors.cardBorder,
+                    width: selected ? 1.2 : 0.8,
+                  ),
+                  label: Text(category['title']?.toString() ?? ''),
+                  labelStyle: TextStyle(
+                    color: selected
+                        ? AppColors.background
+                        : AppColors.textSecondary,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                  onSelected: (isSelected) {
+                    setState(() {
+                      isSelected
+                          ? _selectedCategoryIds.add(id)
+                          : _selectedCategoryIds.remove(id);
+                    });
+                  },
+                );
+              }).toList(),
+            ),
+            if (_availableTags.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerRight,
+                child: OutlinedButton.icon(
+                  onPressed: _showTagSelector,
+                  icon: const Icon(Icons.sell_outlined, size: 18),
+                  label: Text(
+                    _selectedTagIds.isEmpty
+                        ? 'סינון לפי תגיות'
+                        : '${_selectedTagIds.length} תגיות נבחרו',
+                  ),
                 ),
-                label: Text(category['title']?.toString() ?? ''),
-                labelStyle: TextStyle(
-                  color:
-                      selected ? AppColors.background : AppColors.textSecondary,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                ),
-                onSelected: (isSelected) {
-                  setState(() {
-                    isSelected
-                        ? _selectedCategoryIds.add(id)
-                        : _selectedCategoryIds.remove(id);
-                  });
-                },
-              );
-            }).toList(),
-          ),
-          if (_availableTags.isNotEmpty) ...[
+              ),
+            ],
             const SizedBox(height: 16),
-            Align(
-              alignment: Alignment.centerRight,
-              child: OutlinedButton.icon(
-                onPressed: _showTagSelector,
-                icon: const Icon(Icons.sell_outlined, size: 18),
-                label: Text(
-                  _selectedTagIds.isEmpty
-                      ? 'סינון לפי תגיות'
-                      : '${_selectedTagIds.length} תגיות נבחרו',
+            _optionRow(
+              title: 'דירוג מינימלי',
+              values: const [0, 3, 4, 5],
+              selected: _minimumRating,
+              label: (value) {
+                if (value == 0) return 'הכול';
+                if (value == 5) return '5★';
+                return '${value.toInt()}★ ומעלה';
+              },
+              onSelected: (value) => setState(() => _minimumRating = value),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'רמת מחיר מקסימלית',
+              textAlign: TextAlign.right,
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 7),
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 7,
+              children: [0, 1, 2, 3, 4].map((price) {
+                return ChoiceChip(
+                  selected: _maximumPriceLevel == price,
+                  label: Text(
+                    price == 0 ? 'כל המחירים' : List.filled(price, '₪').join(),
+                  ),
+                  onSelected: (_) => setState(() => _maximumPriceLevel = price),
+                );
+              }).toList(),
+            ),
+          ] else ...[
+            InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: _openPremiumRouteFilters,
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.champagne.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: AppColors.champagne.withValues(alpha: 0.38),
+                  ),
+                ),
+                child: const Row(
+                  textDirection: TextDirection.rtl,
+                  children: [
+                    Icon(
+                      Icons.workspace_premium_outlined,
+                      color: AppColors.champagne,
+                    ),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'מסננים חכמים עם Premium',
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'קטגוריות, תגיות, דירוג ורמת מחיר',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.lock_outline_rounded,
+                      color: AppColors.textMuted,
+                      size: 19,
+                    ),
+                  ],
                 ),
               ),
             ),
           ],
-          const SizedBox(height: 16),
-          _optionRow(
-            title: 'דירוג מינימלי',
-            values: const [0, 3, 4, 5],
-            selected: _minimumRating,
-            label: (value) {
-              if (value == 0) return 'הכול';
-              if (value == 5) return '5★';
-              return '${value.toInt()}★ ומעלה';
-            },
-            onSelected: (value) => setState(() => _minimumRating = value),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'רמת מחיר מקסימלית',
-            textAlign: TextAlign.right,
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
-          ),
-          const SizedBox(height: 7),
-          Wrap(
-            alignment: WrapAlignment.end,
-            spacing: 7,
-            children: [0, 1, 2, 3, 4].map((price) {
-              return ChoiceChip(
-                selected: _maximumPriceLevel == price,
-                label: Text(
-                  price == 0 ? 'כל המחירים' : List.filled(price, '₪').join(),
-                ),
-                onSelected: (_) => setState(() => _maximumPriceLevel = price),
-              );
-            }).toList(),
-          ),
           const SizedBox(height: 20),
           FilledButton.icon(
             onPressed: _loading ? null : _findPlaces,

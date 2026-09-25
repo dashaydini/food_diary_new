@@ -5,6 +5,7 @@ import '../../../core/services/auth_service.dart';
 import '../../../core/services/registration_service.dart';
 import '../../../screens/category_selection_screen.dart';
 import '../../../theme/colors.dart';
+import '../../../utils/app_preferences.dart';
 import '../widgets/auth_brand_hero.dart';
 import '../widgets/auth_brand_divider.dart';
 import 'register_screen.dart';
@@ -30,8 +31,24 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _loading = false;
   bool _obscurePassword = true;
+  bool _rememberMe = false;
   bool _showRegisterButton = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRememberedEmail();
+  }
+
+  Future<void> _loadRememberedEmail() async {
+    final email = await AppPreferences.rememberedLoginEmail();
+    if (!mounted || email == null) return;
+    setState(() {
+      _emailController.text = email;
+      _rememberMe = true;
+    });
+  }
 
   @override
   void dispose() {
@@ -70,6 +87,10 @@ class _LoginScreenState extends State<LoginScreen> {
       await _authService.signInWithEmail(
         email: email,
         password: password,
+      );
+
+      await AppPreferences.setRememberedLoginEmail(
+        _rememberMe ? email : null,
       );
 
       await _authService.ensureProfileDisplayName();
@@ -292,6 +313,31 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ? Icons.visibility_outlined
                                     : Icons.visibility_off_outlined,
                               ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        CheckboxListTile(
+                          value: _rememberMe,
+                          onChanged: _loading
+                              ? null
+                              : (value) {
+                                  setState(() {
+                                    _rememberMe = value ?? false;
+                                  });
+                                },
+                          contentPadding: EdgeInsets.zero,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          dense: true,
+                          title: const Text(
+                            'זכור אותי',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                          subtitle: const Text(
+                            'כתובת המייל בלבד — הסיסמה אינה נשמרת',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: AppColors.textMuted,
                             ),
                           ),
                         ),

@@ -7,6 +7,8 @@ class AppPreferences {
   static const routeCategoryIdsKey = 'route_category_ids';
   static const pushPermissionPromptedKey = 'push_permission_prompted';
   static const locationFeaturesEnabledKey = 'location_features_enabled';
+  static const rememberedLoginEmailKey = 'remembered_login_email';
+  static const firstLaunchCompletedKey = 'first_launch_completed';
 
   static const defaultMaximumRouteDetourKm = 20.0;
 
@@ -80,5 +82,31 @@ class AppPreferences {
   static Future<void> setLocationFeaturesEnabled(bool enabled) async {
     final preferences = await SharedPreferences.getInstance();
     await preferences.setBool(locationFeaturesEnabledKey, enabled);
+  }
+
+  static Future<String?> rememberedLoginEmail() async {
+    final preferences = await SharedPreferences.getInstance();
+    final email = preferences.getString(rememberedLoginEmailKey)?.trim();
+    return email == null || email.isEmpty ? null : email;
+  }
+
+  static Future<void> setRememberedLoginEmail(String? email) async {
+    final preferences = await SharedPreferences.getInstance();
+    final normalized = email?.trim();
+    if (normalized == null || normalized.isEmpty) {
+      await preferences.remove(rememberedLoginEmailKey);
+      return;
+    }
+    await preferences.setString(rememberedLoginEmailKey, normalized);
+  }
+
+  static Future<bool> firstLaunchCompleted() async {
+    final preferences = await SharedPreferences.getInstance();
+    return preferences.getBool(firstLaunchCompletedKey) ?? false;
+  }
+
+  static Future<void> setFirstLaunchCompleted() async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setBool(firstLaunchCompletedKey, true);
   }
 }

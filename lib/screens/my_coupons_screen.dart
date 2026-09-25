@@ -6,8 +6,10 @@ import '../theme/colors.dart';
 import '../utils/supabase_image_url.dart';
 import '../core/models/coupon.dart';
 import '../core/services/coupon_service.dart';
+import '../core/services/premium_service.dart';
 import '../widgets/home_button.dart';
 import '../widgets/navigation_app_picker.dart';
+import '../widgets/premium_preview_dialog.dart';
 import '../features/authentication/screens/login_screen.dart';
 import '../main.dart' show AuthGate;
 import 'place_details_screen.dart';
@@ -206,11 +208,37 @@ class _CouponCard extends StatelessWidget {
 
   Future<void> _openCoupon(BuildContext context) async {
     await _CouponAnalytics.record(coupon.id, 'coupon_open');
+    if (!context.mounted) return;
+    if (coupon.isPremiumOnly && !PremiumService.isPremium) {
+      final action = await showPremiumRequiredDialog(
+        context,
+        featureName: 'קופוני Premium',
+        benefit:
+            'חברי Premium מקבלים גישה לקופונים והטבות בלעדיות בבתי עסק נבחרים.',
+      );
+      if (action == PremiumPreviewAction.upgrade && context.mounted) {
+        await openPremiumUpgrade(context, sourceFeature: 'premium_coupon');
+        await PremiumService.refresh();
+      }
+      if (!PremiumService.isPremium) return;
+    }
+    String code;
+    try {
+      code = await CouponService.getCode(coupon.id);
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('לא ניתן לפתוח את קוד הקופון כרגע')),
+      );
+      return;
+    }
     await _CouponAnalytics.record(coupon.id, 'code_view');
     if (!context.mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => CouponPresentationScreen(coupon: coupon),
+        builder: (_) => CouponPresentationScreen(
+          coupon: coupon.copyWithCode(code),
+        ),
       ),
     );
   }
@@ -244,6 +272,28 @@ class _CouponCard extends StatelessWidget {
                               color: AppColors.champagne,
                               fontSize: 13,
                               fontWeight: FontWeight.w600)),
+                      if (coupon.isPremiumOnly) ...[
+                        const SizedBox(height: 6),
+                        const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.workspace_premium_rounded,
+                              color: AppColors.champagne,
+                              size: 16,
+                            ),
+                            SizedBox(width: 5),
+                            Text(
+                              'הטבת Premium',
+                              style: TextStyle(
+                                color: AppColors.champagne,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 7),
                       Text(coupon.title,
                           maxLines: 2,

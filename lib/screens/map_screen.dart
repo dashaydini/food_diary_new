@@ -6,10 +6,12 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/services/premium_service.dart';
 import '../theme/colors.dart';
 import '../theme/app_icons.dart';
 import '../utils/app_preferences.dart';
 import '../widgets/home_button.dart';
+import '../widgets/premium_preview_dialog.dart';
 import 'place_details_screen.dart';
 
 class MapScreen extends StatefulWidget {
@@ -172,6 +174,7 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _surpriseMe() async {
+    final premiumPreview = !PremiumService.isPremium;
     final candidates = _filteredPlaces.where((place) {
       return _placePoint(place) != null;
     }).toList();
@@ -254,7 +257,7 @@ class _MapScreenState extends State<MapScreen> {
 
       if (!mounted) return;
       _mapController.move(chosenPoint, 14);
-      await showModalBottomSheet<void>(
+      final sheetAction = await showModalBottomSheet<String>(
         context: context,
         backgroundColor: AppColors.surfaceRaised,
         showDragHandle: true,
@@ -292,8 +295,7 @@ class _MapScreenState extends State<MapScreen> {
                 const SizedBox(height: 18),
                 FilledButton.icon(
                   onPressed: () {
-                    Navigator.of(sheetContext).pop();
-                    _openPlace(chosen);
+                    Navigator.of(sheetContext).pop('details');
                   },
                   icon: const Icon(Icons.place_outlined),
                   label: const Text('לפרטי המקום'),
@@ -303,6 +305,21 @@ class _MapScreenState extends State<MapScreen> {
           ),
         ),
       );
+      if (premiumPreview && mounted) {
+        final action = await showPremiumPreviewDialog(
+          context,
+          featureName: 'הפתיעו אותי במפה',
+          benefit:
+              'Premium בוחר עבורך מקום מפתיע לפי הטעם האישי, המרחק והחוויות שכבר אהבת.',
+        );
+        if (action == PremiumPreviewAction.upgrade && mounted) {
+          await openPremiumUpgrade(context, sourceFeature: 'map_surprise');
+          await PremiumService.refresh();
+        }
+      }
+      if (sheetAction == 'details' && mounted) {
+        _openPlace(chosen);
+      }
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

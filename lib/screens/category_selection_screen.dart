@@ -8,6 +8,7 @@ import '../models/content_filter.dart';
 import '../core/services/app_install_service.dart';
 import '../core/services/privacy_consent_service.dart';
 import '../core/services/push_notification_service.dart';
+import '../core/services/premium_service.dart';
 import '../core/services/shared_visit_service.dart';
 import '../theme/colors.dart';
 import '../theme/app_icons.dart';
@@ -15,6 +16,7 @@ import '../utils/permissions.dart';
 import '../widgets/admin_pending_status.dart';
 import '../widgets/adsense_banner.dart';
 import '../widgets/visit_notification_button.dart';
+import '../widgets/premium_preview_dialog.dart';
 import '../features/authentication/screens/register_screen.dart';
 import '../main.dart' show AuthGate;
 
@@ -511,6 +513,20 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('שינוי סדר זמין לאחר התחברות')),
       );
+      return;
+    }
+
+    if (!PremiumService.isPremium) {
+      final action = await showPremiumRequiredDialog(
+        context,
+        featureName: 'סידור הקטגוריות',
+        benefit:
+            'עם Premium אפשר להתאים את סדר הקטגוריות במסך הבית בדיוק לדרך שבה נוח לך לגלות מקומות.',
+      );
+      if (action == PremiumPreviewAction.upgrade && mounted) {
+        await openPremiumUpgrade(context, sourceFeature: 'category_order');
+        await PremiumService.refresh();
+      }
       return;
     }
 
