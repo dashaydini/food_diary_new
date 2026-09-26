@@ -12,6 +12,8 @@ import '../theme/app_icons.dart';
 import '../utils/app_preferences.dart';
 import '../widgets/home_button.dart';
 import '../widgets/premium_preview_dialog.dart';
+import '../features/authentication/screens/login_screen.dart';
+import '../main.dart' show AuthGate;
 import 'place_details_screen.dart';
 
 class MapScreen extends StatefulWidget {
@@ -174,6 +176,48 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _surpriseMe() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null || user.isAnonymous) {
+      final shouldLogin = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            icon: const Icon(Icons.lock_outline_rounded),
+            title: const Text('יש להתחבר כדי להשתמש בהפתיעו אותי'),
+            content: const Text(
+              'הבחירה האישית זמינה למשתמשים רשומים. אפשר להתחבר לחשבון קיים או להירשם.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('לא עכשיו'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('להתחברות'),
+              ),
+            ],
+          ),
+        ),
+      );
+      if (shouldLogin != true || !mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => LoginScreen(
+            onAuthSuccess: () {
+              if (!mounted) return;
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const AuthGate()),
+                (route) => false,
+              );
+            },
+          ),
+        ),
+      );
+      return;
+    }
+
     final premiumPreview = !PremiumService.isPremium;
     final candidates = _filteredPlaces.where((place) {
       return _placePoint(place) != null;
@@ -183,16 +227,13 @@ class _MapScreenState extends State<MapScreen> {
     setState(() => _choosingSurprise = true);
     try {
       final client = Supabase.instance.client;
-      final user = client.auth.currentUser;
       final position = await _availablePosition();
-      final ownVisits = user == null || user.isAnonymous
-          ? <Map<String, dynamic>>[]
-          : List<Map<String, dynamic>>.from(
-              await client
-                  .from('visits')
-                  .select('place_id, rating, places(category_id)')
-                  .eq('user_id', user.id),
-            );
+      final ownVisits = List<Map<String, dynamic>>.from(
+        await client
+            .from('visits')
+            .select('place_id, rating, places(category_id)')
+            .eq('user_id', user.id),
+      );
       final allVisits = List<Map<String, dynamic>>.from(
         await client.from('visits').select('place_id, rating'),
       );

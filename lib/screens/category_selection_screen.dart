@@ -17,7 +17,7 @@ import '../widgets/admin_pending_status.dart';
 import '../widgets/adsense_banner.dart';
 import '../widgets/visit_notification_button.dart';
 import '../widgets/premium_preview_dialog.dart';
-import '../features/authentication/screens/register_screen.dart';
+import '../features/authentication/screens/login_screen.dart';
 import '../main.dart' show AuthGate;
 
 import 'places_screen.dart';
@@ -739,53 +739,62 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
     await _loadCategories();
   }
 
-  Future<void> _openJournal() async {
+  Future<bool> _requireLogin({
+    required String title,
+    required String description,
+  }) async {
     final user = Supabase.instance.client.auth.currentUser;
+    if (user != null && !user.isAnonymous) return true;
 
-    if (user == null || user.isAnonymous) {
-      final register = await showDialog<bool>(
-        context: context,
-        builder: (dialogContext) => Directionality(
-          textDirection: TextDirection.rtl,
-          child: AlertDialog(
-            title: const Text('נדרשת הרשמה'),
-            content: const Text(
-                'כדי להשתמש ביומן האישי ולשמור את החוויות שלך, צריך להירשם לאפליקציה.'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: const Text('לא עכשיו'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(dialogContext, true),
-                child: const Text('להרשמה'),
-              ),
-            ],
-          ),
+    final shouldLogin = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          icon: const Icon(Icons.lock_outline_rounded),
+          title: Text(title),
+          content: Text(description),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('לא עכשיו'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('להתחברות'),
+            ),
+          ],
         ),
-      );
-      if (register != true || !mounted) return;
-      await Navigator.of(context).push(MaterialPageRoute(
-        builder: (_) => RegisterScreen(
+      ),
+    );
+    if (shouldLogin != true || !mounted) return false;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => LoginScreen(
           onAuthSuccess: () {
             if (!mounted) return;
-            // Use the regular auth/completion flow, not a direct journal route.
             Navigator.of(context).pushAndRemoveUntil(
               MaterialPageRoute(builder: (_) => const AuthGate()),
               (route) => false,
             );
           },
         ),
-      ));
+      ),
+    );
+    return false;
+  }
+
+  Future<void> _openJournal() async {
+    if (!await _requireLogin(
+      title: 'יש להתחבר כדי לפתוח יומן אישי',
+      description:
+          'שמור ביקורים, דירוגים ותמונות ובנה יומן קולינרי שהוא כולו שלך.',
+    )) {
       return;
     }
-
     if (!mounted) return;
-
     await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const JournalScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => const JournalScreen()),
     );
   }
 
@@ -795,6 +804,63 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
         builder: (_) => const MapScreen(),
       ),
     );
+  }
+
+  Future<void> _openPlacesOnRoute() async {
+    if (!await _requireLogin(
+      title: 'יש להתחבר כדי למצוא מקומות בדרך',
+      description:
+          'בחר יעד וקבל הצעות לעצירות אוכל שוות לאורך המסלול — בלי לחפש ובלי לסטות סתם.',
+    )) {
+      return;
+    }
+
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const PlacesOnRouteScreen()),
+    );
+  }
+
+  Future<void> _openSavedPlaces(ContentFilter filter) async {
+    final favorites = filter == ContentFilter.favorites;
+    if (!await _requireLogin(
+      title: favorites
+          ? 'יש להתחבר כדי לשמור מועדפים'
+          : 'יש להתחבר כדי לבנות רשימת משאלות',
+      description: favorites
+          ? 'שמור את המקומות שאהבת וחזור אליהם בקלות בפעם הבאה.'
+          : 'אסוף מקומות שמסקרנים אותך ותכנן את הביקור הבא שלך.',
+    )) {
+      return;
+    }
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => SavedPlacesScreen(filter: filter)),
+    );
+  }
+
+  Future<void> _openCoupons() async {
+    if (!await _requireLogin(
+      title: 'יש להתחבר כדי לפתוח את הקופונים שלך',
+      description: 'צבור נקודות ופתח הטבות וקופונים ששמורים במיוחד לחשבון שלך.',
+    )) {
+      return;
+    }
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const MyCouponsScreen()),
+    );
+  }
+
+  Future<void> _openProfileWithLoginCheck() async {
+    if (!await _requireLogin(
+      title: 'יש להתחבר כדי לנהל את הפרופיל',
+      description:
+          'בנה פרופיל אישי, שתף חוויות והתחבר לאנשים עם טעם דומה לשלך.',
+    )) {
+      return;
+    }
+    await _openProfile();
   }
 
   Future<void> _openProfile() async {
@@ -920,32 +986,16 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
           onSelected: (value) {
             switch (value) {
               case 'favorites':
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const SavedPlacesScreen(
-                      filter: ContentFilter.favorites,
-                    ),
-                  ),
-                );
+                _openSavedPlaces(ContentFilter.favorites);
                 break;
               case 'wishlist':
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const SavedPlacesScreen(
-                      filter: ContentFilter.wishlist,
-                    ),
-                  ),
-                );
+                _openSavedPlaces(ContentFilter.wishlist);
                 break;
               case 'journal':
                 _openJournal();
                 break;
               case 'coupons':
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const MyCouponsScreen(),
-                  ),
-                );
+                _openCoupons();
                 break;
               case 'advanced_filter':
                 Navigator.of(context).push(
@@ -972,7 +1022,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                 );
                 break;
               case 'profile':
-                _openProfile();
+                _openProfileWithLoginCheck();
                 break;
               case 'business_manager':
                 Navigator.of(context).push(MaterialPageRoute(
@@ -1222,13 +1272,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
         SizedBox(width: mobile ? 7 : 10),
         InkWell(
           borderRadius: BorderRadius.circular(13),
-          onTap: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const PlacesOnRouteScreen(),
-              ),
-            );
-          },
+          onTap: _openPlacesOnRoute,
           child: _labeledHeaderAction(
             label: 'בדרך',
             child: _headerActionIcon(

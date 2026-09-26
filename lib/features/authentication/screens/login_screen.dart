@@ -230,7 +230,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 10),
                   const Text(
-                    'התחבר והמשך אל המקומות,\nהחוויות והחוויות שלך.',
+                    'התחבר והמשך אל המקומות,\nהחוויות והקהילה שלך.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 14,
@@ -317,27 +317,30 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        CheckboxListTile(
-                          value: _rememberMe,
-                          onChanged: _loading
-                              ? null
-                              : (value) {
-                                  setState(() {
-                                    _rememberMe = value ?? false;
-                                  });
-                                },
-                          contentPadding: EdgeInsets.zero,
-                          controlAffinity: ListTileControlAffinity.leading,
-                          dense: true,
-                          title: const Text(
-                            'זכור אותי',
-                            style: TextStyle(fontSize: 14),
-                          ),
-                          subtitle: const Text(
-                            'כתובת המייל בלבד — הסיסמה אינה נשמרת',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: AppColors.textMuted,
+                        Material(
+                          color: Colors.transparent,
+                          child: CheckboxListTile(
+                            value: _rememberMe,
+                            onChanged: _loading
+                                ? null
+                                : (value) {
+                                    setState(() {
+                                      _rememberMe = value ?? false;
+                                    });
+                                  },
+                            contentPadding: EdgeInsets.zero,
+                            controlAffinity: ListTileControlAffinity.leading,
+                            dense: true,
+                            title: const Text(
+                              'זכור אותי',
+                              style: TextStyle(fontSize: 14),
+                            ),
+                            subtitle: const Text(
+                              'כתובת המייל בלבד — הסיסמה אינה נשמרת',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textMuted,
+                              ),
                             ),
                           ),
                         ),
