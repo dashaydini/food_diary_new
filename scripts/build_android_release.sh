@@ -33,5 +33,11 @@ fi
 export BTW_UPLOAD_STORE_PASSWORD BTW_UPLOAD_KEY_PASSWORD
 trap 'unset BTW_UPLOAD_STORE_PASSWORD BTW_UPLOAD_KEY_PASSWORD' EXIT
 
-flutter build appbundle --release
+build_args=(--release)
+if [[ "${BTW_PLAY_TESTING_PREMIUM:-0}" == "1" ]]; then
+  printf 'Building an INTERNAL TEST bundle with Premium enabled for all signed-in users.\n'
+  build_args+=(--dart-define=BTW_PLAY_TESTING_PREMIUM=true)
+fi
+
+flutter build appbundle "${build_args[@]}"
 printf 'Signed bundle: %s\n' "$project_dir/build/app/outputs/bundle/release/app-release.aab"

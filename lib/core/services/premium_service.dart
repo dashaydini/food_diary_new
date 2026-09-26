@@ -5,13 +5,28 @@ class PremiumService {
 
   static final SupabaseClient _supabase = Supabase.instance.client;
 
+  /// Opens Premium for every signed-in account in dedicated Google Play test
+  /// builds. Production builds keep this disabled unless the explicit Dart
+  /// define is supplied at build time.
+  static const bool _playTestingPremium = bool.fromEnvironment(
+    'BTW_PLAY_TESTING_PREMIUM',
+    defaultValue: false,
+  );
+
   static bool _isPremium = false;
   static bool _isAdmin = false;
   static bool _previewAsFree = false;
   static String? _adminRole;
   static bool _loaded = false;
 
-  static bool get isPremium => (_isPremium || _isAdmin) && !_previewAsFree;
+  static bool get _signedInPlayTester {
+    final user = _supabase.auth.currentUser;
+    return _playTestingPremium && user != null && !user.isAnonymous;
+  }
+
+  static bool get isPremium =>
+      (_signedInPlayTester || _isPremium || _isAdmin) && !_previewAsFree;
+  static bool get playTestingPremiumEnabled => _playTestingPremium;
   static bool get isAdmin => _isAdmin;
   static bool get previewAsFree => _previewAsFree;
   static String? get adminRole => _adminRole;
