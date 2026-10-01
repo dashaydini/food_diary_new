@@ -84,7 +84,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
 
   String get _timeGreeting {
     final hour = DateTime.now().hour;
-    if (hour < 5 || hour >= 23) return 'לילה טוב';
+    if (hour < 5 || hour >= 21) return 'לילה טוב';
     if (hour < 11) return 'בוקר טוב';
     if (hour < 16) return 'צהריים טובים';
     if (hour < 19) return 'אחר צהריים טובים';
@@ -1078,16 +1078,6 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                   Icon(Icons.bookmark_outline),
                   SizedBox(width: 10),
                   Text('רשימת משאלות'),
-                ],
-              ),
-            ),
-            const PopupMenuItem(
-              value: 'journal',
-              child: Row(
-                children: [
-                  Icon(Icons.menu_book_outlined),
-                  SizedBox(width: 10),
-                  Text('יומן אישי'),
                 ],
               ),
             ),
