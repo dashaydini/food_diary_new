@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/colors.dart';
+import '../core/services/premium_service.dart';
 import '../utils/supabase_image_url.dart';
 import '../widgets/home_button.dart';
+import '../widgets/premium_preview_dialog.dart';
 import 'public_profile_screen.dart';
 
 class FollowersListScreen extends StatefulWidget {
@@ -44,12 +46,12 @@ class _FollowersListScreenState extends State<FollowersListScreen> {
       final rows = widget.showFollowers
           ? await _client
               .from('user_follows')
-              .select('follower_id')
+              .select('follower_id, status')
               .eq('following_id', widget.userId)
               .order('created_at', ascending: false)
           : await _client
               .from('user_follows')
-              .select('following_id')
+              .select('following_id, status')
               .eq('follower_id', widget.userId)
               .order('created_at', ascending: false);
 
@@ -84,8 +86,9 @@ class _FollowersListScreenState extends State<FollowersListScreen> {
           ? const <dynamic>[]
           : await _client
               .from('user_follows')
-              .select('following_id, notify_on_new_experience')
+              .select('following_id, notify_on_new_experience, status')
               .eq('follower_id', currentUserId)
+              .eq('status', 'accepted')
               .inFilter('following_id', ids);
       final followByUserId = {
         for (final row in ownFollows) row['following_id']?.toString(): row,
@@ -101,8 +104,15 @@ class _FollowersListScreenState extends State<FollowersListScreen> {
         final profile = byId[id];
         if (profile != null) {
           final follow = followByUserId[id];
+          final sourceRow = rows.firstWhere(
+            (row) =>
+                row[widget.showFollowers ? 'follower_id' : 'following_id']
+                    ?.toString() ==
+                id,
+          ) as Map;
           ordered.add({
             ...profile,
+            '_follow_status': sourceRow['status']?.toString() ?? 'accepted',
             '_is_following': follow != null,
             '_notify_on_new_experience':
                 follow?['notify_on_new_experience'] == true,
@@ -178,6 +188,100 @@ class _FollowersListScreenState extends State<FollowersListScreen> {
 
     if (mounted) {
       await _load();
+    }
+  }
+
+  bool get _isOwner => _client.auth.currentUser?.id == widget.userId;
+
+  Future<bool> _ensurePremiumForFollowerManagement() async {
+    await PremiumService.refresh();
+    if (PremiumService.isPremium) return true;
+    if (!mounted) return false;
+    final action = await showPremiumRequiredDialog(
+      context,
+      featureName: 'ניהול עוקבים',
+      benefit:
+          'עם Premium אפשר להסיר עוקבים לא רצויים או לחסום משתמשים מלשלוח בקשות מעקב חדשות.',
+    );
+    if (action == PremiumPreviewAction.upgrade && mounted) {
+      await openPremiumUpgrade(context, sourceFeature: 'follower_management');
+      await PremiumService.refresh();
+    }
+    return PremiumService.isPremium;
+  }
+
+  Future<void> _manageFollower(Map<String, dynamic> user, String action) async {
+    final userId = user['id']?.toString();
+    if (userId == null || userId.isEmpty) return;
+    final pending = user['_follow_status'] == 'pending';
+
+    if (action == 'approve' || action == 'decline') {
+      try {
+        await _client.rpc(
+          'respond_to_follow_request',
+          params: {'p_follower_id': userId, 'p_accept': action == 'approve'},
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text(action == 'approve'
+                  ? 'בקשת המעקב אושרה'
+                  : 'בקשת המעקב נדחתה')),
+        );
+        await _load();
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('לא ניתן לעדכן את בקשת המעקב כרגע')),
+          );
+        }
+      }
+      return;
+    }
+
+    if (!await _ensurePremiumForFollowerManagement()) return;
+    if (!mounted) return;
+    final isBlock = action == 'block';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+            isBlock ? 'לחסום את ${_name(user)}?' : 'להסיר את ${_name(user)}?'),
+        content: Text(isBlock
+            ? 'המשתמש לא יוכל לעקוב אחריך או לשלוח בקשת מעקב חדשה.'
+            : pending
+                ? 'בקשת המעקב תוסר.'
+                : 'המשתמש יוסר מרשימת העוקבים שלך.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('ביטול'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(isBlock ? 'חסימה' : 'הסרה'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await _client.rpc(
+        isBlock ? 'block_user' : 'remove_follower',
+        params: {isBlock ? 'p_blocked_id' : 'p_follower_id': userId},
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(isBlock ? 'המשתמש נחסם' : 'המשתמש הוסר')),
+      );
+      await _load();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('לא ניתן להשלים את הפעולה כרגע')),
+        );
+      }
     }
   }
 
@@ -376,19 +480,75 @@ class _FollowersListScreenState extends State<FollowersListScreen> {
                                           ),
                                           const SizedBox(width: 13),
                                           Expanded(
-                                            child: Text(
-                                              _name(user),
-                                              textAlign: TextAlign.right,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                color: AppColors.textPrimary,
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w500,
-                                              ),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  _name(user),
+                                                  textAlign: TextAlign.right,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    color:
+                                                        AppColors.textPrimary,
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                                if (widget.showFollowers &&
+                                                    _isOwner &&
+                                                    user['_follow_status'] ==
+                                                        'pending')
+                                                  const Padding(
+                                                    padding:
+                                                        EdgeInsets.only(top: 3),
+                                                    child: Text(
+                                                      'בקשת מעקב ממתינה לאישורך',
+                                                      style: TextStyle(
+                                                        color:
+                                                            AppColors.champagne,
+                                                        fontSize: 11,
+                                                      ),
+                                                    ),
+                                                  ),
+                                              ],
                                             ),
                                           ),
-                                          if (user['_is_following'] == true)
+                                          if (widget.showFollowers && _isOwner)
+                                            PopupMenuButton<String>(
+                                              tooltip: 'ניהול עוקב',
+                                              onSelected: (action) =>
+                                                  _manageFollower(user, action),
+                                              itemBuilder: (_) => [
+                                                if (user['_follow_status'] ==
+                                                    'pending') ...[
+                                                  const PopupMenuItem(
+                                                    value: 'approve',
+                                                    child: Text('אישור בקשה'),
+                                                  ),
+                                                  const PopupMenuItem(
+                                                    value: 'decline',
+                                                    child: Text('דחיית בקשה'),
+                                                  ),
+                                                ] else
+                                                  const PopupMenuItem(
+                                                    value: 'remove',
+                                                    child: Text('הסרה מעוקבים'),
+                                                  ),
+                                                const PopupMenuItem(
+                                                  value: 'block',
+                                                  child: Text('חסימה'),
+                                                ),
+                                              ],
+                                              icon: const Icon(
+                                                Icons.more_vert_rounded,
+                                                color: AppColors.textMuted,
+                                              ),
+                                            ),
+                                          if (!widget.showFollowers &&
+                                              user['_is_following'] == true)
                                             Tooltip(
                                               message:
                                                   user['_notify_on_new_experience'] ==

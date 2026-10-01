@@ -15,7 +15,6 @@ import '../theme/app_icons.dart';
 import '../utils/permissions.dart';
 import '../widgets/admin_pending_status.dart';
 import '../widgets/adsense_banner.dart';
-import '../widgets/visit_notification_button.dart';
 import '../widgets/premium_preview_dialog.dart';
 import '../features/authentication/screens/login_screen.dart';
 import '../main.dart' show AuthGate;
@@ -40,6 +39,7 @@ import 'add_visit_screen.dart';
 import 'following_feed_screen.dart';
 import 'saved_places_screen.dart';
 import 'premium_upgrade_screen.dart';
+import 'visit_notifications_screen.dart';
 
 class PlaceCategory {
   final String id;
@@ -81,6 +81,15 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
   bool _handledInstallOffer = false;
   bool _hasManagedPlaces = false;
   bool _showTestAd = false;
+
+  String get _timeGreeting {
+    final hour = DateTime.now().hour;
+    if (hour < 5 || hour >= 23) return 'לילה טוב';
+    if (hour < 11) return 'בוקר טוב';
+    if (hour < 16) return 'צהריים טובים';
+    if (hour < 19) return 'אחר צהריים טובים';
+    return 'ערב טוב';
+  }
 
   @override
   void initState() {
@@ -948,16 +957,10 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
       {required bool mobile,
       required bool pendingAdminItems,
       required VoidCallback refreshAdminStatus}) {
-    final signedIn = Supabase.instance.client.auth.currentUser != null &&
-        !(Supabase.instance.client.auth.currentUser?.isAnonymous ?? true);
     final actions = Row(
       textDirection: TextDirection.rtl,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (!mobile && signedIn) ...[
-          VisitNotificationButton(mobile: mobile),
-          SizedBox(width: mobile ? 7 : 10),
-        ],
         PopupMenuButton<String>(
           color: AppColors.card,
           surfaceTintColor: Colors.transparent,
@@ -993,6 +996,13 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
                 break;
               case 'journal':
                 _openJournal();
+                break;
+              case 'activity':
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const VisitNotificationsScreen(),
+                  ),
+                );
                 break;
               case 'coupons':
                 _openCoupons();
@@ -1094,6 +1104,16 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
             if (Supabase.instance.client.auth.currentUser != null &&
                 !(Supabase.instance.client.auth.currentUser?.isAnonymous ??
                     true)) ...[
+              const PopupMenuItem(
+                value: 'activity',
+                child: Row(
+                  children: [
+                    Icon(Icons.people_outline_rounded),
+                    SizedBox(width: 10),
+                    Text('הפעילות שלי'),
+                  ],
+                ),
+              ),
               const PopupMenuItem(
                 value: 'premium',
                 child: Row(
@@ -1281,6 +1301,18 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
             ),
           ),
         ),
+        SizedBox(width: mobile ? 7 : 10),
+        InkWell(
+          borderRadius: BorderRadius.circular(13),
+          onTap: _openJournal,
+          child: _labeledHeaderAction(
+            label: 'יומן',
+            child: _headerActionIcon(
+              Icons.menu_book_outlined,
+              mobile: mobile,
+            ),
+          ),
+        ),
         SizedBox(width: mobile ? 12 : 18),
         Expanded(
           child: mobile
@@ -1288,7 +1320,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
               : Padding(
                   padding: const EdgeInsets.only(top: 10),
                   child: Text(
-                    'שלום $_greetingName',
+                    '$_timeGreeting $_greetingName',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.right,
@@ -1328,12 +1360,8 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
         Row(
           textDirection: TextDirection.rtl,
           children: [
-            if (signedIn) ...[
-              const VisitNotificationButton(),
-              const SizedBox(width: 12),
-            ],
             Expanded(
-                child: Text('שלום $_greetingName',
+                child: Text('$_timeGreeting $_greetingName',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.right,

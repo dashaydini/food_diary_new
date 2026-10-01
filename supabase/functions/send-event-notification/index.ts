@@ -14,6 +14,7 @@ type EventType =
   | 'followed_user_experience'
   | 'experience_tag'
   | 'new_follower'
+  | 'follow_request'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
@@ -45,6 +46,7 @@ Deno.serve(async (req) => {
       'followed_user_experience',
       'experience_tag',
       'new_follower',
+      'follow_request',
     ].includes(eventType) || !resourceId) {
       throw new Error('Invalid request')
     }
@@ -110,23 +112,28 @@ Deno.serve(async (req) => {
       message = `${authorName} צירף אותך לחוויה ב${placeName}`
       targetUrl = `/?open=tagged-experience&visit_id=${encodeURIComponent(item.visit_id)}`
       preferenceColumn = 'tags'
-    } else if (eventType === 'new_follower') {
+    } else if (eventType === 'new_follower' || eventType === 'follow_request') {
       const { data: follow, error } = await admin.from('user_follows')
-        .select('follower_id,following_id')
+        .select('follower_id,following_id,status')
         .eq('follower_id', user.id)
         .eq('following_id', resourceId)
         .maybeSingle()
       if (error) throw error
-      if (!follow) throw new Error('Forbidden')
+      if (!follow || (eventType === 'new_follower' && follow.status !== 'accepted') ||
+          (eventType === 'follow_request' && follow.status !== 'pending')) {
+        throw new Error('Forbidden')
+      }
       const { data: profile, error: profileError } = await admin.from('profiles')
         .select('display_name').eq('id', user.id).single()
       if (profileError) throw profileError
       recipientIds = follow.following_id === user.id ? [] : [follow.following_id]
-      title = 'יש לך עוקב חדש'
-      message = `${profile.display_name || 'משתמש חדש'} התחיל לעקוב אחריך`
+      title = eventType === 'follow_request' ? 'בקשת מעקב חדשה' : 'יש לך עוקב חדש'
+      message = eventType === 'follow_request'
+        ? `${profile.display_name || 'משתמש חדש'} ביקש לעקוב אחריך`
+        : `${profile.display_name || 'משתמש חדש'} התחיל לעקוב אחריך`
       targetUrl = `/?open=user-profile&user_id=${encodeURIComponent(user.id)}`
       preferenceColumn = 'new_followers'
-      dispatchEventType = `new_follower:${user.id}`
+      dispatchEventType = `${eventType}:${user.id}`
     } else if (eventType === 'followed_user_experience') {
       const { data: visit, error } = await admin.from('visits')
         .select('user_id,place_id,created_at,moderation_status,places(name),profiles!visits_user_id_fkey(display_name)')
@@ -142,6 +149,7 @@ Deno.serve(async (req) => {
         .from('user_follows')
         .select('follower_id')
         .eq('following_id', user.id)
+        .eq('status', 'accepted')
         .eq('notify_on_new_experience', true)
       if (followersError) throw followersError
       recipientIds = (followers ?? [])

@@ -36,7 +36,10 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   int _followingCount = 0;
 
   bool _isFollowing = false;
+  bool _followRequestPending = false;
   bool _notifyOnNewExperience = false;
+
+  bool get _isPrivateProfile => _profile?['is_private'] == true;
 
   String? get _currentUserId => _client.auth.currentUser?.id;
 
@@ -61,7 +64,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
       final results = await Future.wait([
         _client
             .from('profiles')
-            .select('id, display_name, avatar_url')
+            .select('id, display_name, avatar_url, is_private')
             .eq('id', widget.userId)
             .maybeSingle(),
         _client
@@ -82,11 +85,13 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
         _client
             .from('user_follows')
             .select('follower_id')
-            .eq('following_id', widget.userId),
+            .eq('following_id', widget.userId)
+            .eq('status', 'accepted'),
         _client
             .from('user_follows')
             .select('following_id')
-            .eq('follower_id', widget.userId),
+            .eq('follower_id', widget.userId)
+            .eq('status', 'accepted'),
       ]);
 
       final profileRaw = results[0];
@@ -100,6 +105,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
       final following = results[3] as List;
 
       bool isFollowing = false;
+      bool followRequestPending = false;
 
       final currentUserId = _currentUserId;
 
@@ -107,14 +113,16 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
         final follow = await _client
             .from('user_follows')
             .select(
-              'follower_id, following_id, notify_on_new_experience',
+              'follower_id, following_id, notify_on_new_experience, status',
             )
             .eq('follower_id', currentUserId)
             .eq('following_id', widget.userId)
             .maybeSingle();
 
-        isFollowing = follow != null;
-        _notifyOnNewExperience = follow?['notify_on_new_experience'] == true;
+        isFollowing = follow?['status'] == 'accepted';
+        followRequestPending = follow?['status'] == 'pending';
+        _notifyOnNewExperience =
+            isFollowing && follow?['notify_on_new_experience'] == true;
       }
 
       if (!mounted) return;
@@ -125,6 +133,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
         _followersCount = followers.length;
         _followingCount = following.length;
         _isFollowing = isFollowing;
+        _followRequestPending = followRequestPending;
         _loading = false;
       });
     } catch (e) {
@@ -151,7 +160,8 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     });
 
     try {
-      if (_isFollowing) {
+      if (_isFollowing || _followRequestPending) {
+        final wasFollowing = _isFollowing;
         await _client
             .from('user_follows')
             .delete()
@@ -162,27 +172,30 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
 
         setState(() {
           _isFollowing = false;
+          _followRequestPending = false;
           _notifyOnNewExperience = false;
-          if (_followersCount > 0) {
+          if (wasFollowing && _followersCount > 0) {
             _followersCount--;
           }
           _followWorking = false;
         });
       } else {
-        await _client.from('user_follows').insert({
-          'follower_id': currentUserId,
-          'following_id': widget.userId,
-        });
+        final status = await _client.rpc(
+          'request_follow',
+          params: {'p_following_id': widget.userId},
+        );
+        final isPending = status == 'pending';
         unawaited(NotificationDispatchService.send(
-          eventType: 'new_follower',
+          eventType: isPending ? 'follow_request' : 'new_follower',
           resourceId: widget.userId,
         ));
 
         if (!mounted) return;
 
         setState(() {
-          _isFollowing = true;
-          _followersCount++;
+          _isFollowing = !isPending;
+          _followRequestPending = isPending;
+          if (!isPending) _followersCount++;
           _followWorking = false;
         });
       }
@@ -456,7 +469,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
           ),
           if (!_isOwnProfile && _currentUserId != null) ...[
             const SizedBox(height: 18),
-            if (!_isFollowing)
+            if (!_isFollowing && !_followRequestPending)
               Center(
                 child: SizedBox(
                   height: 42,
@@ -486,8 +499,8 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                               color: AppColors.champagne,
                             ),
                           )
-                        : const Text(
-                            'עקוב',
+                        : Text(
+                            _isPrivateProfile ? 'שלח בקשת מעקב' : 'עקוב',
                             style: TextStyle(
                               color: AppColors.champagne,
                               fontSize: 13,
@@ -497,7 +510,29 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                   ),
                 ),
               )
-            else ...[
+            else if (_followRequestPending) ...[
+              SizedBox(
+                height: 38,
+                child: OutlinedButton.icon(
+                  onPressed: _followWorking ? null : _toggleFollow,
+                  icon: const Icon(Icons.hourglass_top_rounded, size: 16),
+                  label: const Text('בקשה נשלחה'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.textMuted,
+                    side: BorderSide(
+                      color: AppColors.champagne.withValues(alpha: 0.18),
+                      width: 0.8,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 9),
+              const Text(
+                'המעקב יתחיל לאחר אישור בעל הפרופיל',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textMuted, fontSize: 11),
+              ),
+            ] else ...[
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [

@@ -9,6 +9,7 @@ import '../core/services/push_notification_service.dart';
 import '../core/services/premium_service.dart';
 import '../core/services/user_preferences_service.dart';
 import '../widgets/home_button.dart';
+import '../widgets/premium_preview_dialog.dart';
 import 'legal_screens.dart';
 import 'support_requests_screen.dart';
 
@@ -56,6 +57,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _changingLocationPreference = false;
   String _versionLabel = 'טוען גרסה…';
   bool _previewAsFree = PremiumService.previewAsFree;
+  bool _isPrivateProfile = false;
+  bool _changingProfilePrivacy = false;
 
   @override
   void initState() {
@@ -90,7 +93,60 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _loadPushStatus(),
       _loadCouponNotificationPreferences(),
       _loadManagerNotificationPreference(),
+      _loadProfilePrivacy(),
     ]);
+  }
+
+  Future<void> _loadProfilePrivacy() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null || user.isAnonymous) return;
+    try {
+      final profile = await Supabase.instance.client
+          .from('profiles')
+          .select('is_private')
+          .eq('id', user.id)
+          .maybeSingle();
+      if (mounted) {
+        setState(() => _isPrivateProfile = profile?['is_private'] == true);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _toggleProfilePrivacy(bool enabled) async {
+    if (_changingProfilePrivacy) return;
+    await PremiumService.refresh();
+    if (enabled && !PremiumService.isPremium) {
+      if (!mounted) return;
+      final action = await showPremiumRequiredDialog(
+        context,
+        featureName: 'פרופיל פרטי',
+        benefit:
+            'עם Premium אפשר לאשר ידנית מי יעקוב אחריך, להסיר עוקבים ולחסום משתמשים לא רצויים.',
+      );
+      if (action == PremiumPreviewAction.upgrade && mounted) {
+        await openPremiumUpgrade(context, sourceFeature: 'private_profile');
+        await PremiumService.refresh();
+      }
+      return;
+    }
+    setState(() => _changingProfilePrivacy = true);
+    try {
+      await Supabase.instance.client.rpc(
+        'set_my_profile_private',
+        params: {'p_is_private': enabled},
+      );
+      if (!mounted) return;
+      setState(() => _isPrivateProfile = enabled);
+      _showMessage(enabled
+          ? 'הפרופיל פרטי · בקשות מעקב ימתינו לאישורך'
+          : 'הפרופיל ציבורי · אפשר לעקוב אחריך מיד');
+    } catch (_) {
+      if (mounted) {
+        _showMessage('לא ניתן לשמור את הגדרת הפרטיות כרגע');
+      }
+    } finally {
+      if (mounted) setState(() => _changingProfilePrivacy = false);
+    }
   }
 
   Future<void> _loadManagerNotificationPreference() async {
@@ -728,6 +784,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                             ],
                           ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _section(
+                        title: 'פרטיות הפרופיל',
+                        child: SwitchListTile.adaptive(
+                          contentPadding: EdgeInsets.zero,
+                          value: _isPrivateProfile,
+                          secondary: Icon(
+                            _isPrivateProfile
+                                ? Icons.lock_outline_rounded
+                                : Icons.public_rounded,
+                          ),
+                          title: const Text('פרופיל פרטי'),
+                          subtitle: Text(_isPrivateProfile
+                              ? 'עוקבים חדשים ימתינו לאישורך. רק עוקבים מאושרים יראו את החוויות שלך.'
+                              : 'כל משתמש יכול לעקוב אחריך מיד ולראות את החוויות הציבוריות שלך.'),
+                          onChanged: _changingProfilePrivacy
+                              ? null
+                              : _toggleProfilePrivacy,
                         ),
                       ),
                       const SizedBox(height: 14),
