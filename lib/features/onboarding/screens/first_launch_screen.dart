@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../../theme/colors.dart';
@@ -65,11 +67,17 @@ class FirstLaunchScreen extends StatelessWidget {
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
+            // During Android's first layout pass the available height can be
+            // zero. A negative minimum height crashes the whole onboarding
+            // screen before it can become scrollable.
+            final minContentHeight = constraints.hasBoundedHeight
+                ? math.max(0.0, constraints.maxHeight - 66)
+                : 0.0;
             return SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(24, 30, 24, 36),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  minHeight: constraints.maxHeight - 66,
+                  minHeight: minContentHeight,
                 ),
                 child: Center(
                   child: ConstrainedBox(

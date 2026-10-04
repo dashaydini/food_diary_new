@@ -11,6 +11,7 @@ import 'admin_statistics_screen.dart';
 import 'admin_users_screen.dart';
 import 'admin_coupons_screen.dart';
 import 'admin_place_managers_screen.dart';
+import 'admin_place_category_screen.dart';
 import 'user_tutorial_screen.dart';
 import 'admin_system_notifications_screen.dart';
 
@@ -114,6 +115,7 @@ class _AdminCenterScreenState extends State<AdminCenterScreen> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final desktop = constraints.maxWidth >= 720;
+            final compactCards = constraints.maxWidth < 600;
             return Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 980),
@@ -157,12 +159,13 @@ class _AdminCenterScreenState extends State<AdminCenterScreen> {
                       GridView.count(
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
-                        crossAxisCount: desktop ? 2 : 1,
-                        mainAxisSpacing: 14,
-                        crossAxisSpacing: 14,
-                        childAspectRatio: desktop ? 2.35 : 2.75,
+                        crossAxisCount: 3,
+                        mainAxisSpacing: compactCards ? 10 : 14,
+                        crossAxisSpacing: compactCards ? 10 : 14,
+                        childAspectRatio: compactCards ? 0.82 : 2.05,
                         children: [
                           _AdminCard(
+                            compact: compactCards,
                             icon: Icons.card_giftcard_rounded,
                             title: 'ניהול קופונים',
                             subtitle: 'יצירה, עריכה, פרסום ושליחת פוש',
@@ -171,6 +174,7 @@ class _AdminCenterScreenState extends State<AdminCenterScreen> {
                             enabled: Permissions.canManageContent,
                           ),
                           _AdminCard(
+                            compact: compactCards,
                             icon: Icons.flag_outlined,
                             title: 'דיווחים ופניות',
                             subtitle: 'דיווחים ופניות שממתינים לטיפול',
@@ -182,6 +186,7 @@ class _AdminCenterScreenState extends State<AdminCenterScreen> {
                                 Permissions.canManageSupport,
                           ),
                           _AdminCard(
+                            compact: compactCards,
                             icon: Icons.category_outlined,
                             title: 'ניהול קטגוריות',
                             subtitle: 'הוספה, עריכה, מחיקה ושינוי סדר',
@@ -190,6 +195,17 @@ class _AdminCenterScreenState extends State<AdminCenterScreen> {
                             enabled: Permissions.canManageContent,
                           ),
                           _AdminCard(
+                            compact: compactCards,
+                            icon: Icons.swap_horiz_rounded,
+                            title: 'העברת מקום',
+                            subtitle: 'תיקון קטגוריה למקום',
+                            value: 'ניהול',
+                            onTap: () =>
+                                _open(const AdminPlaceCategoryScreen()),
+                            enabled: Permissions.isAdmin,
+                          ),
+                          _AdminCard(
+                            compact: compactCards,
                             icon: Icons.people_outline_rounded,
                             title: 'ניהול משתמשים',
                             subtitle: 'חסימה, מחיקה ושליחת הודעה',
@@ -198,6 +214,7 @@ class _AdminCenterScreenState extends State<AdminCenterScreen> {
                             enabled: Permissions.canManageUsers,
                           ),
                           _AdminCard(
+                            compact: compactCards,
                             icon: Icons.storefront_rounded,
                             title: 'מנהלי מקומות',
                             subtitle: 'שיוך משתמש והרשאות נפרדות לכל מקום',
@@ -207,6 +224,7 @@ class _AdminCenterScreenState extends State<AdminCenterScreen> {
                             enabled: Permissions.canManageUsers,
                           ),
                           _AdminCard(
+                            compact: compactCards,
                             icon: Icons.school_outlined,
                             title: 'מסך היכרות',
                             subtitle: 'תצוגה מקדימה של סיפור האפליקציה',
@@ -214,6 +232,7 @@ class _AdminCenterScreenState extends State<AdminCenterScreen> {
                             onTap: () => _open(const UserTutorialScreen()),
                           ),
                           _AdminCard(
+                            compact: compactCards,
                             icon: Icons.query_stats_rounded,
                             title: 'סטטיסטיקות',
                             subtitle: 'משתמשים, פעילות, שיתופים ומיקום',
@@ -221,6 +240,7 @@ class _AdminCenterScreenState extends State<AdminCenterScreen> {
                             onTap: () => _open(const AdminStatisticsScreen()),
                           ),
                           _AdminCard(
+                            compact: compactCards,
                             icon: Icons.campaign_outlined,
                             title: 'הודעות מערכת',
                             subtitle: 'שליחת עדכוני פוש לכל המשתמשים',
@@ -243,6 +263,7 @@ class _AdminCenterScreenState extends State<AdminCenterScreen> {
 }
 
 class _AdminCard extends StatelessWidget {
+  final bool compact;
   final IconData icon;
   final String title;
   final String subtitle;
@@ -252,6 +273,7 @@ class _AdminCard extends StatelessWidget {
   final VoidCallback? onTap;
 
   const _AdminCard({
+    required this.compact,
     required this.icon,
     required this.title,
     required this.subtitle,
@@ -263,16 +285,85 @@ class _AdminCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final iconBox = Container(
+      width: compact ? 34 : 48,
+      height: compact ? 34 : 48,
+      decoration: BoxDecoration(
+        color: AppColors.champagne.withValues(alpha: 0.055),
+        borderRadius: BorderRadius.circular(compact ? 11 : 14),
+      ),
+      child: Icon(
+        icon,
+        size: compact ? 19 : 24,
+        color: enabled ? AppColors.champagne : AppColors.textMuted,
+      ),
+    );
+    final details = Column(
+      mainAxisSize: compact ? MainAxisSize.min : MainAxisSize.max,
+      mainAxisAlignment:
+          compact ? MainAxisAlignment.center : MainAxisAlignment.center,
+      crossAxisAlignment:
+          compact ? CrossAxisAlignment.center : CrossAxisAlignment.end,
+      children: [
+        Text(
+          title,
+          maxLines: compact ? 2 : 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: compact ? TextAlign.center : TextAlign.right,
+          style: TextStyle(
+            color: enabled ? AppColors.textPrimary : AppColors.textMuted,
+            fontSize: compact ? 12 : 16,
+            fontWeight: FontWeight.w600,
+            height: compact ? 1.15 : null,
+          ),
+        ),
+        SizedBox(height: compact ? 3 : 5),
+        Text(
+          subtitle,
+          maxLines: compact ? 2 : 2,
+          overflow: TextOverflow.ellipsis,
+          textAlign: compact ? TextAlign.center : TextAlign.right,
+          style: TextStyle(
+            color: AppColors.textMuted,
+            fontSize: compact ? 9.5 : 11.5,
+            height: compact ? 1.25 : 1.35,
+          ),
+        ),
+      ],
+    );
+    final valueBadge = Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 6 : 10,
+        vertical: compact ? 3 : 6,
+      ),
+      decoration: BoxDecoration(
+        color: alert
+            ? AppColors.danger.withValues(alpha: 0.12)
+            : AppColors.background.withValues(alpha: 0.62),
+        borderRadius: BorderRadius.circular(compact ? 9 : 12),
+      ),
+      child: Text(
+        value,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: alert ? AppColors.danger : AppColors.textSecondary,
+          fontSize: compact ? 9 : 11.5,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: enabled ? onTap : null,
         borderRadius: BorderRadius.circular(19),
         child: Ink(
-          padding: const EdgeInsets.all(17),
+          padding: EdgeInsets.all(compact ? 10 : 17),
           decoration: BoxDecoration(
             color: AppColors.surfaceRaised,
-            borderRadius: BorderRadius.circular(19),
+            borderRadius: BorderRadius.circular(compact ? 16 : 19),
             border: Border.all(
               color: alert
                   ? AppColors.danger.withValues(alpha: 0.38)
@@ -280,73 +371,22 @@ class _AdminCard extends StatelessWidget {
                       .withValues(alpha: enabled ? 0.16 : 0.08),
             ),
           ),
-          child: Row(
-            textDirection: TextDirection.rtl,
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: AppColors.champagne.withValues(alpha: 0.055),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(
-                  icon,
-                  color: enabled ? AppColors.champagne : AppColors.textMuted,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.end,
+          child: compact
+              ? Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [iconBox, details, valueBadge],
+                )
+              : Row(
+                  textDirection: TextDirection.rtl,
                   children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        color: enabled
-                            ? AppColors.textPrimary
-                            : AppColors.textMuted,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      subtitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.right,
-                      style: const TextStyle(
-                        color: AppColors.textMuted,
-                        fontSize: 11.5,
-                        height: 1.35,
-                      ),
-                    ),
+                    iconBox,
+                    const SizedBox(width: 14),
+                    Expanded(child: details),
+                    const SizedBox(width: 10),
+                    valueBadge,
                   ],
                 ),
-              ),
-              const SizedBox(width: 10),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: alert
-                      ? AppColors.danger.withValues(alpha: 0.12)
-                      : AppColors.background.withValues(alpha: 0.62),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  value,
-                  style: TextStyle(
-                    color: alert ? AppColors.danger : AppColors.textSecondary,
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );

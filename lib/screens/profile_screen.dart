@@ -5,7 +5,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../core/services/auth_service.dart';
-import '../features/authentication/screens/login_screen.dart';
 import '../utils/image_upload_policy.dart';
 import '../utils/supabase_image_url.dart';
 import 'followers_list_screen.dart';
@@ -1044,16 +1043,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _logout() async {
-    await Supabase.instance.client.auth.signOut();
+    try {
+      await _authService.signOut().timeout(const Duration(seconds: 12));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('לא ניתן להתנתק כרגע. נסה שוב.')),
+      );
+      return;
+    }
 
     if (!mounted) return;
 
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder: (_) => const LoginScreen(),
-      ),
-      (route) => false,
-    );
+    // Return to AuthGate. It already received the signed-out event and will
+    // show the correct welcome/login flow; creating a detached LoginScreen
+    // here used to leave it spinning after a Google account switch.
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   @override

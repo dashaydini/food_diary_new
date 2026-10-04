@@ -20,6 +20,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   String? _busyUserId;
   String _accountFilter = 'all';
   String? _callerRole;
+  Map<String, dynamic>? _betaPremiumPromo;
 
   @override
   void initState() {
@@ -62,6 +63,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
             .map((user) => Map<String, dynamic>.from(user))
             .toList();
         _callerRole = data['caller_role']?.toString();
+        final promo = data['beta_premium_promo'];
+        _betaPremiumPromo =
+            promo is Map ? Map<String, dynamic>.from(promo) : null;
         _loading = false;
       });
     } catch (error) {
@@ -111,6 +115,109 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     if (date == null) return 'לא ידוע';
     return '${date.day.toString().padLeft(2, '0')}.'
         '${date.month.toString().padLeft(2, '0')}.${date.year}';
+  }
+
+  void _showBetaPremiumRedemptions() {
+    final promo = _betaPremiumPromo;
+    if (promo == null || !_isFullAdmin) return;
+    final redemptions = (promo['redemptions'] as List? ?? const [])
+        .whereType<Map>()
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList();
+    final used = (promo['redemption_count'] as num?)?.toInt() ?? 0;
+    final maximum = (promo['max_redemptions'] as num?)?.toInt() ?? 30;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surfaceRaised,
+      isScrollControlled: true,
+      builder: (sheetContext) => FractionallySizedBox(
+        heightFactor: .76,
+        child: SafeArea(
+          child: Column(
+            children: [
+              const SizedBox(height: 10),
+              Container(
+                height: 4,
+                width: 38,
+                decoration: BoxDecoration(
+                  color: AppColors.textMuted.withValues(alpha: .45),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                child: Row(
+                  children: [
+                    Icon(Icons.workspace_premium_outlined,
+                        color: AppColors.champagne),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          const Text('הטבת Premium לבודקי בטא',
+                              textAlign: TextAlign.right,
+                              style: TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.w600)),
+                          Text('$used מתוך $maximum מומשו',
+                              style:
+                                  const TextStyle(color: AppColors.textMuted)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: redemptions.isEmpty
+                    ? const Center(child: Text('עדיין אין מימושים'))
+                    : ListView.separated(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: redemptions.length,
+                        separatorBuilder: (_, separatorIndex) =>
+                            const Divider(height: 18),
+                        itemBuilder: (_, index) {
+                          final redemption = redemptions[index];
+                          final name =
+                              redemption['display_name']?.toString().trim();
+                          final email = redemption['email']?.toString().trim();
+                          final title = name?.isNotEmpty == true
+                              ? name!
+                              : email?.isNotEmpty == true
+                                  ? email!
+                                  : 'משתמש';
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: CircleAvatar(
+                              backgroundColor: AppColors.background,
+                              foregroundImage: redemption['avatar_url']
+                                          ?.toString()
+                                          .isNotEmpty ==
+                                      true
+                                  ? NetworkImage(
+                                      redemption['avatar_url'].toString())
+                                  : null,
+                              child: redemption['avatar_url']
+                                          ?.toString()
+                                          .isNotEmpty ==
+                                      true
+                                  ? null
+                                  : const Icon(Icons.person_outline_rounded),
+                            ),
+                            title: Text(title, textAlign: TextAlign.right),
+                            subtitle: Text(
+                                'מומש ב־${_dateText(redemption['redeemed_at'])}',
+                                textAlign: TextAlign.right),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _runAction(
@@ -375,6 +482,9 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     final activeCount = _users.where(_isActive).length;
     final premiumCount =
         _users.where((user) => user['is_premium'] == true).length;
+    final betaUsed = (_betaPremiumPromo?['redemption_count'] as num?)?.toInt();
+    final betaMaximum =
+        (_betaPremiumPromo?['max_redemptions'] as num?)?.toInt();
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -409,9 +519,15 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                             children: [
                               Expanded(
                                 child: _SummaryCard(
-                                  label: 'פרימיום',
+                                  label: betaUsed == null || betaMaximum == null
+                                      ? 'פרימיום'
+                                      : 'פרימיום\nהטבת בטא: $betaUsed/$betaMaximum',
                                   value: '$premiumCount',
                                   icon: Icons.workspace_premium_outlined,
+                                  onTap:
+                                      _isFullAdmin && _betaPremiumPromo != null
+                                          ? _showBetaPremiumRedemptions
+                                          : null,
                                 ),
                               ),
                               const SizedBox(width: 10),
@@ -661,42 +777,49 @@ class _SummaryCard extends StatelessWidget {
   final String label;
   final String value;
   final IconData icon;
+  final VoidCallback? onTap;
 
   const _SummaryCard({
     required this.label,
     required this.value,
     required this.icon,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceRaised,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppColors.champagne.withValues(alpha: 0.14),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceRaised,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppColors.champagne.withValues(alpha: 0.14),
+          ),
         ),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: AppColors.champagne, size: 20),
-          const SizedBox(height: 7),
-          Text(
-            value,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 22,
-              fontWeight: FontWeight.w600,
+        child: Column(
+          children: [
+            Icon(icon, color: AppColors.champagne, size: 20),
+            const SizedBox(height: 7),
+            Text(
+              value,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-          ),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: AppColors.textMuted, fontSize: 11.5),
-          ),
-        ],
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style:
+                  const TextStyle(color: AppColors.textMuted, fontSize: 11.5),
+            ),
+          ],
+        ),
       ),
     );
   }

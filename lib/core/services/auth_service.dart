@@ -1,10 +1,17 @@
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AuthService {
   static const _localGuestKey = 'local_guest_mode';
+  // This is a public OAuth identifier, not a secret. It must be the Web
+  // client that Supabase accepts as an audience for Google ID tokens.
+  static const _googleServerClientId =
+      '188806948323-uabt3bsesl0l7l3j1ci8b1fkrlp0i3bu.apps.googleusercontent.com';
   static bool _localGuestMode = false;
+  static final GoogleSignIn _nativeGoogleSignIn = GoogleSignIn.instance;
+  static Future<void>? _nativeGoogleInitialization;
 
   final SupabaseClient _supabase = Supabase.instance.client;
 
@@ -142,6 +149,27 @@ class AuthService {
 
   Future<void> signInWithGoogle() async {
     await clearLocalGuestMode();
+
+    // Android uses the device's native Google account picker. Apart from
+    // feeling native, this avoids opening the browser on Supabase's domain and
+    // makes account changes deterministic. Web and iOS retain their existing
+    // OAuth flows.
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      await _initializeNativeGoogleSignIn();
+      final account = await _nativeGoogleSignIn.authenticate();
+      final idToken = account.authentication.idToken;
+
+      if (idToken == null || idToken.isEmpty) {
+        throw const AuthException('לא התקבל אישור התחברות מ-Google');
+      }
+
+      await _supabase.auth.signInWithIdToken(
+        provider: OAuthProvider.google,
+        idToken: idToken,
+      );
+      return;
+    }
+
     final redirectTo = kIsWeb
         ? '${Uri.base.origin}${Uri.base.path}'
         : 'fooddiary://login-callback';
@@ -196,6 +224,24 @@ class AuthService {
 
   Future<void> signOut() async {
     await clearLocalGuestMode();
+
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      try {
+        await _initializeNativeGoogleSignIn();
+        await _nativeGoogleSignIn.signOut();
+      } catch (error) {
+        // Ending the Supabase session remains more important than clearing the
+        // optional device-level Google session.
+        debugPrint('NATIVE GOOGLE SIGN OUT ERROR: $error');
+      }
+    }
+
     await _supabase.auth.signOut();
+  }
+
+  static Future<void> _initializeNativeGoogleSignIn() {
+    return _nativeGoogleInitialization ??= _nativeGoogleSignIn.initialize(
+      serverClientId: _googleServerClientId,
+    );
   }
 }

@@ -1,9 +1,10 @@
-import '../widgets/category_card.dart';
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../widgets/category_card.dart';
 import '../models/content_filter.dart';
 import '../core/services/app_install_service.dart';
 import '../core/services/privacy_consent_service.dart';
@@ -79,6 +80,7 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
   StreamSubscription<Uri>? _pushLinkSubscription;
   bool _handledInitialLink = false;
   bool _handledInstallOffer = false;
+  bool _handledBetaPremiumOffer = false;
   bool _hasManagedPlaces = false;
   bool _showTestAd = false;
 
@@ -101,7 +103,10 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
     _loadManagerAccess();
     _loadAdExperiment();
     WidgetsBinding.instance.addPostFrameCallback((_) => _openInitialLink());
-    WidgetsBinding.instance.addPostFrameCallback((_) => _offerInstall());
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _offerInstall();
+      await _offerBetaPremium();
+    });
 
     _authSubscription =
         Supabase.instance.client.auth.onAuthStateChange.listen((_) {
@@ -219,6 +224,98 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _offerBetaPremium() async {
+    if (_handledBetaPremiumOffer ||
+        kIsWeb ||
+        defaultTargetPlatform != TargetPlatform.android) {
+      return;
+    }
+    _handledBetaPremiumOffer = true;
+
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null || user.isAnonymous) return;
+
+    try {
+      final result = await Supabase.instance.client
+          .rpc('get_beta_premium_offer_status');
+      if (!mounted || result is! Map || result['available'] != true) return;
+
+      final redeemed = await showDialog<bool>(
+        context: context,
+        barrierDismissible: true,
+        builder: (dialogContext) => Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            icon: const Icon(
+              Icons.workspace_premium_rounded,
+              color: AppColors.champagne,
+              size: 38,
+            ),
+            title: const Text(
+              'ברוכים הבאים לצוות הבדיקה!',
+              textAlign: TextAlign.center,
+            ),
+            content: const Text(
+              'תודה שהצטרפת ל־BITE THE WAY בשלב הבטא. מגיעה לך הטבת הצטרפות: מנוי Premium לשנה במתנה.\n\nהמלאי מוגבל ל־30 המימושים הראשונים.',
+              textAlign: TextAlign.center,
+              style: TextStyle(height: 1.5),
+            ),
+            actionsAlignment: MainAxisAlignment.center,
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('אולי אחר כך'),
+              ),
+              FilledButton.icon(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                icon: const Icon(Icons.redeem_rounded),
+                label: const Text('קבלת Premium לשנה'),
+              ),
+            ],
+          ),
+        ),
+      );
+
+      if (redeemed != true || !mounted) return;
+      await _redeemBetaPremiumFromOffer();
+    } catch (_) {
+      // The offer must never prevent the home screen from opening.
+    }
+  }
+
+  Future<void> _redeemBetaPremiumFromOffer() async {
+    try {
+      await Supabase.instance.client.rpc(
+        'redeem_premium_promo',
+        params: const {'p_code': 'BITEBETA'},
+      );
+      await PremiumService.refresh();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('נהדר! קיבלת גישת Premium לשנה.'),
+        ),
+      );
+    } on PostgrestException catch (error) {
+      if (!mounted) return;
+      final message = switch (error.message) {
+        'promo_limit_reached' => 'כל הטבות הבטא כבר מומשו.',
+        'invalid_promo_code' => 'הטבת הבטא כבר אינה פעילה.',
+        'promo_already_redeemed' => 'הטבת הבטא כבר ממומשת בחשבון הזה.',
+        _ => 'לא הצלחנו לממש את ההטבה כרגע. נסה שוב מאוחר יותר.',
+      };
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('לא הצלחנו לממש את ההטבה כרגע. נסה שוב מאוחר יותר.'),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _openInitialLink() async {
@@ -873,15 +970,16 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
   }
 
   Future<void> _openProfile() async {
-    final changed = await Navigator.of(context).push<bool>(
+    await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => const ProfileScreen(),
       ),
     );
 
-    if (changed == true) {
-      await _loadGreeting();
-    }
+    // The profile screen can remain open after saving, then return via the
+    // regular back action without a result. Always refresh the greeting when
+    // returning so a newly saved display name appears immediately.
+    if (mounted) await _loadGreeting();
   }
 
   @override

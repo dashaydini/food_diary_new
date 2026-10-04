@@ -26,7 +26,8 @@ class _RegistrationGateState extends State<RegistrationGate> {
   }
 
   Future<Map<String, dynamic>> _load() async {
-    final profile = await _service.profile();
+    final profile =
+        await _service.profile().timeout(const Duration(seconds: 12));
     if (profile['registration_completed'] == true) {
       unawaited(_service.applyPendingReferral());
     }

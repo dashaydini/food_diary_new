@@ -18,6 +18,7 @@ import '../utils/image_upload_policy.dart';
 import '../utils/permissions.dart';
 import '../utils/app_preferences.dart';
 import 'place_details_screen.dart';
+import 'place_manager_tools_screen.dart';
 
 class AddPlaceScreen extends StatefulWidget {
   final String categoryId;
@@ -774,6 +775,44 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                         ),
                         const SizedBox(height: 18),
                         _buildImagePickerCard(),
+                        if (widget.isEditing) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            'גלריית המקום',
+                            textAlign: TextAlign.right,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: 48,
+                            child: OutlinedButton.icon(
+                              onPressed: () async {
+                                await Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => PlaceGalleryManagerScreen(
+                                      place: widget.place!,
+                                    ),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(
+                                  Icons.add_photo_alternate_outlined),
+                              label: const Text('הוספת תמונות לגלריית המקום'),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'תמונות הגלריה נוספות למקום בלי להחליף את תמונת השער.',
+                            textAlign: TextAlign.right,
+                            style: TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 24),
                         Align(
                           alignment: Alignment.centerRight,
@@ -1007,7 +1046,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                         ),
                         const SizedBox(height: 10),
                         const Text(
-                          'הוסף תמונה',
+                          'הוסף תמונת שער',
                           style: TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 14,
@@ -1015,7 +1054,7 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                         ),
                         const SizedBox(height: 4),
                         const Text(
-                          'מצלמה או גלריה',
+                          'החלפת התמונה הראשית של המקום',
                           style: TextStyle(
                             color: AppColors.textMuted,
                             fontSize: 11,
@@ -1025,18 +1064,39 @@ class _AddPlaceScreenState extends State<AddPlaceScreen> {
                     )
                   : ClipRRect(
                       borderRadius: BorderRadius.circular(17),
-                      child: Container(
-                        alignment: Alignment.center,
-                        color: AppColors.background,
-                        child: kIsWeb
-                            ? Image.network(
-                                _selectedImage!.path,
-                                fit: BoxFit.contain,
-                              )
-                            : Image.file(
-                                File(_selectedImage!.path),
-                                fit: BoxFit.contain,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Container(
+                            alignment: Alignment.center,
+                            color: AppColors.background,
+                            child: kIsWeb
+                                ? Image.network(
+                                    _selectedImage!.path,
+                                    fit: BoxFit.contain,
+                                  )
+                                : Image.file(
+                                    File(_selectedImage!.path),
+                                    fit: BoxFit.contain,
+                                  ),
+                          ),
+                          Align(
+                            alignment: Alignment.bottomCenter,
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              color: Colors.black.withValues(alpha: 0.62),
+                              child: const Text(
+                                'תמונת שער · לחיצה להחלפה',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                ),
                               ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
             ),

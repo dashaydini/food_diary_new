@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -23,7 +25,7 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   final AuthService _authService = AuthService();
 
   final TextEditingController _emailController = TextEditingController();
@@ -34,11 +36,22 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _rememberMe = false;
   bool _showRegisterButton = false;
   String? _error;
+  StreamSubscription<AuthState>? _authSubscription;
+  bool _oauthInProgress = false;
+  bool _authCompleted = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadRememberedEmail();
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen(
+      (state) {
+        final user = state.session?.user;
+        if (user == null || user.isAnonymous) return;
+        _finishAuthenticatedSession();
+      },
+    );
   }
 
   Future<void> _loadRememberedEmail() async {
@@ -52,9 +65,45 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _authSubscription?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !_oauthInProgress) return;
+
+    // Returning from the browser without a session means the user closed or
+    // cancelled Google. Never leave the login button spinning indefinitely.
+    Future<void>.delayed(const Duration(milliseconds: 900), () {
+      if (!mounted || !_oauthInProgress || _authCompleted) return;
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null && !user.isAnonymous) {
+        _finishAuthenticatedSession();
+        return;
+      }
+      setState(() {
+        _oauthInProgress = false;
+        _loading = false;
+        _error = 'הכניסה עם Google לא הושלמה. אפשר לנסות שוב.';
+      });
+    });
+  }
+
+  void _finishAuthenticatedSession() {
+    if (!mounted || _authCompleted) return;
+    _authCompleted = true;
+    _oauthInProgress = false;
+
+    // The root AuthGate listens to the same event and loads the account.
+    // Close this temporary screen immediately; profile/referral work must
+    // never keep the user on a spinner.
+    unawaited(_authService.ensureProfileDisplayName().catchError((_) {}));
+    unawaited(_applyPendingReferralCode().catchError((_) {}));
+    widget.onAuthSuccess?.call();
   }
 
   Future<void> _loginWithEmail() async {
@@ -126,23 +175,37 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() {
       _loading = true;
       _error = null;
+      _oauthInProgress = true;
+      _authCompleted = false;
     });
 
     try {
       await action();
-      await _applyPendingReferralCode();
-
-      if (!mounted) return;
-
-      widget.onAuthSuccess?.call();
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
 
       setState(() {
         _loading = false;
-        _error = 'ההתחברות נכשלה';
+        _oauthInProgress = false;
+        _error = _googleSignInErrorMessage(error);
       });
     }
+  }
+
+  String _googleSignInErrorMessage(Object error) {
+    final details = error.toString().toLowerCase();
+    if (details.contains('service_version_update_required') ||
+        details.contains('google play services out of date')) {
+      return 'כדי להתחבר עם Google יש לעדכן את שירותי Google Play במכשיר ואז לנסות שוב.';
+    }
+    if (details.contains('canceled') || details.contains('cancelled')) {
+      return 'ההתחברות בוטלה. אפשר לנסות שוב.';
+    }
+    if (details.contains('clientconfigurationerror') ||
+        details.contains('developer_error')) {
+      return 'הגדרת ההתחברות עם Google אינה תקינה עדיין. נסה שוב בעוד כמה דקות.';
+    }
+    return 'ההתחברות עם Google נכשלה. אפשר לנסות שוב.';
   }
 
   Future<void> _guestLogin() async {

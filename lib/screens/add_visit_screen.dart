@@ -81,6 +81,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
   bool _hasChanges = false;
   String? _error;
   bool _isFavoriteMemory = false;
+  Map<String, dynamic>? _experienceAuthorProfile;
 
   @override
   void initState() {
@@ -91,11 +92,74 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
     _loadExistingVisit();
     _loadExistingParticipants();
     _loadTags();
+    _loadExperienceAuthorProfile();
   }
 
   bool get _ownsVisit =>
       widget.visit?['user_id'] != null &&
       widget.visit?['user_id'] == Supabase.instance.client.auth.currentUser?.id;
+
+  Future<void> _loadExperienceAuthorProfile() async {
+    if (!widget.viewOnly) return;
+    final userId = widget.visit?['user_id']?.toString();
+    if (userId == null || userId.isEmpty) return;
+
+    try {
+      final profile = await Supabase.instance.client
+          .from('profiles')
+          .select('id,display_name,avatar_url')
+          .eq('id', userId)
+          .maybeSingle();
+      if (!mounted || profile == null) return;
+      setState(
+          () => _experienceAuthorProfile = Map<String, dynamic>.from(profile));
+    } catch (_) {
+      // A missing or private profile should not block the experience itself.
+    }
+  }
+
+  Widget _experienceAuthorAvatar() {
+    final avatarUrl =
+        _experienceAuthorProfile?['avatar_url']?.toString().trim();
+    final name = _experienceAuthorProfile?['display_name']?.toString().trim();
+    return Tooltip(
+      message: name?.isNotEmpty == true
+          ? 'הפרופיל של $name'
+          : 'הפרופיל של משתף החוויה',
+      child: InkResponse(
+        onTap: _openExperienceAuthorProfile,
+        radius: 25,
+        child: Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppColors.surfaceRaised,
+            border: Border.all(
+              color: AppColors.champagne.withValues(alpha: 0.52),
+              width: 1,
+            ),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: avatarUrl != null && avatarUrl.isNotEmpty
+              ? Image.network(
+                  optimizedSupabaseImageUrl(avatarUrl, width: 120, height: 120),
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const Icon(
+                    Icons.person_outline_rounded,
+                    size: 20,
+                    color: AppColors.champagne,
+                  ),
+                )
+              : const Icon(
+                  Icons.person_outline_rounded,
+                  size: 20,
+                  color: AppColors.champagne,
+                ),
+        ),
+      ),
+    );
+  }
 
   Future<void> _loadExistingVisit() async {
     final visit = widget.visit;
@@ -1594,6 +1658,504 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
     );
   }
 
+  Future<void> _pickVisitDate() async {
+    if (widget.viewOnly) return;
+
+    final selectedDate = await showDatePicker(
+      context: context,
+      initialDate:
+          _visitDate.isAfter(DateTime.now()) ? DateTime.now() : _visitDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+      helpText: 'בחירת תאריך הביקור',
+      cancelText: 'ביטול',
+      confirmText: 'אישור',
+    );
+
+    if (selectedDate == null || !mounted) return;
+
+    setState(() {
+      _visitDate = DateTime(
+        selectedDate.year,
+        selectedDate.month,
+        selectedDate.day,
+      );
+      _hasChanges = true;
+    });
+  }
+
+  Widget _buildVisitDateField() {
+    final dateText = MaterialLocalizations.of(context).formatMediumDate(
+      _visitDate,
+    );
+
+    return Semantics(
+      button: !widget.viewOnly,
+      label: widget.viewOnly
+          ? 'תאריך הביקור: $dateText'
+          : 'שינוי תאריך הביקור, $dateText',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: widget.viewOnly ? null : _pickVisitDate,
+          borderRadius: BorderRadius.circular(13),
+          child: Ink(
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13),
+            decoration: BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.circular(13),
+              border: Border.all(
+                color: AppColors.champagne.withValues(alpha: 0.13),
+                width: 0.75,
+              ),
+            ),
+            child: Row(
+              textDirection: TextDirection.rtl,
+              children: [
+                const Icon(
+                  Icons.calendar_month_outlined,
+                  color: AppColors.champagne,
+                  size: 21,
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'מתי ביקרת?',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
+                Text(
+                  dateText,
+                  textDirection: TextDirection.rtl,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (!widget.viewOnly) ...[
+                  const SizedBox(width: 6),
+                  const Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: AppColors.champagne,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openNotesEditor() async {
+    if (widget.viewOnly) return;
+
+    final draftController = TextEditingController(text: _notesController.text);
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        final screenHeight = MediaQuery.sizeOf(sheetContext).height;
+        final keyboardHeight = MediaQuery.viewInsetsOf(sheetContext).bottom;
+
+        return AnimatedPadding(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          padding: EdgeInsets.only(bottom: keyboardHeight),
+          child: SafeArea(
+            top: false,
+            child: SizedBox(
+              height: screenHeight * 0.82,
+              child: Directionality(
+                textDirection: TextDirection.rtl,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 18),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AppColors.textMuted.withValues(alpha: 0.45),
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.edit_note_rounded,
+                            color: AppColors.champagne,
+                          ),
+                          const SizedBox(width: 8),
+                          const Expanded(
+                            child: Text(
+                              'החוויה שלך',
+                              style: TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: 21,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'סגירה',
+                            onPressed: () => Navigator.of(sheetContext).pop(),
+                            icon: const Icon(
+                              Icons.close_rounded,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      const Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          'כאן אפשר לכתוב בנוחות טקסט ארוך, כולל האשטאגים.',
+                          style: TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: TextField(
+                          controller: draftController,
+                          autofocus: true,
+                          expands: true,
+                          minLines: null,
+                          maxLines: null,
+                          textAlign: TextAlign.right,
+                          textAlignVertical: TextAlignVertical.top,
+                          keyboardType: TextInputType.multiline,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 16,
+                            height: 1.55,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'איך הייתה החוויה?',
+                            hintStyle: const TextStyle(
+                              color: AppColors.textMuted,
+                              fontSize: 16,
+                            ),
+                            filled: true,
+                            fillColor: AppColors.background,
+                            contentPadding: const EdgeInsets.all(16),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide(
+                                color:
+                                    AppColors.champagne.withValues(alpha: 0.18),
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: AppColors.champagne,
+                                width: 1.1,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.of(sheetContext).pop(),
+                            child: const Text('ביטול'),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed: () =>
+                                  Navigator.of(sheetContext).pop(true),
+                              icon: const Icon(Icons.check_rounded),
+                              label: const Text('שמירת הטקסט'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (saved == true && mounted) {
+      setState(() {
+        _notesController.text = draftController.text;
+        _hasChanges = true;
+      });
+    }
+    draftController.dispose();
+  }
+
+  Future<void> _openNotesReader() async {
+    final notes = _notesController.text.trim();
+    if (notes.isEmpty) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        final screenHeight = MediaQuery.sizeOf(sheetContext).height;
+
+        return SafeArea(
+          top: false,
+          child: SizedBox(
+            height: screenHeight * 0.82,
+            child: Directionality(
+              textDirection: TextDirection.rtl,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 18),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.textMuted.withValues(alpha: 0.45),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.article_outlined,
+                          color: AppColors.champagne,
+                        ),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'החוויה שלך',
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 21,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'סגירה',
+                          onPressed: () => Navigator.of(sheetContext).pop(),
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Expanded(
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: AppColors.champagne.withValues(alpha: 0.18),
+                          ),
+                        ),
+                        child: SingleChildScrollView(
+                          child: SelectableText(
+                            notes,
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 16,
+                              height: 1.6,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(),
+                        child: const Text('סגירה'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _notesField() {
+    final notes = _notesController.text.trim();
+
+    if (widget.viewOnly) {
+      if (notes.isEmpty) return const SizedBox.shrink();
+
+      return Semantics(
+        button: true,
+        label: 'קריאת החוויה המלאה',
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: _openNotesReader,
+            borderRadius: BorderRadius.circular(13),
+            child: Ink(
+              padding: const EdgeInsets.fromLTRB(15, 13, 13, 13),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(13),
+                border: Border.all(
+                  color: AppColors.champagne.withValues(alpha: 0.13),
+                  width: 0.75,
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                textDirection: TextDirection.rtl,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'הערות נוספות / חוויות',
+                          style: TextStyle(
+                            color: AppColors.textMuted.withValues(alpha: 0.9),
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 7),
+                        Text(
+                          notes,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 14,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceRaised,
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: const Icon(
+                      Icons.open_in_full_rounded,
+                      color: AppColors.champagne,
+                      size: 18,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Semantics(
+      button: true,
+      label: 'עריכת החוויה שלך',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _openNotesEditor,
+          borderRadius: BorderRadius.circular(13),
+          child: Ink(
+            padding: const EdgeInsets.fromLTRB(15, 13, 13, 13),
+            decoration: BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.circular(13),
+              border: Border.all(
+                color: AppColors.champagne.withValues(alpha: 0.13),
+                width: 0.75,
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              textDirection: TextDirection.rtl,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'הערות נוספות / חוויות',
+                        style: TextStyle(
+                          color: AppColors.textMuted.withValues(alpha: 0.9),
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 7),
+                      Text(
+                        notes.isEmpty ? 'הקש לכתיבת החוויה שלך...' : notes,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          color: notes.isEmpty
+                              ? AppColors.textMuted
+                              : AppColors.textPrimary,
+                          fontSize: 14,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceRaised,
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: const Icon(
+                    Icons.open_in_full_rounded,
+                    color: AppColors.champagne,
+                    size: 18,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildTags() {
     if (_loadingTags) {
       return const Center(
@@ -1883,15 +2445,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
           ),
           actions: [
             if (widget.viewOnly && widget.visit?['user_id'] != null)
-              IconButton(
-                tooltip: 'הפרופיל של משתף החוויה',
-                onPressed: _openExperienceAuthorProfile,
-                icon: const Icon(
-                  Icons.person_outline_rounded,
-                  size: 20,
-                  color: AppColors.champagne,
-                ),
-              ),
+              _experienceAuthorAvatar(),
             if (widget.viewOnly && widget.isEditing && _ownsVisit)
               IconButton(
                 tooltip: 'עריכת חוויה',
@@ -1990,6 +2544,8 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                             'הביקור משותף, אבל הדירוג, התמונות והטקסט כאן הם שלך בלבד.',
                             style: TextStyle(color: AppColors.champagne)),
                       ),
+                    _buildVisitDateField(),
+                    const SizedBox(height: 14),
                     _textField(
                       _foodController,
                       'מה אכלתי?',
@@ -2054,11 +2610,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                     SizedBox(height: 16),
                     _buildImageGallery(),
                     SizedBox(height: 24),
-                    _textField(
-                      _notesController,
-                      'הערות נוספות / חוויות',
-                      maxLines: 3,
-                    ),
+                    _notesField(),
                     if (!widget.viewOnly) ...[
                       const SizedBox(height: 8),
                       const Text(

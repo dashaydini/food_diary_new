@@ -677,26 +677,30 @@ class _MapScreenState extends State<MapScreen> {
 
   Widget _buildMap() {
     final markers = _buildMarkers();
+    final bottomSafeArea = MediaQuery.paddingOf(context).bottom;
 
     return Stack(
+      fit: StackFit.expand,
       children: [
-        FlutterMap(
-          mapController: _mapController,
-          options: const MapOptions(
-            initialCenter: _defaultCenter,
-            initialZoom: 8,
-            minZoom: 3,
-            maxZoom: 19,
+        Positioned.fill(
+          child: FlutterMap(
+            mapController: _mapController,
+            options: const MapOptions(
+              initialCenter: _defaultCenter,
+              initialZoom: 8,
+              minZoom: 3,
+              maxZoom: 19,
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.fooddiary.app',
+              ),
+              MarkerLayer(
+                markers: markers,
+              ),
+            ],
           ),
-          children: [
-            TileLayer(
-              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              userAgentPackageName: 'com.fooddiary.app',
-            ),
-            MarkerLayer(
-              markers: markers,
-            ),
-          ],
         ),
         _buildCategoryFilter(),
         _buildRadiusFilter(),
@@ -716,7 +720,7 @@ class _MapScreenState extends State<MapScreen> {
           ),
         ),
         Positioned(
-          bottom: 18,
+          bottom: 18 + bottomSafeArea,
           right: 18,
           child: Container(
             decoration: BoxDecoration(
@@ -746,7 +750,7 @@ class _MapScreenState extends State<MapScreen> {
           ),
         ),
         Positioned(
-          bottom: 18,
+          bottom: 18 + bottomSafeArea,
           left: 18,
           child: Container(
             padding: const EdgeInsets.symmetric(

@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/services/premium_service.dart';
 import '../theme/colors.dart';
@@ -18,6 +20,14 @@ class PremiumUpgradeScreen extends StatefulWidget {
 
 class _PremiumUpgradeScreenState extends State<PremiumUpgradeScreen> {
   bool _refreshing = false;
+  bool _redeeming = false;
+  final _promoCodeController = TextEditingController();
+
+  @override
+  void dispose() {
+    _promoCodeController.dispose();
+    super.dispose();
+  }
 
   Future<void> _refreshStatus() async {
     setState(() => _refreshing = true);
@@ -34,6 +44,57 @@ class _PremiumUpgradeScreenState extends State<PremiumUpgradeScreen> {
       ),
     );
     if (premium) Navigator.of(context).pop(true);
+  }
+
+  Future<void> _redeemBetaCode() async {
+    final code = _promoCodeController.text.trim();
+    final user = Supabase.instance.client.auth.currentUser;
+
+    if (user == null || user.isAnonymous) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('יש להתחבר לחשבון כדי לממש קוד Premium.')),
+      );
+      return;
+    }
+    if (code.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('יש להזין קוד.')),
+      );
+      return;
+    }
+
+    setState(() => _redeeming = true);
+    try {
+      await Supabase.instance.client.rpc(
+        'redeem_premium_promo',
+        params: {'p_code': code},
+      );
+      await PremiumService.refresh();
+      if (!mounted) return;
+      FocusScope.of(context).unfocus();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('נהדר! קיבלת גישת Premium לשנה.'),
+        ),
+      );
+      Navigator.of(context).pop(true);
+    } on PostgrestException catch (error) {
+      if (!mounted) return;
+      final message = switch (error.message) {
+        'invalid_promo_code' => 'הקוד אינו תקף או שכבר אינו פעיל.',
+        'promo_already_redeemed' => 'כבר מימשת קוד הטבה בחשבון הזה.',
+        'promo_limit_reached' => 'כל קודי ההטבה כבר מומשו.',
+        _ => 'לא הצלחנו לממש את הקוד כרגע. נסה שוב מאוחר יותר.',
+      };
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('לא הצלחנו לממש את הקוד כרגע. נסה שוב מאוחר יותר.')),
+      );
+    } finally {
+      if (mounted) setState(() => _redeeming = false);
+    }
   }
 
   @override
@@ -141,6 +202,64 @@ class _PremiumUpgradeScreenState extends State<PremiumUpgradeScreen> {
                   'גישה להטבות ולקופונים שמיועדים לחברי Premium.',
                 ),
                 const SizedBox(height: 12),
+                if (!kIsWeb) ...[
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: AppColors.cardBorder),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'יש לך קוד הטבה?',
+                          textAlign: TextAlign.right,
+                          style: TextStyle(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        const Text(
+                          'מימוש קוד בטא מעניק גישת Premium לחשבון שלך.',
+                          textAlign: TextAlign.right,
+                          style: TextStyle(color: AppColors.textSecondary),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _promoCodeController,
+                          textCapitalization: TextCapitalization.characters,
+                          textAlign: TextAlign.center,
+                          autocorrect: false,
+                          enableSuggestions: false,
+                          decoration: const InputDecoration(
+                            hintText: 'קוד הטבה',
+                            prefixIcon:
+                                Icon(Icons.confirmation_number_outlined),
+                          ),
+                          onSubmitted: (_) =>
+                              _redeeming ? null : _redeemBetaCode(),
+                        ),
+                        const SizedBox(height: 10),
+                        OutlinedButton.icon(
+                          onPressed: _redeeming ? null : _redeemBetaCode,
+                          icon: _redeeming
+                              ? const SizedBox.square(
+                                  dimension: 18,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.redeem_outlined),
+                          label: const Text('מימוש קוד'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(

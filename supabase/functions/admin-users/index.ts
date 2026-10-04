@@ -208,9 +208,40 @@ Deno.serve(async (req) => {
           providers: (user.identities ?? []).map((identity) => identity.provider),
         };
       });
+      let betaPremiumPromo: Record<string, unknown> | null = null;
+      if (isFullAdmin) {
+        const [{ data: promo, error: promoError }, { data: redemptions, error: redemptionsError }] =
+          await Promise.all([
+            admin.from("premium_promo_codes")
+              .select("code,max_redemptions,redemption_count,is_active,expires_at")
+              .eq("code", "BITEBETA")
+              .maybeSingle(),
+            admin.from("premium_promo_redemptions")
+              .select("user_id,redeemed_at,premium_expires_at")
+              .order("redeemed_at", { ascending: false }),
+          ]);
+        if (promoError) throw promoError;
+        if (redemptionsError) throw redemptionsError;
+        if (promo) {
+          betaPremiumPromo = {
+            ...promo,
+            redemptions: (redemptions ?? []).map((redemption) => {
+              const profile = profileById.get(redemption.user_id);
+              const authUser = registered.find((user) => user.id === redemption.user_id);
+              return {
+                ...redemption,
+                display_name: profile?.display_name ?? null,
+                email: authUser?.email ?? profile?.email ?? null,
+                avatar_url: profile?.avatar_url ?? null,
+              };
+            }),
+          };
+        }
+      }
       return new Response(JSON.stringify({
         users,
         caller_role: caller.admin_role,
+        beta_premium_promo: betaPremiumPromo,
         summary: {
           registered: users.length,
           premium: users.filter((user) => user.is_premium).length,

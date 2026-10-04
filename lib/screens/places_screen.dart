@@ -446,7 +446,8 @@ class _PlacesScreenState extends State<PlacesScreen> {
     }
 
     final position = _currentPosition;
-    if (_nearMe && position != null) {
+    final needsDistance = _nearMe || _sortMode == 'distance';
+    if (needsDistance && position != null) {
       filtered = filtered.where((place) {
         final latitude = (place['latitude'] as num?)?.toDouble();
         final longitude = (place['longitude'] as num?)?.toDouble();
@@ -459,7 +460,7 @@ class _PlacesScreenState extends State<PlacesScreen> {
           longitude,
         );
         place['distance_meters'] = distance;
-        return distance <= 20000;
+        return !_nearMe || distance <= 20000;
       }).toList();
     } else {
       for (final place in filtered) {
@@ -468,7 +469,7 @@ class _PlacesScreenState extends State<PlacesScreen> {
     }
 
     filtered.sort((a, b) {
-      if (_nearMe) {
+      if (_sortMode == 'distance') {
         return ((a['distance_meters'] as num?)?.toDouble() ?? double.infinity)
             .compareTo(
           (b['distance_meters'] as num?)?.toDouble() ?? double.infinity,
@@ -479,6 +480,14 @@ class _PlacesScreenState extends State<PlacesScreen> {
         case 'rating':
           return ((b['weighted_rating'] as num?)?.toDouble() ?? -1)
               .compareTo((a['weighted_rating'] as num?)?.toDouble() ?? -1);
+        case 'price_low':
+          return ((a['average_price_level'] as num?)?.toDouble() ?? double.infinity)
+              .compareTo(
+            (b['average_price_level'] as num?)?.toDouble() ?? double.infinity,
+          );
+        case 'price_high':
+          return ((b['average_price_level'] as num?)?.toDouble() ?? -1)
+              .compareTo((a['average_price_level'] as num?)?.toDouble() ?? -1);
         case 'popular':
           return ((b['visit_count'] as num?)?.toInt() ?? 0)
               .compareTo((a['visit_count'] as num?)?.toInt() ?? 0);
@@ -775,17 +784,10 @@ class _PlacesScreenState extends State<PlacesScreen> {
     _applyAdvancedFilters();
   }
 
-  Future<void> _toggleNearMe() async {
-    if (_nearMe) {
-      setState(() {
-        _nearMe = false;
-      });
-      _applyAdvancedFilters();
-      return;
-    }
+  Future<bool> _loadCurrentPosition() async {
+    if (_currentPosition != null) return true;
 
     setState(() => _loadingLocation = true);
-
     try {
       if (!await AppPreferences.locationFeaturesEnabled()) {
         throw Exception('שירותי המיקום כבויים בהגדרות האפליקציה');
@@ -805,21 +807,43 @@ class _PlacesScreenState extends State<PlacesScreen> {
       }
 
       final position = await Geolocator.getCurrentPosition();
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() {
         _currentPosition = position;
-        _nearMe = true;
         _loadingLocation = false;
       });
-      _applyAdvancedFilters();
+      return true;
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() => _loadingLocation = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-            content: Text(error.toString().replaceFirst('Exception: ', ''))),
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
       );
+      return false;
     }
+  }
+
+  Future<void> _toggleNearMe() async {
+    if (_nearMe) {
+      setState(() {
+        _nearMe = false;
+      });
+      _applyAdvancedFilters();
+      return;
+    }
+
+    if (!await _loadCurrentPosition() || !mounted) return;
+    setState(() => _nearMe = true);
+    _applyAdvancedFilters();
+  }
+
+  Future<void> _changeSortMode(String mode) async {
+    if (mode == 'distance' && !await _loadCurrentPosition()) return;
+    if (!mounted) return;
+    setState(() => _sortMode = mode);
+    _applyAdvancedFilters();
   }
 
   void _clearAdvancedFilter() {
@@ -1194,7 +1218,44 @@ class _PlacesScreenState extends State<PlacesScreen> {
                 fontWeight: FontWeight.w400,
               ),
         ),
-        actions: const [HomeButton()],
+        actions: [
+          PopupMenuButton<String>(
+            tooltip: 'מיון מקומות',
+            icon: Badge(
+              isLabelVisible: _sortMode != 'name',
+              smallSize: 7,
+              child: const Icon(
+                Icons.sort_rounded,
+                color: AppColors.brass,
+              ),
+            ),
+            onSelected: _changeSortMode,
+            itemBuilder: (context) => [
+              for (final entry in <({String value, String label, IconData icon})>[
+                (value: 'name', label: 'שם המקום', icon: Icons.sort_by_alpha),
+                (value: 'distance', label: 'הקרוב ביותר', icon: Icons.near_me_outlined),
+                (value: 'rating', label: 'דירוג גבוה', icon: Icons.star_outline_rounded),
+                (value: 'price_low', label: 'מחיר: נמוך לגבוה', icon: Icons.south_rounded),
+                (value: 'price_high', label: 'מחיר: גבוה לנמוך', icon: Icons.north_rounded),
+                (value: 'popular', label: 'הכי פופולרי', icon: Icons.local_fire_department_outlined),
+                (value: 'newest', label: 'החדש ביותר', icon: Icons.fiber_new_outlined),
+              ])
+                CheckedPopupMenuItem<String>(
+                  value: entry.value,
+                  checked: _sortMode == entry.value,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(entry.icon, size: 19),
+                      const SizedBox(width: 10),
+                      Text(entry.label),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          const HomeButton(),
+        ],
       ),
       body: _buildContent(),
       floatingActionButton: !isAnonymous

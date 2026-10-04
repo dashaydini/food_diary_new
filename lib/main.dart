@@ -19,12 +19,18 @@ import 'features/authentication/screens/reset_password_screen.dart';
 import 'features/authentication/screens/welcome_screen.dart';
 import 'features/onboarding/screens/first_launch_screen.dart';
 import 'screens/category_selection_screen.dart';
+import 'screens/local_import_preview_screen.dart';
 import 'theme/app_theme.dart';
 import 'utils/permissions.dart';
 import 'utils/app_preferences.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  if (const bool.fromEnvironment('LOCAL_IMPORT_PREVIEW')) {
+    runApp(const LocalImportPreviewApp());
+    return;
+  }
 
   // Initialize the Android Firebase app for native services. Web push keeps
   // its existing service-worker implementation.
@@ -199,9 +205,19 @@ class _AuthGateState extends State<AuthGate> {
         _permissionsUserId = null;
       } else if (_permissionsUserId != session.user.id) {
         _permissionsUserId = session.user.id;
-        _permissionsFuture = Permissions.load();
+        _permissionsFuture = _loadPermissionsFor(session.user.id);
       }
     });
+  }
+
+  Future<void> _loadPermissionsFor(String userId) async {
+    // A slow or interrupted network request must not trap a signed-in user on
+    // the root spinner. The screen can continue with the safe default roles.
+    try {
+      await Permissions.load().timeout(const Duration(seconds: 12));
+    } catch (error) {
+      debugPrint('PERMISSIONS LOAD ERROR for $userId: $error');
+    }
   }
 
   @override

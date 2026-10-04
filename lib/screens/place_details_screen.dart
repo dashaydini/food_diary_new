@@ -594,9 +594,23 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
             ),
           ),
           SafeArea(
-            child: IconButton.filled(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              icon: const Icon(Icons.close),
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Align(
+                alignment: Alignment.topRight,
+                child: FilledButton.icon(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.background.withValues(alpha: 0.94),
+                    foregroundColor: AppColors.champagne,
+                    side: BorderSide(
+                      color: AppColors.champagne.withValues(alpha: 0.45),
+                    ),
+                  ),
+                  icon: const Icon(Icons.close_rounded, size: 19),
+                  label: const Text('סגירה'),
+                ),
+              ),
             ),
           ),
         ]),
@@ -1410,9 +1424,23 @@ class _MenuFilesCard extends StatelessWidget {
             ),
           ),
           SafeArea(
-            child: IconButton.filled(
-              onPressed: () => Navigator.pop(dialogContext),
-              icon: const Icon(Icons.close),
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: Align(
+                alignment: Alignment.topRight,
+                child: FilledButton.icon(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.background.withValues(alpha: 0.94),
+                    foregroundColor: AppColors.champagne,
+                    side: BorderSide(
+                      color: AppColors.champagne.withValues(alpha: 0.45),
+                    ),
+                  ),
+                  icon: const Icon(Icons.close_rounded, size: 19),
+                  label: const Text('סגירה'),
+                ),
+              ),
             ),
           ),
         ]),

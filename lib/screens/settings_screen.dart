@@ -138,8 +138,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) return;
       setState(() => _isPrivateProfile = enabled);
       _showMessage(enabled
-          ? 'הפרופיל פרטי · בקשות מעקב ימתינו לאישורך'
-          : 'הפרופיל ציבורי · אפשר לעקוב אחריך מיד');
+          ? 'הפרופיל הפך לפרטי. בקשות מעקב חדשות ימתינו לאישורך.'
+          : 'הפרופיל הפך לציבורי. משתמשים יכולים לעקוב אחריך מיד.');
     } catch (_) {
       if (mounted) {
         _showMessage('לא ניתן לשמור את הגדרת הפרטיות כרגע');
@@ -789,21 +789,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       const SizedBox(height: 14),
                       _section(
                         title: 'פרטיות הפרופיל',
-                        child: SwitchListTile.adaptive(
-                          contentPadding: EdgeInsets.zero,
-                          value: _isPrivateProfile,
-                          secondary: Icon(
-                            _isPrivateProfile
-                                ? Icons.lock_outline_rounded
-                                : Icons.public_rounded,
-                          ),
-                          title: const Text('פרופיל פרטי'),
-                          subtitle: Text(_isPrivateProfile
-                              ? 'עוקבים חדשים ימתינו לאישורך. רק עוקבים מאושרים יראו את החוויות שלך.'
-                              : 'כל משתמש יכול לעקוב אחריך מיד ולראות את החוויות הציבוריות שלך.'),
-                          onChanged: _changingProfilePrivacy
-                              ? null
-                              : _toggleProfilePrivacy,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SwitchListTile.adaptive(
+                              contentPadding: EdgeInsets.zero,
+                              value: _isPrivateProfile,
+                              secondary: Icon(
+                                _isPrivateProfile
+                                    ? Icons.lock_outline_rounded
+                                    : Icons.public_rounded,
+                              ),
+                              title: Text(
+                                _isPrivateProfile
+                                    ? 'פרופיל פרטי'
+                                    : 'פרופיל ציבורי',
+                              ),
+                              subtitle: Text(
+                                _isPrivateProfile
+                                    ? 'משתמשים חדשים ישלחו בקשת מעקב. רק אנשים שתאשר/י יוכלו לראות את החוויות ששיתפת.'
+                                    : 'כל משתמש יכול לעקוב אחריך מיד ולראות את החוויות ששיתפת.',
+                              ),
+                              onChanged: _changingProfilePrivacy
+                                  ? null
+                                  : _toggleProfilePrivacy,
+                            ),
+                            if (_isPrivateProfile)
+                              const Padding(
+                                padding: EdgeInsets.only(top: 2),
+                                child: Text(
+                                  'גם כשהפרופיל שלך פרטי, אפשר לעקוב אחרי פרופילים ציבוריים.',
+                                  textAlign: TextAlign.right,
+                                  style: TextStyle(
+                                    color: AppColors.textMuted,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 14),

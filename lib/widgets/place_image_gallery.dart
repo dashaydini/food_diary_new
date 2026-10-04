@@ -373,13 +373,17 @@ class _GalleryScreenState extends State<_GalleryScreen> {
             Positioned(
               top: 12,
               right: 12,
-              child: IconButton(
+              child: FilledButton.icon(
                 onPressed: () => Navigator.of(context).pop(),
-                icon: Icon(
-                  Icons.close,
-                  color: AppColors.textPrimary,
-                  size: 28,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.background.withValues(alpha: 0.94),
+                  foregroundColor: AppColors.champagne,
+                  side: BorderSide(
+                    color: AppColors.champagne.withValues(alpha: 0.45),
+                  ),
                 ),
+                icon: const Icon(Icons.close_rounded, size: 19),
+                label: const Text('סגירה'),
               ),
             ),
             Positioned(
