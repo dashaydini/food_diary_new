@@ -1,10 +1,6 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../theme/colors.dart';
-import '../core/services/notification_dispatch_service.dart';
 import '../utils/supabase_image_url.dart';
 import 'compact_gallery_preview.dart';
 
@@ -13,13 +9,31 @@ class PlaceGalleryImage {
   final String imageUrl;
   final String author;
   final DateTime? date;
+  final bool isCover;
 
   const PlaceGalleryImage({
     required this.id,
     required this.imageUrl,
     required this.author,
     required this.date,
+    this.isCover = false,
   });
+}
+
+void openPlaceImageGallery(
+  BuildContext context, {
+  required List<PlaceGalleryImage> images,
+  int initialIndex = 0,
+}) {
+  if (images.isEmpty) return;
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (_) => _GalleryScreen(
+        images: images,
+        initialIndex: initialIndex.clamp(0, images.length - 1),
+      ),
+    ),
+  );
 }
 
 class PlaceImageGallery extends StatefulWidget {
@@ -40,15 +54,16 @@ class _PlaceImageGalleryState extends State<PlaceImageGallery> {
   @override
   void initState() {
     super.initState();
-
-    _images = List<PlaceGalleryImage>.from(widget.images)..shuffle(Random());
+    _images = List<PlaceGalleryImage>.from(widget.images);
   }
 
   @override
   void didUpdateWidget(covariant PlaceImageGallery oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.images.length != widget.images.length) {
-      _images = List<PlaceGalleryImage>.from(widget.images)..shuffle(Random());
+    final oldUrls = oldWidget.images.map((image) => image.imageUrl).join('|');
+    final newUrls = widget.images.map((image) => image.imageUrl).join('|');
+    if (oldUrls != newUrls) {
+      _images = List<PlaceGalleryImage>.from(widget.images);
     }
   }
 
@@ -61,20 +76,17 @@ class _PlaceImageGalleryState extends State<PlaceImageGallery> {
     return CompactGalleryPreview(
       imageUrl: _images.first.imageUrl,
       title: 'גלריית המקום',
-      subtitle: 'תמונות מהמקום ומהחוויות',
+      subtitle: 'תמונות שהוסיף המקום',
       imageCount: _images.length,
       onTap: () => _openGallery(context, 0),
     );
   }
 
   void _openGallery(BuildContext context, int initialIndex) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => _GalleryScreen(
-          images: _images,
-          initialIndex: initialIndex,
-        ),
-      ),
+    openPlaceImageGallery(
+      context,
+      images: _images,
+      initialIndex: initialIndex,
     );
   }
 }
@@ -119,151 +131,6 @@ class _GalleryScreenState extends State<_GalleryScreen> {
     return '${date.day.toString().padLeft(2, '0')}.'
         '${date.month.toString().padLeft(2, '0')}.'
         '${date.year}';
-  }
-
-  Future<void> _reportImage(
-    BuildContext context,
-    PlaceGalleryImage image,
-  ) async {
-    final user = Supabase.instance.client.auth.currentUser;
-
-    if (user == null || user.isAnonymous) {
-      if (!context.mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('יש להתחבר כדי לדווח על תמונה'),
-        ),
-      );
-      return;
-    }
-
-    final reason = await showDialog<String>(
-      context: context,
-      builder: (dialogContext) {
-        return Directionality(
-          textDirection: TextDirection.rtl,
-          child: AlertDialog(
-            backgroundColor: AppColors.surfaceRaised,
-            surfaceTintColor: Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-              side: BorderSide(
-                color: AppColors.champagne.withValues(alpha: 0.18),
-                width: 0.8,
-              ),
-            ),
-            title: const Text(
-              'דיווח על תמונה',
-              style: TextStyle(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            content: const Text(
-              'בחר את הסיבה לדיווח:',
-              style: TextStyle(
-                color: AppColors.textSecondary,
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: Text('ביטול'),
-              ),
-              ListTile(
-                leading: Icon(Icons.report_outlined),
-                title: Text('תוכן לא הולם'),
-                onTap: () => Navigator.of(dialogContext).pop('תוכן לא הולם'),
-              ),
-              ListTile(
-                leading: Icon(Icons.place_outlined),
-                title: Text('התמונה אינה קשורה למקום'),
-                onTap: () =>
-                    Navigator.of(dialogContext).pop('התמונה אינה קשורה למקום'),
-              ),
-              ListTile(
-                leading: Icon(Icons.warning_amber_outlined),
-                title: Text('תמונה פוגענית'),
-                onTap: () => Navigator.of(dialogContext).pop('תמונה פוגענית'),
-              ),
-              ListTile(
-                leading: Icon(Icons.copyright_outlined),
-                title: Text('זכויות יוצרים'),
-                onTap: () => Navigator.of(dialogContext).pop('זכויות יוצרים'),
-              ),
-              ListTile(
-                leading: Icon(Icons.more_horiz),
-                title: Text('אחר'),
-                onTap: () => Navigator.of(dialogContext).pop('אחר'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    if (reason == null || reason.isEmpty) return;
-
-    try {
-      final existing = await Supabase.instance.client
-          .from('visit_image_reports')
-          .select('id')
-          .eq('image_id', image.id)
-          .eq('reporter_id', user.id)
-          .eq('status', 'new')
-          .maybeSingle();
-
-      if (existing != null) {
-        if (!context.mounted) return;
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('כבר דיווחת על התמונה הזו'),
-          ),
-        );
-        return;
-      }
-
-      final report = await Supabase.instance.client
-          .from('visit_image_reports')
-          .insert({
-            'image_id': image.id,
-            'reporter_id': user.id,
-            'reason': reason,
-          })
-          .select('id')
-          .single();
-      await NotificationDispatchService.send(
-        eventType: 'image_report',
-        resourceId: report['id'].toString(),
-      );
-
-      if (!context.mounted) return;
-
-      widget.images.removeWhere((item) => item.id == image.id);
-      if (widget.images.isEmpty) {
-        Navigator.of(context).pop();
-      } else {
-        setState(() {
-          _currentIndex = _currentIndex.clamp(0, widget.images.length - 1);
-        });
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('הדיווח התקבל והתמונה הוסתרה עד לבדיקת מנהל'),
-        ),
-      );
-    } catch (_) {
-      if (!context.mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('לא ניתן לשלוח את הדיווח כרגע'),
-        ),
-      );
-    }
   }
 
   @override
@@ -332,58 +199,27 @@ class _GalleryScreenState extends State<_GalleryScreen> {
               ),
             ),
 
-            Positioned(
-              top: 10,
-              left: 10,
-              child: Material(
-                color: AppColors.background.withValues(alpha: 0.88),
-                borderRadius: BorderRadius.circular(12),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(12),
-                  onTap: () =>
-                      _reportImage(context, widget.images[_currentIndex]),
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 9,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.flag_outlined,
-                          color: AppColors.champagne,
-                          size: 18,
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topRight,
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Tooltip(
+                    message: 'סגירה',
+                    child: IconButton.filled(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: IconButton.styleFrom(
+                        backgroundColor:
+                            AppColors.background.withValues(alpha: 0.94),
+                        foregroundColor: AppColors.champagne,
+                        side: BorderSide(
+                          color: AppColors.champagne.withValues(alpha: 0.45),
                         ),
-                        SizedBox(width: 7),
-                        Text(
-                          'דיווח',
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
+                      ),
+                      icon: const Icon(Icons.close_rounded, size: 24),
                     ),
                   ),
                 ),
-              ),
-            ),
-            Positioned(
-              top: 12,
-              right: 12,
-              child: FilledButton.icon(
-                onPressed: () => Navigator.of(context).pop(),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.background.withValues(alpha: 0.94),
-                  foregroundColor: AppColors.champagne,
-                  side: BorderSide(
-                    color: AppColors.champagne.withValues(alpha: 0.45),
-                  ),
-                ),
-                icon: const Icon(Icons.close_rounded, size: 19),
-                label: const Text('סגירה'),
               ),
             ),
             Positioned(
@@ -413,8 +249,10 @@ class _GalleryScreenState extends State<_GalleryScreen> {
                 child: Directionality(
                   textDirection: TextDirection.rtl,
                   child: Text(
-                    'הועלה על ידי ${widget.images[_currentIndex].author}'
-                    '${_dateText(widget.images[_currentIndex].date).isNotEmpty ? ' בתאריך ${_dateText(widget.images[_currentIndex].date)}' : ''}',
+                    widget.images[_currentIndex].isCover
+                        ? 'תמונת השער של המקום'
+                        : 'הועלה על ידי ${widget.images[_currentIndex].author}'
+                            '${_dateText(widget.images[_currentIndex].date).isNotEmpty ? ' בתאריך ${_dateText(widget.images[_currentIndex].date)}' : ''}',
                     textAlign: TextAlign.right,
                     style: const TextStyle(
                       color: AppColors.textPrimary,

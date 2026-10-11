@@ -1,26 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:uuid/uuid.dart';
 
 import '../models/content_filter.dart';
 
 import 'add_place_screen.dart';
 import 'add_visit_screen.dart';
 import 'place_ownership_request_screen.dart';
+import 'place_manager_tools_screen.dart';
 import '../theme/app_icons.dart';
 import '../theme/colors.dart';
 import '../utils/permissions.dart';
 import '../utils/supabase_image_url.dart';
-import '../utils/image_upload_policy.dart';
 import '../widgets/home_button.dart';
 import '../widgets/visit_card.dart';
 import '../widgets/place_image_gallery.dart';
+import '../widgets/visit_image_gallery.dart';
 import '../widgets/navigation_app_picker.dart';
 import '../widgets/premium_preview_dialog.dart';
 import '../core/services/premium_service.dart';
-import '../core/services/premium_limits.dart';
 
 class PlaceDetailsScreen extends StatefulWidget {
   final Map<String, dynamic> place;
@@ -55,7 +53,6 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
   List<Map<String, dynamic>> _businessGallery = [];
   Map<String, Map<String, dynamic>> _officialReplies = {};
   bool _canReplyOfficially = false;
-  bool _uploadingPlacePhotos = false;
 
   @override
   void initState() {
@@ -570,233 +567,6 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
     }
   }
 
-  void _openCoverImage(String url) {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => Dialog.fullscreen(
-        backgroundColor: Colors.black,
-        child: Stack(children: [
-          Positioned.fill(
-            child: InteractiveViewer(
-              minScale: 1,
-              maxScale: 5,
-              child: Center(
-                child: Image.network(
-                  optimizedSupabaseImageUrl(
-                    url,
-                    width: 1600,
-                    quality: 80,
-                    resize: 'contain',
-                  ),
-                  fit: BoxFit.contain,
-                ),
-              ),
-            ),
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(10),
-              child: Align(
-                alignment: Alignment.topRight,
-                child: FilledButton.icon(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.background.withValues(alpha: 0.94),
-                    foregroundColor: AppColors.champagne,
-                    side: BorderSide(
-                      color: AppColors.champagne.withValues(alpha: 0.45),
-                    ),
-                  ),
-                  icon: const Icon(Icons.close_rounded, size: 19),
-                  label: const Text('סגירה'),
-                ),
-              ),
-            ),
-          ),
-        ]),
-      ),
-    );
-  }
-
-  Future<void> _addPlacePhotos() async {
-    if (_uploadingPlacePhotos) return;
-    final client = Supabase.instance.client;
-    final user = client.auth.currentUser;
-    if (user == null || user.isAnonymous) return;
-
-    // Community photos remain attached to an actual visit so the existing
-    // image-report and immediate-hide flow applies to every new photo.
-    Map<String, dynamic>? ownVisit;
-    try {
-      ownVisit = await client
-          .from('visits')
-          .select('id')
-          .eq('place_id', widget.place['id'])
-          .eq('user_id', user.id)
-          .order('created_at', ascending: false)
-          .limit(1)
-          .maybeSingle();
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('לא הצלחנו לבדוק את החוויות שלך כרגע'),
-      ));
-      return;
-    }
-    if (!mounted) return;
-    if (ownVisit == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('כדי להוסיף תמונות לגלריה, יש לשתף חוויה במקום קודם.'),
-      ));
-      return;
-    }
-
-    final existingImageRows = await client
-        .from('visit_images')
-        .select('id')
-        .eq('visit_id', ownVisit['id']);
-    if (!mounted) return;
-    final remainingImages =
-        PremiumLimits.imagesPerExperience - (existingImageRows as List).length;
-    if (remainingImages <= 0) {
-      await _showExperienceImageLimit();
-      return;
-    }
-
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      builder: (sheetContext) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          ListTile(
-            leading: const Icon(Icons.camera_alt_outlined),
-            title: const Text('צילום במצלמה'),
-            onTap: () => Navigator.pop(sheetContext, ImageSource.camera),
-          ),
-          ListTile(
-            leading: const Icon(Icons.photo_library_outlined),
-            title: const Text('בחירה מהגלריה'),
-            onTap: () => Navigator.pop(sheetContext, ImageSource.gallery),
-          ),
-        ]),
-      ),
-    );
-    if (source == null) return;
-
-    final picker = ImagePicker();
-    List<XFile> picked;
-    try {
-      picked = source == ImageSource.camera
-          ? [
-              if (await picker.pickImage(
-                source: source,
-                imageQuality: ImageUploadPolicy.photoQuality,
-                maxWidth: ImageUploadPolicy.photoMaxDimension,
-                maxHeight: ImageUploadPolicy.photoMaxDimension,
-              )
-                  case final image?)
-                image,
-            ]
-          : await picker.pickMultiImage(
-              imageQuality: ImageUploadPolicy.photoQuality,
-              maxWidth: ImageUploadPolicy.photoMaxDimension,
-              maxHeight: ImageUploadPolicy.photoMaxDimension,
-            );
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('לא ניתן לפתוח את המצלמה או הגלריה כרגע'),
-      ));
-      return;
-    }
-    if (picked.isEmpty || !mounted) return;
-    setState(() => _uploadingPlacePhotos = true);
-
-    var saved = 0;
-    try {
-      final visitId = ownVisit['id'].toString();
-      final lastImage = await client
-          .from('visit_images')
-          .select('sort_order')
-          .eq('visit_id', visitId)
-          .order('sort_order', ascending: false)
-          .limit(1)
-          .maybeSingle();
-      final nextSortOrder =
-          ((lastImage?['sort_order'] as num?)?.toInt() ?? -1) + 1;
-      for (final image in picked.take(remainingImages)) {
-        final extension = image.name.split('.').last.toLowerCase();
-        final contentType = switch (extension) {
-          'jpg' || 'jpeg' => 'image/jpeg',
-          'png' => 'image/png',
-          'webp' => 'image/webp',
-          _ => null,
-        };
-        if (contentType == null) throw StateError('unsupported_image_type');
-        final bytes = await image.readAsBytes();
-        if (bytes.length > 5 * 1024 * 1024) {
-          throw StateError('image_too_large');
-        }
-        final path = '${user.id}/${const Uuid().v4()}.$extension';
-        await client.storage.from('visit-images').uploadBinary(
-              path,
-              bytes,
-              fileOptions: FileOptions(contentType: contentType, upsert: false),
-            );
-        final url = client.storage.from('visit-images').getPublicUrl(path);
-        await client.from('visit_images').insert({
-          'visit_id': visitId,
-          'user_id': user.id,
-          'image_url': url,
-          'sort_order': nextSortOrder + saved,
-        });
-        saved++;
-      }
-      await _loadVisits();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(saved == 1
-            ? 'התמונה נוספה לגלריית המקום'
-            : '$saved תמונות נוספו לגלריית המקום'),
-      ));
-      if (picked.length > remainingImages) {
-        await _showExperienceImageLimit();
-      }
-    } catch (_) {
-      if (saved > 0) await _loadVisits();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(saved > 0
-            ? '$saved תמונות נשמרו. את שאר התמונות לא הצלחנו להעלות.'
-            : 'לא הצלחנו להעלות את התמונות. ניתן לבחור JPG, PNG או WebP.'),
-      ));
-    } finally {
-      if (mounted) setState(() => _uploadingPlacePhotos = false);
-    }
-  }
-
-  Future<void> _showExperienceImageLimit() async {
-    if (!mounted) return;
-    if (PremiumService.isPremium) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'ניתן להעלות עד ${PremiumLimits.premiumImagesPerExperience} תמונות לחוויה',
-          ),
-        ),
-      );
-      return;
-    }
-    final action = await showPremiumRequiredDialog(
-      context,
-      featureName: 'יותר תמונות בכל חוויה',
-      benefit:
-          'בחשבון החינמי אפשר להעלות עד ${PremiumLimits.freeImagesPerExperience} תמונות לחוויה. Premium מאפשר עד ${PremiumLimits.premiumImagesPerExperience} תמונות.',
-    );
-    if (action == PremiumPreviewAction.upgrade && mounted) {
-      await openPremiumUpgrade(context, sourceFeature: 'experience_images');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final name = widget.place['name'] as String? ?? '';
@@ -809,7 +579,8 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
     );
 
     final canDelete = Permissions.canDeletePlace();
-    final galleryImages = _buildPlaceGalleryImages();
+    final placeGalleryImages = _buildPlaceGalleryImages();
+    final experienceGalleryImages = _buildExperienceGalleryImages();
 
     final currentUser = Supabase.instance.client.auth.currentUser;
     final isUserLoggedIn = currentUser != null && !currentUser.isAnonymous;
@@ -877,7 +648,10 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                         borderRadius: BorderRadius.circular(19),
                         clipBehavior: Clip.antiAlias,
                         child: InkWell(
-                          onTap: () => _openCoverImage(imageUrl),
+                          onTap: () => openPlaceImageGallery(
+                            context,
+                            images: placeGalleryImages,
+                          ),
                           child: SizedBox(
                             width: double.infinity,
                             height: mobile ? 190 : 260,
@@ -1073,26 +847,48 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
                       ),
                   ],
                   SizedBox(height: mobile ? 18 : 24),
-                  if (galleryImages.isNotEmpty)
+                  if (placeGalleryImages.length > 1 ||
+                      (imageUrl.isEmpty && placeGalleryImages.isNotEmpty))
                     PlaceImageGallery(
-                      images: galleryImages,
+                      images: placeGalleryImages,
                     ),
-                  if (isUserLoggedIn) ...[
+                  if (experienceGalleryImages.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    VisitImageGallery(
+                      images: experienceGalleryImages,
+                      title: 'גלריית חוויות',
+                      subtitle: 'תמונות ששיתפו מבקרים',
+                    ),
+                  ],
+                  if (canEdit) ...[
                     const SizedBox(height: 8),
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton.icon(
-                        onPressed:
-                            _uploadingPlacePhotos ? null : _addPlacePhotos,
-                        icon: _uploadingPlacePhotos
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(Icons.add_photo_alternate_outlined),
-                        label: const Text('הוספת תמונות לגלריית המקום'),
+                        onPressed: () async {
+                          await Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => PlaceGalleryManagerScreen(
+                                place: widget.place,
+                              ),
+                            ),
+                          );
+                          if (mounted) {
+                            final updatedPlace = await Supabase.instance.client
+                                .from('places')
+                                .select('image_url')
+                                .eq('id', widget.place['id'])
+                                .maybeSingle();
+                            if (updatedPlace != null) {
+                              widget.place['image_url'] =
+                                  updatedPlace['image_url'];
+                            }
+                            await _loadBusinessContent();
+                            if (mounted) setState(() {});
+                          }
+                        },
+                        icon: const Icon(Icons.photo_library_outlined),
+                        label: const Text('ניהול גלריית המקום'),
                       ),
                     ),
                   ],
@@ -1147,10 +943,24 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
 
   List<PlaceGalleryImage> _buildPlaceGalleryImages() {
     final images = <PlaceGalleryImage>[];
+    final coverUrl = widget.place['image_url']?.toString().trim() ?? '';
+    final normalizedCoverUrl = coverUrl.split('?').first;
+
+    if (coverUrl.isNotEmpty) {
+      images.add(
+        PlaceGalleryImage(
+          id: 'cover-${widget.place['id']}',
+          imageUrl: coverUrl,
+          author: 'בית העסק',
+          date: null,
+          isCover: true,
+        ),
+      );
+    }
 
     for (final image in _businessGallery) {
       final url = image['image_url']?.toString() ?? '';
-      if (url.isEmpty) continue;
+      if (url.isEmpty || url.split('?').first == normalizedCoverUrl) continue;
       images.add(PlaceGalleryImage(
         id: image['id']?.toString() ?? '',
         imageUrl: url,
@@ -1158,6 +968,12 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
         date: DateTime.tryParse(image['created_at']?.toString() ?? ''),
       ));
     }
+
+    return images;
+  }
+
+  List<VisitImageGalleryImage> _buildExperienceGalleryImages() {
+    final images = <VisitImageGalleryImage>[];
 
     for (final visit in _visits) {
       final profile = visit['profiles'] as Map<String, dynamic>?;
@@ -1183,7 +999,7 @@ class _PlaceDetailsScreenState extends State<PlaceDetailsScreen> {
         if (imageUrl.isEmpty) continue;
 
         images.add(
-          PlaceGalleryImage(
+          VisitImageGalleryImage(
             id: rawImage['id']?.toString() ?? '',
             imageUrl: imageUrl,
             author: author,
@@ -1431,7 +1247,8 @@ class _MenuFilesCard extends StatelessWidget {
                 child: FilledButton.icon(
                   onPressed: () => Navigator.pop(dialogContext),
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.background.withValues(alpha: 0.94),
+                    backgroundColor:
+                        AppColors.background.withValues(alpha: 0.94),
                     foregroundColor: AppColors.champagne,
                     side: BorderSide(
                       color: AppColors.champagne.withValues(alpha: 0.45),

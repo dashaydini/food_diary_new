@@ -22,10 +22,14 @@ class VisitImageGalleryImage {
 
 class VisitImageGallery extends StatefulWidget {
   final List<VisitImageGalleryImage> images;
+  final String title;
+  final String subtitle;
 
   const VisitImageGallery({
     super.key,
     required this.images,
+    this.title = 'תמונות מהחוויה',
+    this.subtitle = 'לצפייה בגלריה',
   });
 
   @override
@@ -33,12 +37,22 @@ class VisitImageGallery extends StatefulWidget {
 }
 
 class _VisitImageGalleryState extends State<VisitImageGallery> {
-  late final List<VisitImageGalleryImage> _images;
+  late List<VisitImageGalleryImage> _images;
 
   @override
   void initState() {
     super.initState();
     _images = List<VisitImageGalleryImage>.from(widget.images);
+  }
+
+  @override
+  void didUpdateWidget(covariant VisitImageGallery oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final oldUrls = oldWidget.images.map((image) => image.imageUrl).join('|');
+    final newUrls = widget.images.map((image) => image.imageUrl).join('|');
+    if (oldUrls != newUrls) {
+      _images = List<VisitImageGalleryImage>.from(widget.images);
+    }
   }
 
   @override
@@ -49,8 +63,8 @@ class _VisitImageGalleryState extends State<VisitImageGallery> {
 
     return CompactGalleryPreview(
       imageUrl: _images.first.imageUrl,
-      title: 'תמונות מהחוויה',
-      subtitle: 'לצפייה בגלריה',
+      title: widget.title,
+      subtitle: widget.subtitle,
       imageCount: _images.length,
       onTap: () => _openGallery(context, 0),
     );

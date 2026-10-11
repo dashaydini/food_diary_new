@@ -595,67 +595,156 @@ class _PlaceGalleryManagerScreenState extends State<PlaceGalleryManagerScreen> {
   List<Map<String, dynamic>> _images = [];
   bool _loading = true;
   bool _uploading = false;
+  String? _removingImageId;
+  String? _coverImageUrl;
 
   @override
   void initState() {
     super.initState();
+    _coverImageUrl = widget.place['image_url']?.toString().trim();
     _load();
   }
 
   Future<void> _load() async {
-    final rows = await Supabase.instance.client
-        .from('place_gallery_images')
-        .select('id,image_url,created_at')
-        .eq('place_id', widget.place['id'])
-        .order('created_at', ascending: false);
-    if (mounted) {
+    try {
+      final rows = await Supabase.instance.client
+          .from('place_gallery_images')
+          .select('id,image_url,created_at')
+          .eq('place_id', widget.place['id'])
+          .order('created_at', ascending: false);
+      if (mounted) {
+        setState(() {
+          _images = List<Map<String, dynamic>>.from(rows);
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('לא ניתן לטעון את גלריית המקום כרגע')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  bool _isCoverImage(String imageUrl) =>
+      imageUrl.split('?').first == (_coverImageUrl ?? '').split('?').first;
+
+  Future<void> _setCoverImage(Map<String, dynamic> image) async {
+    final imageUrl = image['image_url']?.toString().trim() ?? '';
+    if (imageUrl.isEmpty || _isCoverImage(imageUrl)) return;
+
+    setState(() => _uploading = true);
+    try {
+      await Supabase.instance.client
+          .from('places')
+          .update({'image_url': imageUrl}).eq('id', widget.place['id']);
+      if (!mounted) return;
       setState(() {
-        _images = List<Map<String, dynamic>>.from(rows);
-        _loading = false;
+        _coverImageUrl = imageUrl;
+        widget.place['image_url'] = imageUrl;
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('התמונה הוגדרה כתמונת השער של המקום')),
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('לא ניתן לעדכן את תמונת השער כרגע')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploading = false);
     }
   }
 
   Future<void> _pick(ImageSource source) async {
-    final picked = source == ImageSource.camera
-        ? [
-            if (await _picker.pickImage(
-                    source: source,
-                    imageQuality: ImageUploadPolicy.photoQuality,
-                    maxWidth: ImageUploadPolicy.photoMaxDimension,
-                    maxHeight: ImageUploadPolicy.photoMaxDimension)
-                case final image?)
-              image
-          ]
-        : await _picker.pickMultiImage(
-            imageQuality: ImageUploadPolicy.photoQuality,
-            maxWidth: ImageUploadPolicy.photoMaxDimension,
-            maxHeight: ImageUploadPolicy.photoMaxDimension,
-          );
+    List<XFile> picked;
+    try {
+      picked = source == ImageSource.camera
+          ? [
+              if (await _picker.pickImage(
+                      source: source,
+                      imageQuality: ImageUploadPolicy.photoQuality,
+                      maxWidth: ImageUploadPolicy.photoMaxDimension,
+                      maxHeight: ImageUploadPolicy.photoMaxDimension)
+                  case final image?)
+                image
+            ]
+          : await _picker.pickMultiImage(
+              imageQuality: ImageUploadPolicy.photoQuality,
+              maxWidth: ImageUploadPolicy.photoMaxDimension,
+              maxHeight: ImageUploadPolicy.photoMaxDimension,
+            );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('לא ניתן לפתוח את המצלמה או הגלריה כרגע')),
+        );
+      }
+      return;
+    }
     if (picked.isEmpty) return;
     setState(() => _uploading = true);
     try {
+      var firstNewImageUrl = '';
       for (final image in picked) {
         final extension = image.name.split('.').last.toLowerCase();
+        final contentType = switch (extension) {
+          'jpg' || 'jpeg' => 'image/jpeg',
+          'png' => 'image/png',
+          'webp' => 'image/webp',
+          _ => null,
+        };
+        if (contentType == null) {
+          throw StateError('unsupported_image_type');
+        }
+        final bytes = await image.readAsBytes();
+        if (bytes.length > 5 * 1024 * 1024) {
+          throw StateError('image_too_large');
+        }
         final path =
             '${Supabase.instance.client.auth.currentUser!.id}/${const Uuid().v4()}.$extension';
         await Supabase.instance.client.storage
             .from('place-images')
             .uploadBinary(
               path,
-              await image.readAsBytes(),
-              fileOptions: const FileOptions(upsert: false),
+              bytes,
+              fileOptions: FileOptions(
+                upsert: false,
+                contentType: contentType,
+              ),
             );
         final url = Supabase.instance.client.storage
             .from('place-images')
             .getPublicUrl(path);
+        if (firstNewImageUrl.isEmpty) firstNewImageUrl = url;
         await Supabase.instance.client.from('place_gallery_images').insert({
           'place_id': widget.place['id'],
           'image_url': url,
           'uploaded_by': Supabase.instance.client.auth.currentUser!.id,
         });
       }
+      if ((_coverImageUrl ?? '').isEmpty && firstNewImageUrl.isNotEmpty) {
+        await Supabase.instance.client.from('places').update(
+            {'image_url': firstNewImageUrl}).eq('id', widget.place['id']);
+        _coverImageUrl = firstNewImageUrl;
+        widget.place['image_url'] = firstNewImageUrl;
+      }
       await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              picked.length == 1
+                  ? 'התמונה נוספה לגלריית המקום'
+                  : '${picked.length} תמונות נוספו לגלריית המקום',
+            ),
+          ),
+        );
+      }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -666,19 +755,90 @@ class _PlaceGalleryManagerScreenState extends State<PlaceGalleryManagerScreen> {
     }
   }
 
-  Future<void> _remove(String id) async {
-    await Supabase.instance.client
-        .from('place_gallery_images')
-        .delete()
-        .eq('id', id);
-    await _load();
+  String? _storagePath(String imageUrl) {
+    const marker = '/place-images/';
+    final index = imageUrl.indexOf(marker);
+    if (index < 0) return null;
+    final path = imageUrl.substring(index + marker.length).split('?').first;
+    return path.isEmpty ? null : Uri.decodeComponent(path);
+  }
+
+  Future<void> _remove(Map<String, dynamic> image) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('מחיקת תמונה מהגלריה'),
+        content: const Text('למחוק את התמונה מגלריית המקום?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('ביטול'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('מחיקה'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final id = image['id']?.toString();
+    if (id == null || id.isEmpty) return;
+    setState(() => _removingImageId = id);
+    try {
+      final imageUrl = image['image_url']?.toString() ?? '';
+      final isCover = _isCoverImage(imageUrl);
+      final remainingImages = _images
+          .where((entry) => entry['id']?.toString() != id)
+          .toList(growable: false);
+      final nextCoverUrl = remainingImages.isEmpty
+          ? ''
+          : remainingImages.first['image_url']?.toString() ?? '';
+
+      if (isCover) {
+        await Supabase.instance.client
+            .from('places')
+            .update({'image_url': nextCoverUrl}).eq('id', widget.place['id']);
+        _coverImageUrl = nextCoverUrl;
+        widget.place['image_url'] = nextCoverUrl;
+      }
+      await Supabase.instance.client
+          .from('place_gallery_images')
+          .delete()
+          .eq('id', id);
+      final path = _storagePath(imageUrl);
+      if (path != null) {
+        try {
+          await Supabase.instance.client.storage
+              .from('place-images')
+              .remove([path]);
+        } catch (_) {
+          // The gallery entry was removed; this file can be cleaned up later.
+        }
+      }
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('התמונה נמחקה מגלריית המקום')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('לא ניתן למחוק את התמונה כרגע')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _removingImageId = null);
+    }
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
-            title: Text('גלריה · ${widget.place['name']}'),
+            title: Text('גלריית המקום · ${widget.place['name']}'),
             actions: const [HomeButton()]),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
@@ -686,7 +846,7 @@ class _PlaceGalleryManagerScreenState extends State<PlaceGalleryManagerScreen> {
                 Row(children: [
                   Expanded(
                       child: OutlinedButton.icon(
-                          onPressed: _uploading
+                          onPressed: _uploading || _removingImageId != null
                               ? null
                               : () => _pick(ImageSource.gallery),
                           icon: const Icon(Icons.photo_library_outlined),
@@ -694,7 +854,7 @@ class _PlaceGalleryManagerScreenState extends State<PlaceGalleryManagerScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                       child: OutlinedButton.icon(
-                          onPressed: _uploading
+                          onPressed: _uploading || _removingImageId != null
                               ? null
                               : () => _pick(ImageSource.camera),
                           icon: const Icon(Icons.camera_alt_outlined),
@@ -705,6 +865,31 @@ class _PlaceGalleryManagerScreenState extends State<PlaceGalleryManagerScreen> {
                       padding: EdgeInsets.only(top: 12),
                       child: LinearProgressIndicator()),
                 const SizedBox(height: 18),
+                if ((_coverImageUrl ?? '').isEmpty && _images.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceRaised,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.champagne.withValues(alpha: 0.2),
+                      ),
+                    ),
+                    child: const Text(
+                      'טרם נבחרה תמונת שער. בחר/י תמונה וסמן/י אותה בכוכב.',
+                      textAlign: TextAlign.right,
+                    ),
+                  )
+                else
+                  const Padding(
+                    padding: EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      'אפשר לבחור כמה תמונות יחד. הכוכב מסמן את תמונת השער.',
+                      textAlign: TextAlign.right,
+                      style: TextStyle(color: AppColors.textSecondary),
+                    ),
+                  ),
                 if (_images.isEmpty)
                   const Center(child: Text('עדיין לא נוספו תמונות')),
                 GridView.builder(
@@ -717,6 +902,9 @@ class _PlaceGalleryManagerScreenState extends State<PlaceGalleryManagerScreen> {
                   itemCount: _images.length,
                   itemBuilder: (context, index) {
                     final image = _images[index];
+                    final isCover = _isCoverImage(
+                      image['image_url']?.toString() ?? '',
+                    );
                     return Stack(fit: StackFit.expand, children: [
                       ClipRRect(
                           borderRadius: BorderRadius.circular(14),
@@ -730,8 +918,35 @@ class _PlaceGalleryManagerScreenState extends State<PlaceGalleryManagerScreen> {
                           top: 5,
                           left: 5,
                           child: IconButton.filled(
-                              onPressed: () => _remove(image['id'].toString()),
-                              icon: const Icon(Icons.delete_outline))),
+                              tooltip: 'מחיקת תמונה מהגלריה',
+                              onPressed: _uploading || _removingImageId != null
+                                  ? null
+                                  : () => _remove(image),
+                              icon: _removingImageId == image['id']?.toString()
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2),
+                                    )
+                                  : const Icon(Icons.delete_outline))),
+                      Positioned(
+                        right: 5,
+                        bottom: 5,
+                        child: FilledButton.icon(
+                          onPressed:
+                              _uploading || _removingImageId != null || isCover
+                                  ? null
+                                  : () => _setCoverImage(image),
+                          icon: Icon(
+                            isCover
+                                ? Icons.star_rounded
+                                : Icons.star_outline_rounded,
+                            size: 17,
+                          ),
+                          label: Text(isCover ? 'ראשית' : 'קבע כראשית'),
+                        ),
+                      ),
                     ]);
                   },
                 ),
